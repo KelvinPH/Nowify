@@ -8,6 +8,9 @@ const DEFAULT_STATE = {
   moodSync: true,
   twitchChannel: "",
   twitchToken: "",
+  appleMusicEnabled: false,
+  lastfmUsername: "",
+  lastfmApiKey: "",
 };
 
 const LAYOUT_OPTIONS = {
@@ -33,12 +36,18 @@ export function buildOverlayUrl(currentState) {
   const params = new URLSearchParams();
 
   Object.entries(currentState).forEach(([key, value]) => {
+    if (key === "appleMusicEnabled") {
+      return;
+    }
     if (typeof value === "boolean") {
       params.set(key, value ? "1" : "0");
       return;
     }
     params.set(key, String(value));
   });
+  if (currentState.appleMusicEnabled) {
+    params.set("appleMusic", "1");
+  }
 
   return `${base}?${params.toString()}`;
 }
@@ -193,6 +202,82 @@ function renderSidebar() {
     <input id="ctrl-twitchToken" class="cfg-input cfg-input-sm" type="password" placeholder="OAuth token — twitchtokengenerator.com" value="${escCfg(state.twitchToken)}" />
     <div class="cfg-hint">Enables !sr · !skip · !prev in chat</div>
   </div>
+
+  <div class="cfg-divider"></div>
+
+  <div class="cfg-section">
+    <div class="cfg-section-header">
+      <div class="cfg-section-label">Apple Music (optional)</div>
+      ${
+        state.appleMusicEnabled
+          ? `<button class="cfg-disconnect-btn" id="btn-apple-disconnect">Disconnect</button>`
+          : ""
+      }
+    </div>
+
+    <div class="cfg-source-info">
+      Apple Music requires a Cloudflare Worker to sign requests
+      with your Apple developer credentials.
+      <a href="https://developer.apple.com/account" target="_blank" class="cfg-link">developer.apple.com</a>
+      → MusicKit → Keys → create a MusicKit key.
+      Then deploy the Nowify worker and set APPLE_TEAM_ID,
+      APPLE_KEY_ID, and APPLE_PRIVATE_KEY as Worker secrets.
+      See DEPLOYMENT.md for full instructions.
+    </div>
+
+    ${toggleRow(
+      "Enable Apple Music",
+      "appleMusicEnabled",
+      "Uses your deployed Cloudflare Worker for auth"
+    )}
+
+    ${
+      state.appleMusicEnabled
+        ? `<div class="cfg-source-active-badge">Apple Music active — overlay will use MusicKit JS</div>`
+        : ""
+    }
+  </div>
+
+  <div class="cfg-divider"></div>
+
+  <div class="cfg-section">
+    <div class="cfg-section-header">
+      <div class="cfg-section-label">Last.fm (optional)</div>
+      ${
+        state.lastfmUsername || state.lastfmApiKey
+          ? `<button class="cfg-disconnect-btn" id="btn-lastfm-disconnect">Disconnect</button>`
+          : ""
+      }
+    </div>
+
+    <div class="cfg-source-info">
+      Last.fm scrobbles music from Spotify, Apple Music, Tidal,
+      and more — use it as a fallback source or for cross-platform
+      listening history. Get a free API key at
+      <a href="https://www.last.fm/api/account/create" target="_blank" class="cfg-link">last.fm/api</a>.
+    </div>
+
+    <input
+      id="ctrl-lastfmUsername"
+      class="cfg-input cfg-input-sm"
+      type="text"
+      placeholder="Last.fm username"
+      value="${escCfg(state.lastfmUsername)}"
+    />
+    <input
+      id="ctrl-lastfmApiKey"
+      class="cfg-input cfg-input-sm"
+      type="text"
+      placeholder="API key"
+      value="${escCfg(state.lastfmApiKey)}"
+    />
+
+    ${
+      state.lastfmUsername && state.lastfmApiKey
+        ? `<div class="cfg-source-active-badge">Last.fm active — scrobble history enabled</div>`
+        : ""
+    }
+  </div>
 `;
 
   sidebar.querySelectorAll("[data-set-key]").forEach((button) => {
@@ -217,6 +302,20 @@ function renderSidebar() {
       update({ twitchChannel: "", twitchToken: "" });
     });
   }
+  const appleDisconnect = document.getElementById("btn-apple-disconnect");
+  if (appleDisconnect) {
+    appleDisconnect.addEventListener("click", () => {
+      localStorage.removeItem("nowify_applemusic");
+      update({ appleMusicEnabled: false });
+    });
+  }
+  const lastfmDisconnect = document.getElementById("btn-lastfm-disconnect");
+  if (lastfmDisconnect) {
+    lastfmDisconnect.addEventListener("click", () => {
+      localStorage.removeItem("nowify_lastfm");
+      update({ lastfmUsername: "", lastfmApiKey: "" });
+    });
+  }
 
   const bindDebouncedInput = (id, key) => {
     const input = document.getElementById(id);
@@ -232,6 +331,8 @@ function renderSidebar() {
   bindDebouncedInput("ctrl-clientId", "clientId");
   bindDebouncedInput("ctrl-twitchChannel", "twitchChannel");
   bindDebouncedInput("ctrl-twitchToken", "twitchToken");
+  bindDebouncedInput("ctrl-lastfmUsername", "lastfmUsername");
+  bindDebouncedInput("ctrl-lastfmApiKey", "lastfmApiKey");
   sidebar.scrollTop = scrollTop;
 }
 
@@ -531,6 +632,23 @@ function update(newState) {
       })
     );
   }
+  if (newState.appleMusicEnabled !== undefined) {
+    localStorage.setItem(
+      "nowify_applemusic",
+      JSON.stringify({
+        enabled: state.appleMusicEnabled,
+      })
+    );
+  }
+  if (newState.lastfmUsername !== undefined || newState.lastfmApiKey !== undefined) {
+    localStorage.setItem(
+      "nowify_lastfm",
+      JSON.stringify({
+        username: state.lastfmUsername,
+        apiKey: state.lastfmApiKey,
+      })
+    );
+  }
   const url = buildOverlayUrl(state);
   const iframe = document.getElementById("cfg-iframe");
   const urlDisplay = document.getElementById("cfg-url-display");
@@ -549,6 +667,21 @@ export function initConfig() {
       const parsed = JSON.parse(savedTwitch);
       state.twitchChannel = parsed.channel || "";
       state.twitchToken = parsed.token || "";
+    } catch (_error) {}
+  }
+  const savedApple = localStorage.getItem("nowify_applemusic");
+  if (savedApple) {
+    try {
+      const parsed = JSON.parse(savedApple);
+      state.appleMusicEnabled = parsed.enabled || false;
+    } catch (_error) {}
+  }
+  const savedLastfm = localStorage.getItem("nowify_lastfm");
+  if (savedLastfm) {
+    try {
+      const parsed = JSON.parse(savedLastfm);
+      state.lastfmUsername = parsed.username || "";
+      state.lastfmApiKey = parsed.apiKey || "";
     } catch (_error) {}
   }
 

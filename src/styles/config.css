@@ -348,3 +348,24 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   color: var(--cfg-muted);
   padding: 6px 0 10px;
 }
+
+.cfg-source-info {
+  font-size: 11px;
+  color: var(--cfg-muted);
+  line-height: 1.6;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: var(--cfg-bg);
+  border-radius: 8px;
+  border: 0.5px solid var(--cfg-border2);
+}
+
+.cfg-source-active-badge {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(29, 185, 84, 0.08);
+  border: 0.5px solid rgba(29, 185, 84, 0.2);
+  border-radius: 8px;
+  font-size: 11px;
+  color: rgba(29, 185, 84, 0.9);
+}
