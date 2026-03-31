@@ -1,4 +1,3 @@
-/** Escapes unsafe HTML characters in text content. */
 export function escHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -7,102 +6,112 @@ export function escHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-/** Returns escaped title and artist strings used by layouts. */
-function getSafeMeta(track) {
-  return {
-    title: escHtml(track?.title || "Unknown title"),
-    artist: escHtml(track?.artist || "Unknown artist"),
-  };
-}
-
-/** Returns album art image markup or a disc placeholder. */
-function getArtMarkup(track, cls) {
+function artEl(track, cls, shape = "rounded") {
+  const r = shape === "circle" ? "50%" : "";
+  const style = r ? `border-radius: ${r};` : "";
   if (track?.albumArt) {
-    return `<div class="${cls}"><img src="${track.albumArt}" alt="Album art" /></div>`;
+    return `<div class="${cls} nw-art" style="${style}">
+      <img src="${escHtml(track.albumArt)}" alt="" />
+    </div>`;
   }
-  return `<div class="${cls} nw-art-placeholder" aria-hidden="true"></div>`;
+  return `<div class="${cls} nw-art nw-art-placeholder" style="${style}"></div>`;
 }
 
-/** Returns optional progress bar markup based on configuration. */
-function getProgressMarkup(config) {
-  if (config?.showProgress === false) {
-    return "";
-  }
+function progressEl(config) {
+  if (config?.showProgress === false) return "";
   return '<div class="nw-progress"><div class="nw-progress-fill"></div></div>';
 }
 
+export function fmtTime(ms) {
+  if (!ms) return "0:00";
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
 export const LAYOUTS = {
-  record(track, extras, config) {
-    const safe = getSafeMeta(track);
+  pill(track, extras, config) {
+    const title = escHtml(track?.title || "Unknown title");
+    const artist = escHtml(track?.artist || "Unknown artist");
+    return `<section class="nw-overlay nw-pill">
+    ${artEl(track, "", "circle")}
+    <div class="nw-info">
+      <div class="nw-title">${title}</div>
+      <div class="nw-artist">${artist}</div>
+    </div>
+    <div class="nw-playing-dot"></div>
+  </section>`;
+  },
+
+  glasscard(track, extras, config) {
+    const title = escHtml(track?.title || "Unknown title");
+    const artist = escHtml(track?.artist || "Unknown artist");
+    return `<section class="nw-overlay nw-glasscard">
+    ${artEl(track, "")}
+    <div class="nw-info">
+      <div class="nw-title">${title}</div>
+      <div class="nw-artist">${artist}</div>
+      ${progressEl(config)}
+    </div>
+  </section>`;
+  },
+
+  island(track, extras, config) {
+    const title = escHtml(track?.title || "Unknown title");
+    const artist = escHtml(track?.artist || "Unknown artist");
+    return `<section class="nw-overlay nw-island">
+    ${artEl(track, "")}
+    <div class="nw-title">${title}</div>
+    <div class="nw-artist">${artist}</div>
+    ${progressEl(config)}
+  </section>`;
+  },
+
+  strip(track, extras, config) {
+    const title = escHtml(track?.title || "Unknown title");
+    const artist = escHtml(track?.artist || "Unknown artist");
+    const text = `${title} — ${artist}`;
+    const useMarquee = text.length > 40;
+    const textMarkup = useMarquee
+      ? `<div class="nw-marquee-wrap">
+    <div class="nw-marquee-inner">
+      <span>${text}</span>
+      <span>${text}</span>
+    </div>
+  </div>`
+      : `<div class="nw-strip-text">${text}</div>`;
+    return `<section class="nw-overlay nw-strip">
+    ${artEl(track, "nw-strip-art")}
+    <div class="nw-accent-bar"></div>
+    ${textMarkup}
+    <div class="nw-strip-time">${fmtTime(track?.progressMs)}</div>
+  </section>`;
+  },
+
+  albumfocus(track, extras, config) {
+    const title = escHtml(track?.title || "Unknown title");
+    const artist = escHtml(track?.artist || "Unknown artist");
     const bpm =
       config?.showBpm && extras?.bpm
         ? `<div class="nw-bpm">${escHtml(extras.bpm)} BPM</div>`
         : "";
-    const artMarkup = track?.albumArt
-      ? `<div class="nw-disc"><img src="${track.albumArt}" alt="Album art" /></div>`
-      : '<div class="nw-disc nw-art-placeholder" aria-hidden="true"></div>';
-
-    return `
-      <section class="nw-overlay nw-record">
-        ${artMarkup}
-        <div class="nw-title">${safe.title}</div>
-        <div class="nw-artist">${safe.artist}</div>
-        ${bpm}
-        ${getProgressMarkup(config)}
-      </section>
-    `;
+    return `<section class="nw-overlay nw-albumfocus">
+    ${artEl(track, "")}
+    <div class="nw-title">${title}</div>
+    <div class="nw-artist">${artist}</div>
+    ${bpm}
+  </section>`;
   },
 
-  card(track, extras, config) {
-    const safe = getSafeMeta(track);
-    return `
-      <section class="nw-overlay nw-card">
-        ${getArtMarkup(track, "nw-art")}
-        <div class="nw-info">
-          <div class="nw-title">${safe.title}</div>
-          <div class="nw-artist">${safe.artist}</div>
-        </div>
-        ${getProgressMarkup(config)}
-      </section>
-    `;
-  },
-
-  bar(track, extras, config) {
-    const safe = getSafeMeta(track);
-    const text = `${safe.title} - ${safe.artist}`;
-    return `
-      <section class="nw-overlay nw-bar">
-        ${getArtMarkup(track, "nw-art")}
-        <div class="nw-info">
-          <div class="nw-marquee"><span>${text}</span><span>${text}</span></div>
-        </div>
-      </section>
-    `;
-  },
-
-  ticker(track, extras, config) {
-    const safe = getSafeMeta(track);
-    const text = `${safe.title} - ${safe.artist}`;
-    return `
-      <section class="nw-overlay nw-ticker">
-        <div class="nw-label">NOW PLAYING</div>
-        <div class="nw-info">
-          <div class="nw-marquee"><span>${text}</span><span>${text}</span></div>
-        </div>
-      </section>
-    `;
-  },
-
-  compact(track, extras, config) {
-    const safe = getSafeMeta(track);
-    const tooltip = `${safe.title} - ${safe.artist}`;
-    const compactContent = track?.albumArt
-      ? `<img src="${track.albumArt}" alt="Album art" title="${tooltip}" />`
-      : '<div class="nw-art-placeholder" title="Nothing playing"></div>';
-    return `
-      <section class="nw-overlay nw-compact" title="${tooltip}">
-        ${compactContent}
-      </section>
-    `;
+  sidebar(track, extras, config) {
+    const title = escHtml(track?.title || "Unknown title");
+    const artist = escHtml(track?.artist || "Unknown artist");
+    return `<section class="nw-overlay nw-sidebar">
+    ${artEl(track, "")}
+    <div class="nw-sidebar-body">
+      <div class="nw-title">${title}</div>
+      <div class="nw-artist">${artist}</div>
+      ${progressEl(config)}
+    </div>
+  </section>`;
   },
 };

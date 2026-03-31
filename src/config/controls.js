@@ -1,8 +1,8 @@
 import { PRESETS, applyPreset } from "./presets.js";
 
 const DEFAULT_STATE = {
-  layout: "record",
-  theme: "spotify",
+  layout: "glasscard",
+  theme: "obsidian",
   clientId: "",
   showProgress: true,
   showBpm: false,
@@ -14,13 +14,10 @@ const DEFAULT_STATE = {
 };
 
 let state = { ...DEFAULT_STATE };
-let clientIdDebounceTimer = null;
+let inputDebounceTimer = null;
 
 /** Builds the full overlay URL from the current configurator state. */
 export function buildOverlayUrl(currentState) {
-  const basePath = window.location.pathname.endsWith("/")
-    ? window.location.pathname
-    : window.location.pathname.slice(0, window.location.pathname.lastIndexOf("/") + 1);
   const base = `${window.location.origin}${window.location.pathname.replace("config.html", "")}overlay.html`;
   const params = new URLSearchParams();
 
@@ -35,35 +32,24 @@ export function buildOverlayUrl(currentState) {
   return `${base}?${params.toString()}`;
 }
 
-function getLayoutDescription(layout) {
-  const descriptions = {
-    record:
-      "Large spinning disc with album art. Best for music-focused streams. Supports 3D vinyl, BPM, and mood sync.",
-    card: "Album art + title/artist side by side. Clean and compact, works well in corners.",
-    bar: "Thin horizontal strip. Minimal footprint, great for gameplay overlays.",
-    ticker:
-      "Full-width scrolling text bar. Good for bottom of screen like a news ticker.",
-    compact:
-      "Tiny album art only (60px). For when you want music info without taking up space.",
-  };
-  return `<p class="cfg-layout-desc">${descriptions[layout] || ""}</p>`;
+function getRedirectUri() {
+  return `${window.location.origin}${window.location.pathname.replace("config.html", "")}overlay.html`;
 }
 
-function updateThemePreview() {
-  const themes = {
-    spotify: { bg: "#121212", accent: "#1DB954", surface: "#1e1e1e", text: "#fff" },
-    dark: { bg: "#0a0a0a", accent: "#ffffff", surface: "#141414", text: "#fff" },
-    minimal: { bg: "#000000", accent: "#ffffff", surface: "#111111", text: "#fff" },
-    neon: { bg: "#0d0d1a", accent: "#00ffcc", surface: "#12122a", text: "#e0e0ff" },
-    lofi: { bg: "#1a1209", accent: "#d4915a", surface: "#241a0d", text: "#e8d5b7" },
+function getLayoutHint(layout) {
+  const hints = {
+    glasscard: "Album art + title/artist with progress. Works anywhere.",
+    pill: "Compact pill shape. Great for corners and gaming streams.",
+    island: "Square widget with large art. Best for music streams.",
+    strip: "Ultra-thin 40px bar. Minimal footprint for any stream.",
+    albumfocus: "Art-first, centered. Best when music is the focus.",
+    sidebar: "Vertical 72px column. Hugs the side of your stream.",
   };
-  const t = themes[state.theme] || themes.spotify;
-  const preview = document.getElementById("cfg-theme-preview");
-  if (!preview) return;
-  preview.style.setProperty("--preview-bg", t.bg);
-  preview.style.setProperty("--preview-accent", t.accent);
-  preview.style.setProperty("--preview-surface", t.surface);
-  preview.style.setProperty("--preview-text", t.text);
+  return hints[layout] || "";
+}
+
+function escCfg(str) {
+  return String(str || "").replace(/"/g, "&quot;");
 }
 
 /** Renders all sidebar controls and re-attaches listeners. */
@@ -74,33 +60,18 @@ function renderSidebar() {
   }
 
   const scrollTop = sidebar.scrollTop;
-  const layoutOptions = ["record", "card", "bar", "ticker", "compact"];
-  const themeOptions = ["spotify", "dark", "minimal", "neon", "lofi"];
+  const layoutOptions = ["glasscard", "pill", "island", "strip", "albumfocus", "sidebar"];
+  const themeOptions = ["obsidian", "midnight", "aurora", "forest", "amber", "glass"];
 
   const sectionLabel = (text) => `<div class="cfg-section-label">${text}</div>`;
-  const optionButtons = (options, key) =>
-    options
-      .map(
-        (opt) =>
-          `<button class="cfg-btn ${
-            state[key] === opt ? "cfg-active" : ""
-          }" data-set-key="${key}" data-set-value="${opt}">${opt}</button>`
-      )
-      .join("");
   const toggleRow = (label, key, description = "") => `
     <label class="cfg-toggle-row">
       <span class="cfg-toggle-label-wrap">
         <span class="cfg-toggle-label">${label}</span>
-        ${
-          description
-            ? `<span class="cfg-toggle-desc">${description}</span>`
-            : ""
-        }
+        ${description ? `<span class="cfg-toggle-desc">${description}</span>` : ""}
       </span>
       <span class="cfg-toggle">
-        <input type="checkbox" data-toggle-key="${key}" ${
-    state[key] ? "checked" : ""
-  } />
+        <input type="checkbox" data-toggle-key="${key}" ${state[key] ? "checked" : ""} />
         <span class="cfg-toggle-track"></span>
         <span class="cfg-toggle-thumb"></span>
       </span>
@@ -108,170 +79,115 @@ function renderSidebar() {
   `;
 
   sidebar.innerHTML = `
-    <div class="cfg-banner">
-      <div class="cfg-banner-step">
-        <span class="cfg-banner-num">1</span>
-        <span>Get a Spotify Client ID at
-          <a href="https://developer.spotify.com/dashboard"
-             target="_blank" class="cfg-link">developer.spotify.com</a>
-        </span>
-      </div>
-      <div class="cfg-banner-step">
-        <span class="cfg-banner-num">2</span>
-        <span>Paste it in the Setup field below and add this redirect URI
-        to your Spotify app:<br>
-        <code class="cfg-code">${window.location.origin}${window.location.pathname.replace("config.html", "")}overlay.html</code>
-        </span>
-      </div>
-      <div class="cfg-banner-step">
-        <span class="cfg-banner-num">3</span>
-        <span>Design your overlay, then click <strong>Copy URL</strong>
-        and paste it into OBS as a Browser Source (900 × 300 px)</span>
+  <div class="cfg-intro">
+    <div class="cfg-intro-step">
+      <span class="cfg-step-num">1</span>
+      <div>
+        <div class="cfg-step-title">Create Spotify app</div>
+        <div class="cfg-step-body">
+          Go to <a href="https://developer.spotify.com/dashboard"
+          target="_blank" class="cfg-link">developer.spotify.com</a>,
+          create an app, add this as redirect URI:
+          <div class="cfg-copy-box" id="cfg-redirect-uri">
+            ${getRedirectUri()}
+          </div>
+        </div>
       </div>
     </div>
-
-    <section class="cfg-section">
-      ${sectionLabel("SETUP")}
-      <input
-        id="ctrl-clientId"
-        class="cfg-input"
-        type="text"
-        placeholder="Spotify Client ID"
-        value="${state.clientId.replace(/"/g, "&quot;")}"
-        style="margin-bottom: 8px;"
-      />
-    </section>
-
-    <section class="cfg-section">
-      ${sectionLabel("TWITCH (OPTIONAL)")}
-      <input
-        id="ctrl-twitchChannel"
-        class="cfg-input"
-        type="text"
-        placeholder="Channel name (e.g. kelvinph)"
-        value="${state.twitchChannel.replace(/"/g, "&quot;")}"
-        style="margin-bottom: 8px;"
-      />
-      <input
-        id="ctrl-twitchToken"
-        class="cfg-input"
-        type="password"
-        placeholder="OAuth token (from twitchtokengenerator.com)"
-        value="${state.twitchToken.replace(/"/g, "&quot;")}"
-      />
-      <div style="font-size: 11px; color: var(--cfg-muted); margin-top: 6px; line-height: 1.5;">
-        Token scope needed: <code>chat:read</code><br>
-        Enables !sr, !skip, !prev in your chat
+    <div class="cfg-intro-step">
+      <span class="cfg-step-num">2</span>
+      <div>
+        <div class="cfg-step-title">Paste your Client ID</div>
+        <input id="ctrl-clientId" class="cfg-input"
+          placeholder="e.g. fe21f433..." value="${escCfg(state.clientId)}" />
       </div>
-    </section>
+    </div>
+    <div class="cfg-intro-step">
+      <span class="cfg-step-num">3</span>
+      <div>
+        <div class="cfg-step-title">Design, then Copy URL → OBS</div>
+        <div class="cfg-step-body">Browser Source · 900 × 300 px · right-click → Interact to log in</div>
+      </div>
+    </div>
+  </div>
 
-    <section class="cfg-section">
-      ${sectionLabel("QUICK PRESETS")}
-      <div class="cfg-btn-group">
-        ${PRESETS.map(
-          (preset) =>
-            `<button class="cfg-btn cfg-preset-btn" data-preset="${preset.name}">${preset.label}</button>`
-        ).join("")}
-      </div>
-    </section>
+  <div class="cfg-divider"></div>
 
-    <section class="cfg-section">
-      ${sectionLabel("LAYOUT")}
-      <div class="cfg-btn-group">
-        ${optionButtons(layoutOptions, "layout")}
-      </div>
-    </section>
+  <div class="cfg-section">
+    <div class="cfg-section-label">Layout</div>
+    <div class="cfg-layout-grid">
+      ${layoutOptions.map(opt => `
+        <button class="cfg-layout-btn ${state.layout === opt ? "cfg-active" : ""}"
+                data-set-key="layout" data-set-value="${opt}">
+          <div class="cfg-layout-icon cfg-layout-icon-${opt}"></div>
+          <span>${opt}</span>
+        </button>
+      `).join("")}
+    </div>
+    <div class="cfg-layout-hint" id="cfg-layout-hint">
+      ${getLayoutHint(state.layout)}
+    </div>
+  </div>
 
-    <section class="cfg-section">
-      ${sectionLabel("LAYOUT GUIDE")}
-      <div class="cfg-layout-guide" id="cfg-layout-guide">
-        ${getLayoutDescription(state.layout)}
-      </div>
-    </section>
+  <div class="cfg-divider"></div>
 
-    <section class="cfg-section">
-      ${sectionLabel("THEME")}
-      <div class="cfg-btn-group">
-        ${optionButtons(themeOptions, "theme")}
-      </div>
-    </section>
+  <div class="cfg-section">
+    <div class="cfg-section-label">Theme</div>
+    <div class="cfg-theme-grid">
+      ${themeOptions.map(opt => `
+        <button class="cfg-theme-btn ${state.theme === opt ? "cfg-active" : ""}"
+                data-set-key="theme" data-set-value="${opt}">
+          <div class="cfg-theme-dot cfg-theme-dot-${opt}"></div>
+          <span>${opt}</span>
+        </button>
+      `).join("")}
+    </div>
+  </div>
 
-    <section class="cfg-section">
-      ${sectionLabel("THEME PREVIEW")}
-      <div class="cfg-theme-preview" id="cfg-theme-preview">
-        <div class="cfg-theme-swatch" style="background: var(--preview-bg, #121212);">
-          <span style="color: var(--preview-text, #fff); font-size: 12px;">
-            Background
-          </span>
-        </div>
-        <div class="cfg-theme-swatch" style="background: var(--preview-accent, #1DB954);">
-          <span style="color: #000; font-size: 12px;">Accent</span>
-        </div>
-        <div class="cfg-theme-swatch" style="background: var(--preview-surface, #1e1e1e);">
-          <span style="color: var(--preview-text, #fff); font-size: 12px;">
-            Surface
-          </span>
-        </div>
-      </div>
-      <div style="font-size: 11px; color: var(--cfg-muted); margin-top: 8px;">
-        Full theme studio coming in v1.1
-      </div>
-    </section>
+  <div class="cfg-divider"></div>
 
-    <section class="cfg-section">
-      ${sectionLabel("OPTIONS")}
-      ${toggleRow(
-        "Show progress bar",
-        "showProgress",
-        "Thin bar showing track position"
-      )}
-      ${toggleRow("Show BPM", "showBpm", "Shows tempo — record layout only")}
-      ${toggleRow(
-        "Transparent background",
-        "transparent",
-        "Removes background for use over gameplay"
-      )}
-      ${toggleRow(
-        "3D vinyl",
-        "vinyl",
-        "Spinning Three.js disc — record layout only. Visible in OBS, not in this preview"
-      )}
-      ${toggleRow(
-        "Mood sync",
-        "moodSync",
-        "Background colour shifts with song energy and mood"
-      )}
-    </section>
+  <div class="cfg-section">
+    <div class="cfg-section-label">Presets</div>
+    <div class="cfg-preset-row">
+      ${PRESETS.map(p => `
+        <button class="cfg-preset-btn" data-preset="${p.name}">${p.label}</button>
+      `).join("")}
+    </div>
+  </div>
 
-    <section class="cfg-section">
-      ${sectionLabel("OBS SETUP")}
-      <div class="cfg-obs-steps">
-        <div class="cfg-obs-step">Add a <strong>Browser Source</strong> in OBS</div>
-        <div class="cfg-obs-step">Paste the copied URL into the URL field</div>
-        <div class="cfg-obs-step">Set width <strong>900</strong>, height <strong>300</strong></div>
-        <div class="cfg-obs-step">First time: right-click source →
-          <strong>Interact</strong> → log into Spotify</div>
-        <div class="cfg-obs-step">After login OBS remembers your session permanently</div>
-      </div>
-    </section>
+  <div class="cfg-divider"></div>
 
-    <section class="cfg-section">
-      ${sectionLabel("CHAT COMMANDS")}
-      <div class="cfg-commands">
-        <div class="cfg-command"><code>!sr song name</code>
-          <span>Add to queue</span></div>
-        <div class="cfg-command"><code>!skip</code>
-          <span>Skip track</span></div>
-        <div class="cfg-command"><code>!prev</code>
-          <span>Previous track</span></div>
-        <div class="cfg-command"><code>!queue</code>
-          <span>Show queue</span></div>
-      </div>
-      <div style="font-size: 11px; color: var(--cfg-muted); margin-top: 8px;">
-        Requires Twitch channel + token above
-      </div>
-    </section>
-  `;
+  <div class="cfg-section">
+    <div class="cfg-section-label">Options</div>
+    ${toggleRow("Progress bar", "showProgress", "Track position indicator")}
+    ${toggleRow("Show BPM", "showBpm", "Tempo — albumfocus layout only")}
+    ${toggleRow("Transparent bg", "transparent", "Remove background — for gameplay")}
+    ${toggleRow("Mood sync", "moodSync", "Background shifts with song energy")}
+    ${toggleRow("3D vinyl", "vinyl", "Spinning disc — OBS only, not in preview")}
+  </div>
+
+  <div class="cfg-divider"></div>
+
+  <div class="cfg-section">
+    <div class="cfg-section-label">Twitch (optional)</div>
+    <input id="ctrl-twitchChannel" class="cfg-input cfg-input-sm"
+      placeholder="Channel name" value="${escCfg(state.twitchChannel)}" />
+    <input id="ctrl-twitchToken" class="cfg-input cfg-input-sm" type="password"
+      placeholder="OAuth token — twitchtokengenerator.com"
+      value="${escCfg(state.twitchToken)}" />
+    <div class="cfg-hint">Enables !sr · !skip · !prev in chat</div>
+  </div>
+
+  <div class="cfg-divider"></div>
+
+  <div class="cfg-section cfg-commands-section">
+    <div class="cfg-section-label">Chat commands</div>
+    <div class="cfg-cmd"><code>!sr song name</code><span>Queue a song</span></div>
+    <div class="cfg-cmd"><code>!skip</code><span>Skip track</span></div>
+    <div class="cfg-cmd"><code>!prev</code><span>Previous track</span></div>
+    <div class="cfg-cmd"><code>!queue</code><span>Show queue</span></div>
+  </div>
+`;
 
   sidebar.querySelectorAll("[data-set-key]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -298,35 +214,20 @@ function renderSidebar() {
     });
   });
 
-  const clientIdInput = document.getElementById("ctrl-clientId");
-  if (clientIdInput) {
-    clientIdInput.addEventListener("input", () => {
-      window.clearTimeout(clientIdDebounceTimer);
-      clientIdDebounceTimer = window.setTimeout(() => {
-        update({ clientId: clientIdInput.value.trim() });
+  const bindDebouncedInput = (id, key) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.addEventListener("input", () => {
+      window.clearTimeout(inputDebounceTimer);
+      inputDebounceTimer = window.setTimeout(() => {
+        update({ [key]: input.value.trim() });
       }, 600);
     });
-  }
+  };
 
-  const twitchChannelInput = document.getElementById("ctrl-twitchChannel");
-  if (twitchChannelInput) {
-    twitchChannelInput.addEventListener("input", () => {
-      window.clearTimeout(clientIdDebounceTimer);
-      clientIdDebounceTimer = window.setTimeout(() => {
-        update({ twitchChannel: twitchChannelInput.value.trim() });
-      }, 600);
-    });
-  }
-
-  const twitchTokenInput = document.getElementById("ctrl-twitchToken");
-  if (twitchTokenInput) {
-    twitchTokenInput.addEventListener("input", () => {
-      window.clearTimeout(clientIdDebounceTimer);
-      clientIdDebounceTimer = window.setTimeout(() => {
-        update({ twitchToken: twitchTokenInput.value.trim() });
-      }, 600);
-    });
-  }
+  bindDebouncedInput("ctrl-clientId", "clientId");
+  bindDebouncedInput("ctrl-twitchChannel", "twitchChannel");
+  bindDebouncedInput("ctrl-twitchToken", "twitchToken");
 
   sidebar.scrollTop = scrollTop;
 }
@@ -347,7 +248,6 @@ function update(newState) {
   }
 
   renderSidebar();
-  updateThemePreview();
 }
 
 /** Initializes configurator controls, preview syncing, and header actions. */
@@ -382,6 +282,4 @@ export function initConfig() {
       update({});
     });
   }
-
-  updateThemePreview();
 }

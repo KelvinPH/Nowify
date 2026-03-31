@@ -1,6 +1,6 @@
 import { getAudioFeatures, getNowPlaying } from "../api/spotify.js";
 import { init as initAuth, login } from "../auth/spotify.js";
-import { LAYOUTS, escHtml } from "./layouts.js";
+import { LAYOUTS, escHtml, fmtTime } from "./layouts.js";
 import { initVinyl, setVinylPlaying } from "../visuals/vinyl.js";
 import { applyBeatSync, clearBeatSync } from "../visuals/beatsync.js";
 import { applyMood, clearMood } from "../visuals/mood.js";
@@ -22,7 +22,7 @@ export function parseConfig() {
   };
 
   return {
-    layout: params.get("layout") || "record",
+    layout: params.get("layout") || "glasscard",
     theme: params.get("theme") || "spotify",
     clientId: params.get("clientId") || "",
     showProgress: toBool(params.get("showProgress"), true),
@@ -67,6 +67,7 @@ async function poll() {
     }
 
     updateProgress(track);
+    updateStripTime(track);
   } catch (error) {
     console.warn("Overlay poll failed:", error);
   }
@@ -128,6 +129,13 @@ function updateProgress(track) {
   const pct = (track.progressMs / track.durationMs) * 100;
   const bounded = Math.max(0, Math.min(100, pct));
   progressFill.style.width = `${bounded}%`;
+}
+
+function updateStripTime(track) {
+  const timeEl = document.querySelector(".nw-strip-time");
+  if (timeEl && track?.progressMs) {
+    timeEl.textContent = fmtTime(track.progressMs);
+  }
 }
 
 /** Renders a minimal idle state when no track is active. */
