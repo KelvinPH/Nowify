@@ -14,7 +14,6 @@ const TOKEN_URL = "https://accounts.spotify.com/api/token";
 const SCOPES = [
   "user-read-currently-playing",
   "user-read-playback-state",
-  "user-read-queue",
   "user-modify-playback-state",
   "user-read-recently-played",
 ];

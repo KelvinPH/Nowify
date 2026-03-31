@@ -182,10 +182,9 @@ function renderContentPanel() {
     ${toggleRow("Show progress bar", "showProgress")}
     ${sliderRow("Progress height", "progressHeight", 1, 8, customState.progressHeight, "px", "1", "showProgress:true")}
     ${toggleRow("Show remaining time", "showRemainingTime", "Shows time left instead of elapsed time")}
-    ${toggleRow("Show next track", "showNextTrack", "Requires Spotify queue access")}
-    <div class="ce-disclaimer">Enabling this adds queue access to your Spotify consent.
-      If you already connected Spotify, disconnect and reconnect
-      in OBS to grant the new permission.
+    ${toggleRow("Show next track", "showNextTrack", "Uses your Spotify queue data")}
+    <div class="ce-disclaimer">If next track is blank, reconnect Spotify in OBS
+      to refresh your session permissions and player state.
     </div>
     ${toggleRow("Show play state", "showPlayState", "Pulsing dot when track is playing")}
     ${toggleRow("Show BPM", "showBpm", "Tempo badge from Spotify audio features")}
