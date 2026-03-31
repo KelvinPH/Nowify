@@ -182,6 +182,7 @@ function applyCustomStyles(rootEl, custom) {
     timeEl.style.display = custom.showRemainingTime ? "" : "none";
     timeEl.style.fontSize = "11px";
     timeEl.style.color = custom.customColors ? custom.colorArtist : "";
+    timeEl.style.textAlign = custom.contentAlign;
   }
 
   if (nextEl) {
@@ -192,12 +193,14 @@ function applyCustomStyles(rootEl, custom) {
     nextEl.style.overflow = "hidden";
     nextEl.style.textOverflow = "ellipsis";
     nextEl.style.maxWidth = "220px";
+    nextEl.style.textAlign = custom.contentAlign;
   }
 
   if (playStateEl) {
     playStateEl.style.display = custom.showPlayState ? "" : "none";
     playStateEl.style.fontSize = "11px";
     playStateEl.style.color = custom.customColors ? custom.colorArtist : "";
+    playStateEl.style.textAlign = custom.contentAlign;
   }
 
   if (infoEl) {
@@ -218,6 +221,13 @@ function applyCustomStyles(rootEl, custom) {
     metaEl.style.marginTop = "6px";
     metaEl.style.minHeight = "14px";
     metaEl.style.flexWrap = "nowrap";
+    metaEl.style.width = "100%";
+    metaEl.style.justifyContent =
+      custom.contentAlign === "center"
+        ? "center"
+        : custom.contentAlign === "right"
+          ? "flex-end"
+          : "flex-start";
   }
 
   if (custom.customColors) {
