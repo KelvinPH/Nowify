@@ -1,0 +1,20 @@
+# Replace KV namespace IDs after running:
+# wrangler kv namespace create "HISTORY"
+# wrangler kv namespace create "THEMES"
+
+name = "nowify-workers"
+main = "workers/index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://kelvinph.github.io/Nowify/"
+
+[[kv_namespaces]]
+binding = "HISTORY"
+id = "4518f1c9eff449fcaa1c658eff1384a8"
+preview_id = ""
+
+[[kv_namespaces]]
+binding = "THEMES"
+id = "25c3d434daad4359897369905fb60e2e"
+preview_id = ""
