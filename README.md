@@ -2,7 +2,7 @@
 
 **The ultimate music overlay for streamers**
 
-![Nowify Logo](./assets/logo/logo.png)
+![Nowify Logo](./assets/logo/logo_black.png)
 
 ![OBS Browser Source](https://img.shields.io/badge/OBS-Browser%20Source-302E31?logo=obsstudio&logoColor=white)
 ![Hosting: GitHub Pages](https://img.shields.io/badge/Hosting-GitHub%20Pages-222222?logo=githubpages&logoColor=white)
@@ -54,6 +54,7 @@ Original project: [SpotiStream](https://github.com/KelvinPH/SpotiStream)
 ![Nowify Screenshot 2](./assets/screenshots/nowify_02.png)
 ![Nowify Screenshot 3](./assets/screenshots/nowify_03.png)
 ![Nowify Screenshot 4](./assets/screenshots/nowify_04.png)
+![Nowify Screenshot 5](./assets/screenshots/nowify_05.png)
 
 ## Configurator
 
