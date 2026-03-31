@@ -1,4 +1,5 @@
 import { getAudioFeatures, getNextTrack, getNowPlaying } from "../api/spotify.js";
+import { getLastfmNowPlaying } from "../api/lastfm.js";
 import { init as initAuth, login } from "../auth/spotify.js";
 import { LAYOUTS, escHtml, fmtTime } from "./layouts.js";
 import { initVinyl, setVinylPlaying } from "../visuals/vinyl.js";
@@ -12,6 +13,7 @@ let pollInterval = null;
 let config = {};
 let progressTimer = null;
 const blockedAudioFeaturesTrackIds = new Set();
+let activeSource = "spotify";
 let lastKnownProgress = {
   progressMs: 0,
   durationMs: 0,
@@ -308,6 +310,8 @@ export function parseConfig() {
     twitchChannel: params.get("twitchChannel") || "",
     twitchUsername: params.get("twitchUsername") || "",
     twitchToken: params.get("twitchToken") || "",
+    lastfmUsername: params.get("lastfmUsername") || "",
+    lastfmApiKey: params.get("lastfmApiKey") || "",
     custom: parseCustomConfig(params),
   };
 }
@@ -315,7 +319,11 @@ export function parseConfig() {
 /** Polls Spotify and updates overlay content based on track changes. */
 async function poll() {
   try {
-    const track = await getNowPlaying();
+    const useLastfm = !config.clientId && config.lastfmUsername && config.lastfmApiKey;
+    const track = useLastfm
+      ? await getLastfmNowPlaying(config.lastfmUsername, config.lastfmApiKey)
+      : await getNowPlaying();
+    activeSource = useLastfm ? "lastfm" : "spotify";
     if (!track) {
       currentTrackId = null;
       showIdle();
@@ -325,7 +333,7 @@ async function poll() {
     if (track.trackId !== currentTrackId) {
       currentTrackId = track.trackId;
       let extras = null;
-      if (!blockedAudioFeaturesTrackIds.has(track.trackId)) {
+      if (!useLastfm && !blockedAudioFeaturesTrackIds.has(track.trackId)) {
         try {
           extras = await getAudioFeatures(track.trackId);
         } catch (error) {
@@ -337,7 +345,7 @@ async function poll() {
         }
       }
       let nextTrack = null;
-      if (config.layout === "custom" && config.custom?.showNextTrack) {
+      if (!useLastfm && config.layout === "custom" && config.custom?.showNextTrack) {
         try {
           nextTrack = await getNextTrack();
         } catch (_error) {
@@ -454,7 +462,7 @@ function showIdle() {
     return;
   }
 
-  const message = escHtml("Nothing playing");
+  const message = escHtml(activeSource === "lastfm" ? "No recent Last.fm track" : "Nothing playing");
   app.innerHTML = `<div class="nw-idle">${message}</div>`;
   clearBeatSync(app.querySelector(".nw-overlay"));
   clearMood(app.querySelector(".nw-overlay"));
@@ -496,12 +504,15 @@ async function resolveTwitchUserId(channelName, token) {
 export async function init() {
   config = parseConfig();
   document.documentElement.setAttribute("data-theme", config.theme);
-  await initAuth();
+  const useLastfm = !config.clientId && config.lastfmUsername && config.lastfmApiKey;
 
-  const hasToken = Boolean(localStorage.getItem("nowify_access_token"));
-  if (config.clientId && !hasToken) {
-    await login(config.clientId);
-    return;
+  if (!useLastfm) {
+    await initAuth();
+    const hasToken = Boolean(localStorage.getItem("nowify_access_token"));
+    if (config.clientId && !hasToken) {
+      await login(config.clientId);
+      return;
+    }
   }
 
   if (config.transparent) {
