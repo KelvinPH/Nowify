@@ -16,7 +16,10 @@ let clientIdDebounceTimer = null;
 
 /** Builds the full overlay URL from the current configurator state. */
 export function buildOverlayUrl(currentState) {
-  const base = `${window.location.origin}/overlay.html`;
+  const basePath = window.location.pathname.endsWith("/")
+    ? window.location.pathname
+    : window.location.pathname.slice(0, window.location.pathname.lastIndexOf("/") + 1);
+  const base = `${window.location.origin}${basePath}overlay.html`;
   const params = new URLSearchParams();
 
   Object.entries(currentState).forEach(([key, value]) => {
