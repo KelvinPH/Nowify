@@ -10,6 +10,13 @@
 
 Nowify is a real-time music overlay for OBS, Streamlabs, and StreamElements powered by Spotify playback data. You can run the core overlay directly in the browser with no server required. It is open source, free to use, and designed for streamers who want polished music visuals fast.
 
+## Project history
+
+Nowify is the next generation of the original SpotiStream project.  
+SpotiStream is the first version, and Nowify is the improved version with a cleaner structure, better maintainability, and a more modern configurator experience.
+
+Original project: [SpotiStream](https://github.com/KelvinPH/SpotiStream)
+
 ## Features
 
 - **Spotify overlay**
