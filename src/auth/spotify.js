@@ -149,7 +149,16 @@ export async function login(clientId) {
     state,
   });
 
-  window.location.href = `${AUTH_URL}?${params.toString()}`;
+  const authUrl = `${AUTH_URL}?${params.toString()}`;
+  try {
+    if (window.top && window.top !== window) {
+      window.top.location.href = authUrl;
+      return;
+    }
+  } catch (_error) {
+    // Cross-origin frame access can throw; fall back to current window.
+  }
+  window.location.href = authUrl;
 }
 
 /** Refreshes the Spotify access token using the stored refresh token. */
