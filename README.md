@@ -2,6 +2,8 @@
 
 **The ultimate music overlay for streamers**
 
+![Nowify Logo](./assets/logo/logo.png)
+
 ![OBS Browser Source](https://img.shields.io/badge/OBS-Browser%20Source-302E31?logo=obsstudio&logoColor=white)
 ![Hosting: GitHub Pages](https://img.shields.io/badge/Hosting-GitHub%20Pages-222222?logo=githubpages&logoColor=white)
 ![Cloudflare Workers](https://img.shields.io/badge/Backend-Cloudflare%20Workers-F38020?logo=cloudflareworkers&logoColor=white)
@@ -45,6 +47,13 @@ Original project: [SpotiStream](https://github.com/KelvinPH/SpotiStream)
    Go to [https://kelvinph.github.io/Nowify/config.html](https://kelvinph.github.io/Nowify/config.html).
 3. **Paste URL into OBS Browser Source**  
    Use the copied overlay URL with a browser source size of `900x300`.
+
+## Screenshots
+
+![Nowify Screenshot 1](./assets/screenshots/nowify_01.png)
+![Nowify Screenshot 2](./assets/screenshots/nowify_02.png)
+![Nowify Screenshot 3](./assets/screenshots/nowify_03.png)
+![Nowify Screenshot 4](./assets/screenshots/nowify_04.png)
 
 ## Configurator
 
