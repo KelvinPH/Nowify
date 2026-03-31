@@ -8,7 +8,6 @@ const DEFAULT_STATE = {
   moodSync: true,
   twitchChannel: "",
   twitchToken: "",
-  appleMusicEnabled: false,
   lastfmUsername: "",
   lastfmApiKey: "",
 };
@@ -36,18 +35,12 @@ export function buildOverlayUrl(currentState) {
   const params = new URLSearchParams();
 
   Object.entries(currentState).forEach(([key, value]) => {
-    if (key === "appleMusicEnabled") {
-      return;
-    }
     if (typeof value === "boolean") {
       params.set(key, value ? "1" : "0");
       return;
     }
     params.set(key, String(value));
   });
-  if (currentState.appleMusicEnabled) {
-    params.set("appleMusic", "1");
-  }
 
   return `${base}?${params.toString()}`;
 }
@@ -58,13 +51,13 @@ function getRedirectUri() {
 
 function getLayoutHint(layout) {
   const hints = {
-    glasscard: "Album art + title/artist with progress. Works anywhere.",
-    pill: "Compact pill shape. Great for corners and gaming streams.",
-    island: "Square widget with large art. Best for music streams.",
-    strip: "Ultra-thin 40px bar. Minimal footprint for any stream.",
-    albumfocus: "Art-first, centered. Best when music is the focus.",
-    sidebar: "Vertical 72px column. Hugs the side of your stream.",
-    custom: "Full visual editor with colour wheel and advanced controls.",
+    glasscard: "Album art with title and artist, plus progress. Great for most streams.",
+    pill: "Compact pill layout. Great for corners and gameplay streams.",
+    island: "Square widget with larger album art. Great for music focused scenes.",
+    strip: "Thin 40px bar with a minimal footprint.",
+    albumfocus: "Centered art first layout for music focused scenes.",
+    sidebar: "Vertical 72px column that sits neatly on the side.",
+    custom: "Full visual editor with color tools and advanced controls.",
   };
   return hints[layout] || "";
 }
@@ -116,10 +109,10 @@ function renderSidebar() {
     <div class="cfg-intro-step">
       <span class="cfg-step-num">1</span>
       <div>
-        <div class="cfg-step-title">Create Spotify app</div>
+        <div class="cfg-step-title">Create a Spotify app</div>
         <div class="cfg-step-body">
           Go to <a href="https://developer.spotify.com/dashboard" target="_blank" class="cfg-link">developer.spotify.com</a>,
-          create an app, add this as redirect URI:
+          create an app, then add this redirect URI:
           <div class="cfg-copy-box" id="cfg-redirect-uri">${getRedirectUri()}</div>
         </div>
       </div>
@@ -134,8 +127,8 @@ function renderSidebar() {
     <div class="cfg-intro-step">
       <span class="cfg-step-num">3</span>
       <div>
-        <div class="cfg-step-title">Design, then Copy URL → OBS</div>
-        <div class="cfg-step-body">Browser Source · 900 × 300 px · right-click → Interact to log in</div>
+        <div class="cfg-step-title">Design, then copy URL to OBS</div>
+        <div class="cfg-step-body">Browser Source, 900 x 300 px, then right click and select Interact to log in</div>
       </div>
     </div>
   </div>
@@ -173,7 +166,7 @@ function renderSidebar() {
         )
         .join("")}
     </div>
-    ${state.moodSync ? `<div class="cfg-mood-warning">Mood sync is on — theme background is overridden by song energy.
+    ${state.moodSync ? `<div class="cfg-mood-warning">Mood sync is on. Theme background is based on song energy.
       Turn off mood sync to see your selected theme colour.</div>` : ""}
   </div>
 
@@ -182,8 +175,8 @@ function renderSidebar() {
   <div class="cfg-section">
     <div class="cfg-section-label">Options</div>
     ${toggleRow("Progress bar", "showProgress", "Track position indicator", LAYOUT_OPTIONS[state.layout]?.showProgress ?? true)}
-    ${toggleRow("Show BPM", "showBpm", "Tempo — albumfocus layout only", LAYOUT_OPTIONS[state.layout]?.showBpm ?? false)}
-    ${toggleRow("Transparent background", "transparent", "Remove background — use over gameplay footage", LAYOUT_OPTIONS[state.layout]?.transparent ?? true)}
+    ${toggleRow("Show BPM", "showBpm", "Tempo, albumfocus layout only", LAYOUT_OPTIONS[state.layout]?.showBpm ?? false)}
+    ${toggleRow("Transparent background", "transparent", "Removes background for gameplay scenes", LAYOUT_OPTIONS[state.layout]?.transparent ?? true)}
     ${toggleRow("Mood sync", "moodSync", "Overrides theme background colour with song mood", LAYOUT_OPTIONS[state.layout]?.moodSync ?? true)}
   </div>
 
@@ -199,46 +192,9 @@ function renderSidebar() {
       }
     </div>
     <input id="ctrl-twitchChannel" class="cfg-input cfg-input-sm" placeholder="Channel name" value="${escCfg(state.twitchChannel)}" />
-    <input id="ctrl-twitchToken" class="cfg-input cfg-input-sm" type="password" placeholder="OAuth token — twitchtokengenerator.com" value="${escCfg(state.twitchToken)}" />
-    <div class="cfg-hint">Enables !sr · !skip · !prev in chat</div>
+    <input id="ctrl-twitchToken" class="cfg-input cfg-input-sm" type="password" placeholder="OAuth token from twitchtokengenerator.com" value="${escCfg(state.twitchToken)}" />
+    <div class="cfg-hint">Enables !sr, !skip, and !prev in chat</div>
   </div>
-
-  <div class="cfg-divider"></div>
-
-  <div class="cfg-section">
-    <div class="cfg-section-header">
-      <div class="cfg-section-label">Apple Music (optional)</div>
-      ${
-        state.appleMusicEnabled
-          ? `<button class="cfg-disconnect-btn" id="btn-apple-disconnect">Disconnect</button>`
-          : ""
-      }
-    </div>
-
-    <div class="cfg-source-info">
-      Apple Music requires a Cloudflare Worker to sign requests
-      with your Apple developer credentials.
-      <a href="https://developer.apple.com/account" target="_blank" class="cfg-link">developer.apple.com</a>
-      → MusicKit → Keys → create a MusicKit key.
-      Then deploy the Nowify worker and set APPLE_TEAM_ID,
-      APPLE_KEY_ID, and APPLE_PRIVATE_KEY as Worker secrets.
-      See DEPLOYMENT.md for full instructions.
-    </div>
-
-    ${toggleRow(
-      "Enable Apple Music",
-      "appleMusicEnabled",
-      "Uses your deployed Cloudflare Worker for auth"
-    )}
-
-    ${
-      state.appleMusicEnabled
-        ? `<div class="cfg-source-active-badge">Apple Music active — overlay will use MusicKit JS</div>`
-        : ""
-    }
-  </div>
-
-  <div class="cfg-divider"></div>
 
   <div class="cfg-section">
     <div class="cfg-section-header">
@@ -252,7 +208,7 @@ function renderSidebar() {
 
     <div class="cfg-source-info">
       Last.fm scrobbles music from Spotify, Apple Music, Tidal,
-      and more — use it as a fallback source or for cross-platform
+      and more. Use it as a fallback source or for cross platform
       listening history. Get a free API key at
       <a href="https://www.last.fm/api/account/create" target="_blank" class="cfg-link">last.fm/api</a>.
     </div>
@@ -274,7 +230,7 @@ function renderSidebar() {
 
     ${
       state.lastfmUsername && state.lastfmApiKey
-        ? `<div class="cfg-source-active-badge">Last.fm active — scrobble history enabled</div>`
+        ? `<div class="cfg-source-active-badge">Last.fm active. Scrobble history enabled.</div>`
         : ""
     }
   </div>
@@ -300,13 +256,6 @@ function renderSidebar() {
     disconnectBtn.addEventListener("click", () => {
       localStorage.removeItem("nowify_twitch");
       update({ twitchChannel: "", twitchToken: "" });
-    });
-  }
-  const appleDisconnect = document.getElementById("btn-apple-disconnect");
-  if (appleDisconnect) {
-    appleDisconnect.addEventListener("click", () => {
-      localStorage.removeItem("nowify_applemusic");
-      update({ appleMusicEnabled: false });
     });
   }
   const lastfmDisconnect = document.getElementById("btn-lastfm-disconnect");
@@ -632,14 +581,6 @@ function update(newState) {
       })
     );
   }
-  if (newState.appleMusicEnabled !== undefined) {
-    localStorage.setItem(
-      "nowify_applemusic",
-      JSON.stringify({
-        enabled: state.appleMusicEnabled,
-      })
-    );
-  }
   if (newState.lastfmUsername !== undefined || newState.lastfmApiKey !== undefined) {
     localStorage.setItem(
       "nowify_lastfm",
@@ -667,13 +608,6 @@ export function initConfig() {
       const parsed = JSON.parse(savedTwitch);
       state.twitchChannel = parsed.channel || "";
       state.twitchToken = parsed.token || "";
-    } catch (_error) {}
-  }
-  const savedApple = localStorage.getItem("nowify_applemusic");
-  if (savedApple) {
-    try {
-      const parsed = JSON.parse(savedApple);
-      state.appleMusicEnabled = parsed.enabled || false;
     } catch (_error) {}
   }
   const savedLastfm = localStorage.getItem("nowify_lastfm");

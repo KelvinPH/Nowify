@@ -181,10 +181,10 @@ function renderContentPanel() {
     ${toggleRow("Show album", "showAlbum")}
     ${toggleRow("Show progress bar", "showProgress")}
     ${sliderRow("Progress height", "progressHeight", 1, 8, customState.progressHeight, "px", "1", "showProgress:true")}
-    ${toggleRow("Show remaining time", "showRemainingTime", "Shows time left instead of elapsed")}
-    ${toggleRow("Show next track", "showNextTrack", "Requires Spotify queue permission")}
-    <div class="ce-disclaimer">Enabling this adds the queue permission to your Spotify consent.
-      If you've already connected, disconnect and reconnect Spotify
+    ${toggleRow("Show remaining time", "showRemainingTime", "Shows time left instead of elapsed time")}
+    ${toggleRow("Show next track", "showNextTrack", "Requires Spotify queue access")}
+    <div class="ce-disclaimer">Enabling this adds queue access to your Spotify consent.
+      If you already connected Spotify, disconnect and reconnect
       in OBS to grant the new permission.
     </div>
     ${toggleRow("Show play state", "showPlayState", "Pulsing dot when track is playing")}
@@ -206,7 +206,7 @@ function renderColoursPanel() {
       <div class="ce-wheel-wrap" id="ce-color-wheel">
         <canvas id="ce-wheel-canvas" width="200" height="200"></canvas>
         <div class="ce-wheel-lightness"><input type="range" id="ce-lightness-slider" min="0" max="100" value="50" /></div>
-        <div class="ce-wheel-active-label" id="ce-wheel-label">Select a colour above to edit</div>
+        <div class="ce-wheel-active-label" id="ce-wheel-label">Select a color above to edit</div>
       </div>
       <div class="ce-art-extract">
         <span class="ce-art-extract-label">Sample from album art</span>

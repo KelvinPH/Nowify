@@ -71,7 +71,7 @@ export const LAYOUTS = {
   strip(track, extras, config) {
     const title = escHtml(track?.title || "Unknown title");
     const artist = escHtml(track?.artist || "Unknown artist");
-    const text = `${title} — ${artist}`;
+    const text = `${title} - ${artist}`;
     const useMarquee = text.length > 40;
     const textMarkup = useMarquee
       ? `<div class="nw-marquee-wrap">

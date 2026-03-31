@@ -15,7 +15,7 @@
 <body>
   <div id="cfg-shell">
     <header id="cfg-header">
-      <span class="cfg-logo">Nowify</span>
+      <img class="cfg-logo" src="assets/logo/logo.png" alt="Nowify" />
       <span class="cfg-tagline">Overlay Configurator</span>
       <div class="cfg-header-actions">
         <button id="btn-copy" class="cfg-btn">Copy URL</button>
@@ -37,8 +37,17 @@
       </main>
     </div>
   </div>
+  <a
+    class="nowify-attribution"
+    href="https://github.com/KelvinPH/Nowify"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    Built by KelvinPH • github.com/KelvinPH/Nowify
+  </a>
 
   <script type="module">
+    import "./src/attribution.js";
     import { initConfig } from "./src/config/controls.js";
     initConfig();
   </script>

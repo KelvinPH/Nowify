@@ -12,26 +12,23 @@ Nowify is a real-time music overlay for OBS, Streamlabs, and StreamElements powe
 
 ## Features
 
-- **Music**
-  - Spotify integration for now playing, playback state, and queue actions
-  - Apple Music and Last.fm modules included in the project structure
-  - BPM and mood signal support via Spotify audio features
-- **Overlays**
-  - Five layouts: `record`, `card`, `bar`, `ticker`, `compact`
-  - Five themes: `spotify`, `dark`, `minimal`, `neon`, `lofi`
-  - Optional 3D vinyl, beat-sync pulse, and mood-based color shifting
-- **Interactive**
-  - Chat song requests with `!sr`
-  - Viewer interaction hooks for voting and engagement flows
-  - Playback controls via `!skip` and `!prev`
+- **Spotify overlay**
+  - Real-time now-playing, progress, and playback state
+  - Optional BPM + mood sync (Spotify audio features)
+  - Works as an OBS/Streamlabs/StreamElements Browser Source
+- **Configurator**
+  - Seven layouts: `glasscard`, `pill`, `island`, `strip`, `albumfocus`, `sidebar`, `custom`
+  - Six themes: `obsidian`, `midnight`, `aurora`, `forest`, `amber`, `glass`
+  - Live preview + copyable URL params
+- **Custom mode**
+  - Full visual editor for spacing, typography, artwork, colors, and content toggles
+  - Publish and browse community presets
+  - Delete your own published presets
+- **Optional integrations**
+  - Twitch chat commands: `!sr`, `!skip`, `!prev`
+  - Last.fm fallback credentials in Configurator
 - **Stats**
-  - Session tracking and local recap history
-  - Banger detection from chat/vote spikes
-  - Mood chart, top tracks, and JSON export
-- **Platform**
-  - Works in OBS, Streamlabs, and StreamElements browser sources
-  - Twitch IRC + EventSub support
-  - YouTube alert relay support via worker endpoints
+  - Session history, mood/activity insights, and exportable recap data
 
 ## Quick start
 
@@ -44,7 +41,9 @@ Nowify is a real-time music overlay for OBS, Streamlabs, and StreamElements powe
 
 ## Configurator
 
-The Configurator provides a live iframe preview, quick presets, and full control over layouts, themes, and interaction toggles. Every setting is encoded as URL parameters so your overlay is easy to share or reproduce. Use the **Copy URL** button to drop the final link directly into OBS.
+The Configurator provides a live iframe preview and full control over layout/theme options.  
+Use the **Presets** button in the header to browse public presets from the start, then switch into **Custom** mode for advanced editing and publishing.  
+All settings are encoded in the overlay URL so your setup is easy to share and reproduce.
 
 ## Chat commands
 
@@ -59,15 +58,16 @@ The Configurator provides a live iframe preview, quick presets, and full control
 
 | Param | Values | Default |
 |-------|--------|---------|
-| `layout` | `record`, `card`, `bar`, `ticker`, `compact` | `record` |
-| `theme` | `spotify`, `dark`, `minimal`, `neon`, `lofi` | `spotify` |
-| `vinyl` | `1` / `0` | `0` |
+| `layout` | `glasscard`, `pill`, `island`, `strip`, `albumfocus`, `sidebar`, `custom` | `glasscard` |
+| `theme` | `obsidian`, `midnight`, `aurora`, `forest`, `amber`, `glass` | `obsidian` |
 | `moodSync` | `1` / `0` | `1` |
 | `showProgress` | `1` / `0` | `1` |
 | `showBpm` | `1` / `0` | `0` |
 | `transparent` | `1` / `0` | `0` |
 | `twitchChannel` | channel name | — |
 | `twitchToken` | OAuth token | — |
+| `lastfmUsername` | Last.fm username | — |
+| `lastfmApiKey` | Last.fm API key | — |
 
 ## Stats dashboard
 

@@ -1,12 +1,12 @@
 :root {
-  --cfg-bg:      #0a0a0a;
-  --cfg-surface: #111111;
-  --cfg-surface2:#161616;
+  --cfg-bg:      #0b0c0f;
+  --cfg-surface: #101216;
+  --cfg-surface2:#171a20;
   --cfg-border:  rgba(255,255,255,0.07);
   --cfg-border2: rgba(255,255,255,0.12);
-  --cfg-text:    #f5f5f7;
-  --cfg-muted:   rgba(255,255,255,0.4);
-  --cfg-accent:  #1db954;
+  --cfg-text:    #f3f4f7;
+  --cfg-muted:   rgba(255,255,255,0.5);
+  --cfg-accent:  #d2d7e0;
   --cfg-radius:  10px;
 }
 
@@ -24,7 +24,11 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   border-bottom: 0.5px solid var(--cfg-border2);
   position: sticky; top: 0; z-index: 10;
 }
-.cfg-logo { font-size: 17px; font-weight: 600; color: #fff; letter-spacing: -0.3px; }
+.cfg-logo {
+  height: 24px;
+  width: auto;
+  display: block;
+}
 .cfg-tagline { font-size: 13px; color: var(--cfg-muted); }
 .cfg-header-actions { margin-left: auto; display: flex; gap: 8px; }
 
@@ -36,7 +40,7 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   transition: all 0.15s; white-space: nowrap;
 }
 .cfg-btn:hover { background: var(--cfg-surface2); border-color: rgba(255,255,255,0.2); }
-#btn-copy { background: var(--cfg-accent); border-color: var(--cfg-accent); color: #000; font-weight: 600; }
+#btn-copy { background: var(--cfg-accent); border-color: var(--cfg-accent); color: #0b0d10; font-weight: 600; }
 #btn-copy:hover { opacity: 0.88; }
 
 #cfg-body { flex: 1; display: flex; overflow: hidden; }
@@ -64,8 +68,8 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 }
 #cfg-preview-bg {
   position: absolute; inset: 0;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-  opacity: 0.6;
+  background: linear-gradient(140deg, #13151a 0%, #0f1116 55%, #151922 100%);
+  opacity: 0.75;
 }
 #cfg-iframe {
   width: 900px; height: 300px; border-radius: 16px;
@@ -86,20 +90,21 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 .cfg-intro-step { display: flex; gap: 12px; align-items: flex-start; }
 .cfg-step-num {
   width: 22px; height: 22px; border-radius: 50%;
-  background: var(--cfg-accent); color: #000;
+  background: var(--cfg-surface2); color: var(--cfg-text);
+  border: 0.5px solid var(--cfg-border2);
   font-size: 12px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; margin-top: 1px;
 }
 .cfg-step-title { font-size: 13px; font-weight: 500; color: var(--cfg-text); margin-bottom: 4px; }
 .cfg-step-body { font-size: 12px; color: var(--cfg-muted); line-height: 1.5; }
-.cfg-link { color: var(--cfg-accent); text-decoration: none; }
+.cfg-link { color: #c8ced8; text-decoration: none; }
 .cfg-link:hover { text-decoration: underline; }
 .cfg-copy-box {
   margin-top: 6px; padding: 6px 10px;
   background: var(--cfg-bg); border: 0.5px solid var(--cfg-border2);
   border-radius: 6px; font-size: 10px; font-family: monospace;
-  color: var(--cfg-accent); word-break: break-all; cursor: pointer;
+  color: #d7dce5; word-break: break-all; cursor: pointer;
   user-select: all;
 }
 
@@ -134,7 +139,7 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 .cfg-layout-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--cfg-text); }
 .cfg-layout-btn.cfg-active {
   border-color: var(--cfg-accent); color: var(--cfg-accent);
-  background: rgba(29,185,84,0.08);
+  background: rgba(210, 215, 224, 0.12);
 }
 .cfg-layout-icon {
   width: 40px; height: 24px; border-radius: 4px;
@@ -162,9 +167,9 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   );
 }
 .cfg-layout-btn-custom.cfg-active {
-  border-color: #bf5af2;
-  color: #bf5af2;
-  background: rgba(191, 90, 242, 0.08);
+  border-color: var(--cfg-accent);
+  color: var(--cfg-accent);
+  background: rgba(210, 215, 224, 0.12);
 }
 
 .cfg-layout-hint {
@@ -197,11 +202,11 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 .cfg-mood-warning {
   margin-top: 10px;
   padding: 8px 12px;
-  background: rgba(255, 159, 10, 0.1);
-  border: 0.5px solid rgba(255, 159, 10, 0.3);
+  background: rgba(210, 215, 224, 0.08);
+  border: 0.5px solid rgba(210, 215, 224, 0.22);
   border-radius: 8px;
   font-size: 11px;
-  color: rgba(255, 159, 10, 0.9);
+  color: rgba(228, 232, 238, 0.88);
   line-height: 1.5;
 }
 
@@ -211,9 +216,9 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   font-size: 10px;
   padding: 3px 8px;
   border-radius: 20px;
-  background: rgba(29, 185, 84, 0.1);
-  border: 0.5px solid rgba(29, 185, 84, 0.25);
-  color: rgba(29, 185, 84, 0.9);
+  background: rgba(210, 215, 224, 0.08);
+  border: 0.5px solid rgba(210, 215, 224, 0.22);
+  color: rgba(230, 233, 238, 0.9);
 }
 
 .cfg-toggle-row {
@@ -363,9 +368,9 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 .cfg-source-active-badge {
   margin-top: 8px;
   padding: 6px 10px;
-  background: rgba(29, 185, 84, 0.08);
-  border: 0.5px solid rgba(29, 185, 84, 0.2);
+  background: rgba(210, 215, 224, 0.08);
+  border: 0.5px solid rgba(210, 215, 224, 0.22);
   border-radius: 8px;
   font-size: 11px;
-  color: rgba(29, 185, 84, 0.9);
+  color: rgba(230, 233, 238, 0.9);
 }
