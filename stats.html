@@ -1,0 +1,48 @@
+<!-- End-of-stream statistics dashboard page -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nowify Stream Stats</title>
+  <link rel="stylesheet" href="src/styles/base.css" />
+  <link rel="stylesheet" href="src/styles/stats.css" />
+</head>
+<body>
+  <div id="stats-shell">
+    <header id="stats-header">
+      <span class="st-logo">Nowify</span>
+      <span class="st-tagline">Stream recap</span>
+      <div class="st-header-actions">
+        <button id="btn-export">Export JSON</button>
+        <button id="btn-clear">Clear session</button>
+      </div>
+    </header>
+
+    <main id="stats-app">
+      <section id="stats-summary" class="st-section"></section>
+
+      <section id="stats-bangers" class="st-section">
+        <h2 class="st-section-title">Banger moments</h2>
+      </section>
+
+      <section id="stats-mood" class="st-section">
+        <h2 class="st-section-title">Mood map</h2>
+        <div class="st-chart-wrap">
+          <canvas id="mood-chart"></canvas>
+        </div>
+      </section>
+
+      <section id="stats-top" class="st-section">
+        <h2 class="st-section-title">Top tracks</h2>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <script type="module">
+    import { init } from "./src/stats/dashboard.js";
+    init();
+  </script>
+</body>
+</html>

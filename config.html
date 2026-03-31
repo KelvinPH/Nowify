@@ -1,0 +1,42 @@
+<!-- Visual configurator page for overlay customization -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nowify Configurator</title>
+  <link rel="stylesheet" href="src/styles/base.css" />
+  <link rel="stylesheet" href="src/styles/config.css" />
+</head>
+<body>
+  <div id="cfg-shell">
+    <header id="cfg-header">
+      <span class="cfg-logo">Nowify</span>
+      <span class="cfg-tagline">Overlay Configurator</span>
+      <div class="cfg-header-actions">
+        <button id="btn-copy" class="cfg-btn">Copy URL</button>
+        <button id="btn-open" class="cfg-btn">Open preview</button>
+        <button id="btn-reset" class="cfg-btn">Reset</button>
+      </div>
+    </header>
+
+    <div id="cfg-body">
+      <aside id="cfg-sidebar"></aside>
+
+      <main id="cfg-preview">
+        <div id="cfg-preview-frame-wrap">
+          <iframe id="cfg-iframe" src="./overlay.html" frameborder="0"></iframe>
+        </div>
+        <div id="cfg-preview-bar">
+          <span id="cfg-url-display"></span>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initConfig } from "./src/config/controls.js";
+    initConfig();
+  </script>
+</body>
+</html>
