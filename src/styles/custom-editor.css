@@ -3,6 +3,8 @@
   flex: 1;
   overflow: hidden;
   background: var(--cfg-bg);
+  position: relative;
+  z-index: 2;
 }
 
 .ce-shell {
