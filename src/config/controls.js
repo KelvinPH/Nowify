@@ -1,5 +1,3 @@
-import { PRESETS, applyPreset } from "./presets.js";
-
 const DEFAULT_STATE = {
   layout: "glasscard",
   theme: "obsidian",
@@ -7,10 +5,18 @@ const DEFAULT_STATE = {
   showProgress: true,
   showBpm: false,
   transparent: false,
-  vinyl: false,
   moodSync: true,
   twitchChannel: "",
   twitchToken: "",
+};
+
+const LAYOUT_OPTIONS = {
+  glasscard: { showProgress: true, showBpm: false, transparent: true, moodSync: true },
+  pill: { showProgress: false, showBpm: false, transparent: true, moodSync: true },
+  island: { showProgress: true, showBpm: false, transparent: true, moodSync: true },
+  strip: { showProgress: false, showBpm: false, transparent: true, moodSync: false },
+  albumfocus: { showProgress: false, showBpm: true, transparent: true, moodSync: true },
+  sidebar: { showProgress: true, showBpm: false, transparent: true, moodSync: true },
 };
 
 let state = { ...DEFAULT_STATE };
@@ -22,6 +28,9 @@ export function buildOverlayUrl(currentState) {
   const params = new URLSearchParams();
 
   Object.entries(currentState).forEach(([key, value]) => {
+    if (key === "vinyl") {
+      return;
+    }
     if (typeof value === "boolean") {
       params.set(key, value ? "1" : "0");
       return;
@@ -48,6 +57,19 @@ function getLayoutHint(layout) {
   return hints[layout] || "";
 }
 
+function getLayoutFeatureBadges(layout) {
+  const opts = LAYOUT_OPTIONS[layout] || {};
+  const badges = [];
+  if (opts.showProgress) badges.push("progress bar");
+  if (opts.showBpm) badges.push("BPM display");
+  if (opts.moodSync) badges.push("mood sync");
+  if (opts.transparent) badges.push("transparent mode");
+  if (!badges.length) return "";
+  return `<div class="cfg-feature-badges">
+    ${badges.map((b) => `<span class="cfg-feature-badge">${b}</span>`).join("")}
+  </div>`;
+}
+
 function escCfg(str) {
   return String(str || "").replace(/"/g, "&quot;");
 }
@@ -64,7 +86,9 @@ function renderSidebar() {
   const themeOptions = ["obsidian", "midnight", "aurora", "forest", "amber", "glass"];
 
   const sectionLabel = (text) => `<div class="cfg-section-label">${text}</div>`;
-  const toggleRow = (label, key, description = "") => `
+  const toggleRow = (label, key, description = "", visible = true) => {
+    if (!visible) return "";
+    return `
     <label class="cfg-toggle-row">
       <span class="cfg-toggle-label-wrap">
         <span class="cfg-toggle-label">${label}</span>
@@ -77,6 +101,7 @@ function renderSidebar() {
       </span>
     </label>
   `;
+  };
 
   sidebar.innerHTML = `
   <div class="cfg-intro">
@@ -127,6 +152,9 @@ function renderSidebar() {
     <div class="cfg-layout-hint" id="cfg-layout-hint">
       ${getLayoutHint(state.layout)}
     </div>
+    <div class="cfg-layout-features" id="cfg-layout-features">
+      ${getLayoutFeatureBadges(state.layout)}
+    </div>
   </div>
 
   <div class="cfg-divider"></div>
@@ -142,28 +170,42 @@ function renderSidebar() {
         </button>
       `).join("")}
     </div>
-  </div>
-
-  <div class="cfg-divider"></div>
-
-  <div class="cfg-section">
-    <div class="cfg-section-label">Presets</div>
-    <div class="cfg-preset-row">
-      ${PRESETS.map(p => `
-        <button class="cfg-preset-btn" data-preset="${p.name}">${p.label}</button>
-      `).join("")}
+    ${state.moodSync ? `
+    <div class="cfg-mood-warning">
+      Mood sync is on — theme background is overridden by song energy.
+      Turn off mood sync to see your selected theme colour.
     </div>
+    ` : ""}
   </div>
 
   <div class="cfg-divider"></div>
 
   <div class="cfg-section">
     <div class="cfg-section-label">Options</div>
-    ${toggleRow("Progress bar", "showProgress", "Track position indicator")}
-    ${toggleRow("Show BPM", "showBpm", "Tempo — albumfocus layout only")}
-    ${toggleRow("Transparent bg", "transparent", "Remove background — for gameplay")}
-    ${toggleRow("Mood sync", "moodSync", "Background shifts with song energy")}
-    ${toggleRow("3D vinyl", "vinyl", "Spinning disc — OBS only, not in preview")}
+    ${toggleRow(
+      "Progress bar",
+      "showProgress",
+      "Track position indicator",
+      LAYOUT_OPTIONS[state.layout]?.showProgress ?? true
+    )}
+    ${toggleRow(
+      "Show BPM",
+      "showBpm",
+      "Tempo — albumfocus layout only",
+      LAYOUT_OPTIONS[state.layout]?.showBpm ?? false
+    )}
+    ${toggleRow(
+      "Transparent background",
+      "transparent",
+      "Remove background — use over gameplay footage",
+      LAYOUT_OPTIONS[state.layout]?.transparent ?? true
+    )}
+    ${toggleRow(
+      "Mood sync",
+      "moodSync",
+      "Overrides theme background colour with song mood",
+      LAYOUT_OPTIONS[state.layout]?.moodSync ?? true
+    )}
   </div>
 
   <div class="cfg-divider"></div>
@@ -204,16 +246,6 @@ function renderSidebar() {
     });
   });
 
-  sidebar.querySelectorAll("[data-preset]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const presetName = button.getAttribute("data-preset");
-      const preset = PRESETS.find((item) => item.name === presetName);
-      if (preset) {
-        applyPreset(preset, state, update);
-      }
-    });
-  });
-
   const bindDebouncedInput = (id, key) => {
     const input = document.getElementById(id);
     if (!input) return;
@@ -235,6 +267,12 @@ function renderSidebar() {
 /** Merges state updates and refreshes preview URL and sidebar UI. */
 function update(newState) {
   Object.assign(state, newState);
+  if (newState.layout) {
+    const relevant = LAYOUT_OPTIONS[newState.layout] || {};
+    if (!relevant.showProgress) state.showProgress = false;
+    if (!relevant.showBpm) state.showBpm = false;
+    if (!relevant.moodSync) state.moodSync = false;
+  }
   const url = buildOverlayUrl(state);
 
   const iframe = document.getElementById("cfg-iframe");

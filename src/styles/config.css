@@ -170,13 +170,27 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 .cfg-theme-dot-amber     { background: #ff9f0a; }
 .cfg-theme-dot-glass     { background: rgba(255,255,255,0.2); }
 
-.cfg-preset-row { display: flex; flex-wrap: wrap; gap: 6px; }
-.cfg-preset-btn {
-  background: var(--cfg-bg); border: 0.5px solid var(--cfg-border2);
-  color: var(--cfg-muted); padding: 6px 12px; border-radius: 20px;
-  font-size: 12px; cursor: pointer; transition: all 0.15s;
+.cfg-mood-warning {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 159, 10, 0.1);
+  border: 0.5px solid rgba(255, 159, 10, 0.3);
+  border-radius: 8px;
+  font-size: 11px;
+  color: rgba(255, 159, 10, 0.9);
+  line-height: 1.5;
 }
-.cfg-preset-btn:hover { border-color: var(--cfg-accent); color: var(--cfg-accent); }
+
+.cfg-layout-features { margin-top: 8px; }
+.cfg-feature-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.cfg-feature-badge {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: rgba(29, 185, 84, 0.1);
+  border: 0.5px solid rgba(29, 185, 84, 0.25);
+  color: rgba(29, 185, 84, 0.9);
+}
 
 .cfg-toggle-row {
   display: flex; align-items: center; justify-content: space-between;

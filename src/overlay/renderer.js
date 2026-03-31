@@ -10,6 +10,13 @@ import { startTrack } from "../stats/session.js";
 let currentTrackId = null;
 let pollInterval = null;
 let config = {};
+let progressTimer = null;
+let lastKnownProgress = {
+  progressMs: 0,
+  durationMs: 0,
+  isPlaying: false,
+  updatedAt: 0,
+};
 
 /** Parses URL params into a normalized overlay config object. */
 export function parseConfig() {
@@ -25,10 +32,9 @@ export function parseConfig() {
     layout: params.get("layout") || "glasscard",
     theme: params.get("theme") || "spotify",
     clientId: params.get("clientId") || "",
-    showProgress: toBool(params.get("showProgress"), true),
     showBpm: toBool(params.get("showBpm"), false),
+    showProgress: toBool(params.get("showProgress"), true),
     transparent: toBool(params.get("transparent"), false),
-    vinyl: toBool(params.get("vinyl"), false),
     moodSync: toBool(params.get("moodSync"), true),
     twitchChannel: params.get("twitchChannel") || "",
     twitchUsername: params.get("twitchUsername") || "",
@@ -59,13 +65,6 @@ async function poll() {
       return;
     }
 
-    if (config.vinyl && config.layout === "record") {
-      const discEl = document.querySelector(".nw-disc");
-      if (discEl) {
-        setVinylPlaying(discEl, track.isPlaying);
-      }
-    }
-
     updateProgress(track);
     updateStripTime(track);
   } catch (error) {
@@ -90,7 +89,7 @@ function render(track, extras) {
   }
 
   startTrack(track, extras);
-  const layoutFn = LAYOUTS[config.layout] || LAYOUTS.record;
+  const layoutFn = LAYOUTS[config.layout] || LAYOUTS.glasscard;
   app.innerHTML = layoutFn(track, extras, config);
 
   const rootEl = app.querySelector(".nw-overlay");
@@ -98,13 +97,8 @@ function render(track, extras) {
     return;
   }
 
-  if (config.vinyl && config.layout === "record") {
-    const discEl = app.querySelector(".nw-disc");
-    if (discEl) {
-      initVinyl(discEl, track.albumArt);
-      setVinylPlaying(discEl, track.isPlaying);
-    }
-  }
+  const fill = app.querySelector(".nw-progress-fill");
+  if (fill) fill.style.transition = "width 0.1s linear";
 
   applyBeatSync(rootEl, extras);
   if (config.moodSync) {
@@ -121,14 +115,21 @@ function render(track, extras) {
 
 /** Updates progress bar width for the currently rendered track. */
 function updateProgress(track) {
-  const progressFill = document.querySelector(".nw-progress-fill");
-  if (!progressFill || !track?.durationMs) {
+  if (!track?.durationMs) {
     return;
   }
-
-  const pct = (track.progressMs / track.durationMs) * 100;
-  const bounded = Math.max(0, Math.min(100, pct));
-  progressFill.style.width = `${bounded}%`;
+  lastKnownProgress = {
+    progressMs: track.progressMs || 0,
+    durationMs: track.durationMs,
+    isPlaying: track.isPlaying !== false,
+    updatedAt: Date.now(),
+  };
+  const pct = Math.min(100, ((track.progressMs || 0) / track.durationMs) * 100);
+  const fill = document.querySelector(".nw-progress-fill");
+  if (fill) {
+    fill.style.transition = "width 0.1s linear";
+    fill.style.width = `${pct}%`;
+  }
 }
 
 function updateStripTime(track) {
@@ -136,6 +137,18 @@ function updateStripTime(track) {
   if (timeEl && track?.progressMs) {
     timeEl.textContent = fmtTime(track.progressMs);
   }
+}
+
+function startProgressTimer() {
+  if (progressTimer) clearInterval(progressTimer);
+  progressTimer = setInterval(() => {
+    if (!lastKnownProgress.isPlaying || !lastKnownProgress.durationMs) return;
+    const elapsed = Date.now() - lastKnownProgress.updatedAt;
+    const estimated = lastKnownProgress.progressMs + elapsed;
+    const pct = Math.min(100, (estimated / lastKnownProgress.durationMs) * 100);
+    const fill = document.querySelector(".nw-progress-fill");
+    if (fill) fill.style.width = `${pct}%`;
+  }, 100);
 }
 
 /** Renders a minimal idle state when no track is active. */
@@ -200,6 +213,7 @@ export async function init() {
   }
 
   await startPolling();
+  startProgressTimer();
 
   if (config.twitchChannel && config.twitchToken) {
     connectIRC({

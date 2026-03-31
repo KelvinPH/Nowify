@@ -18,8 +18,10 @@ function artEl(track, cls, shape = "rounded") {
 }
 
 function progressEl(config) {
-  if (config?.showProgress === false) return "";
-  return '<div class="nw-progress"><div class="nw-progress-fill"></div></div>';
+  if (config?.showProgress !== false) {
+    return '<div class="nw-progress"><div class="nw-progress-fill"></div></div>';
+  }
+  return "";
 }
 
 export function fmtTime(ms) {
@@ -91,7 +93,7 @@ export const LAYOUTS = {
     const title = escHtml(track?.title || "Unknown title");
     const artist = escHtml(track?.artist || "Unknown artist");
     const bpm =
-      config?.showBpm && extras?.bpm
+      config?.showBpm === true && extras?.bpm
         ? `<div class="nw-bpm">${escHtml(extras.bpm)} BPM</div>`
         : "";
     return `<section class="nw-overlay nw-albumfocus">
