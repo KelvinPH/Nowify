@@ -45,6 +45,7 @@ function parseCustomConfig(params) {
     artistSize: toCustomNumber(params.get("c_artistSize"), 12),
     titleWeight: params.get("c_titleWeight") || "600",
     artistWeight: params.get("c_artistWeight") || "400",
+    contentAlign: params.get("c_contentAlign") || "left",
     letterSpacing: toCustomNumber(params.get("c_letterSpacing"), 0),
     textShadow: toCustomBool(params.get("c_textShadow"), false),
     artSize: toCustomNumber(params.get("c_artSize"), 52),
@@ -118,6 +119,7 @@ function applyCustomStyles(rootEl, custom) {
   const progressEl = rootEl.querySelector(".nw-progress");
   const progressFill = rootEl.querySelector(".nw-progress-fill");
   const bpmEl = rootEl.querySelector(".nw-bpm");
+  const infoEl = rootEl.querySelector(".nw-info");
 
   if (titleEl) {
     titleEl.style.fontSize = `${custom.titleSize}px`;
@@ -125,6 +127,7 @@ function applyCustomStyles(rootEl, custom) {
     titleEl.style.letterSpacing = `${(custom.letterSpacing || 0) / 100}em`;
     titleEl.style.color = custom.customColors ? custom.colorTitle : "";
     titleEl.style.textShadow = custom.textShadow ? "0 1px 6px rgba(0,0,0,0.45)" : "none";
+    titleEl.style.textAlign = custom.contentAlign;
   }
 
   if (artistEl) {
@@ -134,6 +137,7 @@ function applyCustomStyles(rootEl, custom) {
     artistEl.style.letterSpacing = `${(custom.letterSpacing || 0) / 100}em`;
     artistEl.style.color = custom.customColors ? custom.colorArtist : "";
     artistEl.style.textShadow = custom.textShadow ? "0 1px 6px rgba(0,0,0,0.45)" : "none";
+    artistEl.style.textAlign = custom.contentAlign;
   }
 
   if (albumEl) {
@@ -144,6 +148,7 @@ function applyCustomStyles(rootEl, custom) {
     albumEl.style.whiteSpace = "nowrap";
     albumEl.style.overflow = "hidden";
     albumEl.style.textOverflow = "ellipsis";
+    albumEl.style.textAlign = custom.contentAlign;
   }
 
   if (artEl) {
@@ -193,6 +198,16 @@ function applyCustomStyles(rootEl, custom) {
     playStateEl.style.display = custom.showPlayState ? "" : "none";
     playStateEl.style.fontSize = "11px";
     playStateEl.style.color = custom.customColors ? custom.colorArtist : "";
+  }
+
+  if (infoEl) {
+    infoEl.style.width = "100%";
+    infoEl.style.alignItems =
+      custom.contentAlign === "center"
+        ? "center"
+        : custom.contentAlign === "right"
+          ? "flex-end"
+          : "flex-start";
   }
 
   const metaEl = rootEl.querySelector(".nw-custom-meta");
