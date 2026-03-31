@@ -3,21 +3,28 @@
 .nowify-attribution {
   position: fixed;
   left: 50%;
-  bottom: 10px;
+  bottom: 12px;
   transform: translateX(-50%);
   z-index: 9999;
-  font-size: 11px;
+  font-size: 10px;
   line-height: 1;
-  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.02em;
+  color: rgba(230, 233, 238, 0.62);
   text-decoration: none;
-  background: rgba(0, 0, 0, 0.32);
-  border: 0.5px solid rgba(255, 255, 255, 0.14);
+  background: rgba(10, 12, 16, 0.82);
+  border: 0.5px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
-  padding: 6px 10px;
-  backdrop-filter: blur(6px);
+  padding: 5px 9px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  white-space: nowrap;
+  max-width: calc(100vw - 24px);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nowify-attribution:hover {
-  color: rgba(255, 255, 255, 0.82);
-  border-color: rgba(255, 255, 255, 0.28);
+  color: rgba(243, 245, 248, 0.9);
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(14, 16, 22, 0.9);
 }
