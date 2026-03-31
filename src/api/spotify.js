@@ -109,6 +109,19 @@ export async function getQueue() {
   };
 }
 
+/** Returns the next track in the queue or null. */
+export async function getNextTrack() {
+  const data = await spotifyFetch("/me/player/queue");
+  const next = data?.queue?.[0];
+  if (!next) return null;
+  return {
+    trackId: next.id,
+    title: next.name,
+    artist: (next.artists || []).map((a) => a.name).join(", "),
+    albumArt: (next.album?.images || [])[0]?.url || "",
+  };
+}
+
 /** Returns a list of recently played tracks with timestamps. */
 export async function getRecentlyPlayed(limit = 10) {
   const data = await spotifyFetch(

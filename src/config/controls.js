@@ -17,10 +17,12 @@ const LAYOUT_OPTIONS = {
   strip: { showProgress: false, showBpm: false, transparent: true, moodSync: false },
   albumfocus: { showProgress: false, showBpm: true, transparent: true, moodSync: true },
   sidebar: { showProgress: true, showBpm: false, transparent: true, moodSync: true },
+  custom: { showProgress: true, showBpm: true, transparent: true, moodSync: true },
 };
 
 let state = { ...DEFAULT_STATE };
 let inputDebounceTimer = null;
+let previousLayout = "glasscard";
 
 /** Builds the full overlay URL from the current configurator state. */
 export function buildOverlayUrl(currentState) {
@@ -28,9 +30,6 @@ export function buildOverlayUrl(currentState) {
   const params = new URLSearchParams();
 
   Object.entries(currentState).forEach(([key, value]) => {
-    if (key === "vinyl") {
-      return;
-    }
     if (typeof value === "boolean") {
       params.set(key, value ? "1" : "0");
       return;
@@ -53,6 +52,7 @@ function getLayoutHint(layout) {
     strip: "Ultra-thin 40px bar. Minimal footprint for any stream.",
     albumfocus: "Art-first, centered. Best when music is the focus.",
     sidebar: "Vertical 72px column. Hugs the side of your stream.",
+    custom: "Full visual editor with colour wheel and advanced controls.",
   };
   return hints[layout] || "";
 }
@@ -77,30 +77,26 @@ function escCfg(str) {
 /** Renders all sidebar controls and re-attaches listeners. */
 function renderSidebar() {
   const sidebar = document.getElementById("cfg-sidebar");
-  if (!sidebar) {
-    return;
-  }
-
+  if (!sidebar) return;
   const scrollTop = sidebar.scrollTop;
-  const layoutOptions = ["glasscard", "pill", "island", "strip", "albumfocus", "sidebar"];
+  const layoutOptions = ["glasscard", "pill", "island", "strip", "albumfocus", "sidebar", "custom"];
   const themeOptions = ["obsidian", "midnight", "aurora", "forest", "amber", "glass"];
 
-  const sectionLabel = (text) => `<div class="cfg-section-label">${text}</div>`;
   const toggleRow = (label, key, description = "", visible = true) => {
     if (!visible) return "";
     return `
-    <label class="cfg-toggle-row">
-      <span class="cfg-toggle-label-wrap">
-        <span class="cfg-toggle-label">${label}</span>
-        ${description ? `<span class="cfg-toggle-desc">${description}</span>` : ""}
-      </span>
-      <span class="cfg-toggle">
-        <input type="checkbox" data-toggle-key="${key}" ${state[key] ? "checked" : ""} />
-        <span class="cfg-toggle-track"></span>
-        <span class="cfg-toggle-thumb"></span>
-      </span>
-    </label>
-  `;
+      <label class="cfg-toggle-row">
+        <span class="cfg-toggle-label-wrap">
+          <span class="cfg-toggle-label">${label}</span>
+          ${description ? `<span class="cfg-toggle-desc">${description}</span>` : ""}
+        </span>
+        <span class="cfg-toggle">
+          <input type="checkbox" data-toggle-key="${key}" ${state[key] ? "checked" : ""} />
+          <span class="cfg-toggle-track"></span>
+          <span class="cfg-toggle-thumb"></span>
+        </span>
+      </label>
+    `;
   };
 
   sidebar.innerHTML = `
@@ -110,12 +106,9 @@ function renderSidebar() {
       <div>
         <div class="cfg-step-title">Create Spotify app</div>
         <div class="cfg-step-body">
-          Go to <a href="https://developer.spotify.com/dashboard"
-          target="_blank" class="cfg-link">developer.spotify.com</a>,
+          Go to <a href="https://developer.spotify.com/dashboard" target="_blank" class="cfg-link">developer.spotify.com</a>,
           create an app, add this as redirect URI:
-          <div class="cfg-copy-box" id="cfg-redirect-uri">
-            ${getRedirectUri()}
-          </div>
+          <div class="cfg-copy-box" id="cfg-redirect-uri">${getRedirectUri()}</div>
         </div>
       </div>
     </div>
@@ -123,8 +116,7 @@ function renderSidebar() {
       <span class="cfg-step-num">2</span>
       <div>
         <div class="cfg-step-title">Paste your Client ID</div>
-        <input id="ctrl-clientId" class="cfg-input"
-          placeholder="e.g. fe21f433..." value="${escCfg(state.clientId)}" />
+        <input id="ctrl-clientId" class="cfg-input" placeholder="e.g. fe21f433..." value="${escCfg(state.clientId)}" />
       </div>
     </div>
     <div class="cfg-intro-step">
@@ -141,20 +133,20 @@ function renderSidebar() {
   <div class="cfg-section">
     <div class="cfg-section-label">Layout</div>
     <div class="cfg-layout-grid">
-      ${layoutOptions.map(opt => `
-        <button class="cfg-layout-btn ${state.layout === opt ? "cfg-active" : ""}"
-                data-set-key="layout" data-set-value="${opt}">
-          <div class="cfg-layout-icon cfg-layout-icon-${opt}"></div>
-          <span>${opt}</span>
-        </button>
-      `).join("")}
+      ${layoutOptions
+        .map((opt) =>
+          opt === "custom"
+            ? `<button class="cfg-layout-btn cfg-layout-btn-custom ${state.layout === "custom" ? "cfg-active" : ""}" data-set-key="layout" data-set-value="custom">
+                <div class="cfg-layout-icon cfg-layout-icon-custom"></div><span>Custom</span>
+              </button>`
+            : `<button class="cfg-layout-btn ${state.layout === opt ? "cfg-active" : ""}" data-set-key="layout" data-set-value="${opt}">
+                <div class="cfg-layout-icon cfg-layout-icon-${opt}"></div><span>${opt}</span>
+              </button>`
+        )
+        .join("")}
     </div>
-    <div class="cfg-layout-hint" id="cfg-layout-hint">
-      ${getLayoutHint(state.layout)}
-    </div>
-    <div class="cfg-layout-features" id="cfg-layout-features">
-      ${getLayoutFeatureBadges(state.layout)}
-    </div>
+    <div class="cfg-layout-hint">${getLayoutHint(state.layout)}</div>
+    <div class="cfg-layout-features">${getLayoutFeatureBadges(state.layout)}</div>
   </div>
 
   <div class="cfg-divider"></div>
@@ -162,72 +154,41 @@ function renderSidebar() {
   <div class="cfg-section">
     <div class="cfg-section-label">Theme</div>
     <div class="cfg-theme-grid">
-      ${themeOptions.map(opt => `
-        <button class="cfg-theme-btn ${state.theme === opt ? "cfg-active" : ""}"
-                data-set-key="theme" data-set-value="${opt}">
-          <div class="cfg-theme-dot cfg-theme-dot-${opt}"></div>
-          <span>${opt}</span>
-        </button>
-      `).join("")}
+      ${themeOptions
+        .map(
+          (opt) => `<button class="cfg-theme-btn ${state.theme === opt ? "cfg-active" : ""}" data-set-key="theme" data-set-value="${opt}">
+          <div class="cfg-theme-dot cfg-theme-dot-${opt}"></div><span>${opt}</span></button>`
+        )
+        .join("")}
     </div>
-    ${state.moodSync ? `
-    <div class="cfg-mood-warning">
-      Mood sync is on — theme background is overridden by song energy.
-      Turn off mood sync to see your selected theme colour.
-    </div>
-    ` : ""}
+    ${state.moodSync ? `<div class="cfg-mood-warning">Mood sync is on — theme background is overridden by song energy.
+      Turn off mood sync to see your selected theme colour.</div>` : ""}
   </div>
 
   <div class="cfg-divider"></div>
 
   <div class="cfg-section">
     <div class="cfg-section-label">Options</div>
-    ${toggleRow(
-      "Progress bar",
-      "showProgress",
-      "Track position indicator",
-      LAYOUT_OPTIONS[state.layout]?.showProgress ?? true
-    )}
-    ${toggleRow(
-      "Show BPM",
-      "showBpm",
-      "Tempo — albumfocus layout only",
-      LAYOUT_OPTIONS[state.layout]?.showBpm ?? false
-    )}
-    ${toggleRow(
-      "Transparent background",
-      "transparent",
-      "Remove background — use over gameplay footage",
-      LAYOUT_OPTIONS[state.layout]?.transparent ?? true
-    )}
-    ${toggleRow(
-      "Mood sync",
-      "moodSync",
-      "Overrides theme background colour with song mood",
-      LAYOUT_OPTIONS[state.layout]?.moodSync ?? true
-    )}
+    ${toggleRow("Progress bar", "showProgress", "Track position indicator", LAYOUT_OPTIONS[state.layout]?.showProgress ?? true)}
+    ${toggleRow("Show BPM", "showBpm", "Tempo — albumfocus layout only", LAYOUT_OPTIONS[state.layout]?.showBpm ?? false)}
+    ${toggleRow("Transparent background", "transparent", "Remove background — use over gameplay footage", LAYOUT_OPTIONS[state.layout]?.transparent ?? true)}
+    ${toggleRow("Mood sync", "moodSync", "Overrides theme background colour with song mood", LAYOUT_OPTIONS[state.layout]?.moodSync ?? true)}
   </div>
 
   <div class="cfg-divider"></div>
 
   <div class="cfg-section">
-    <div class="cfg-section-label">Twitch (optional)</div>
-    <input id="ctrl-twitchChannel" class="cfg-input cfg-input-sm"
-      placeholder="Channel name" value="${escCfg(state.twitchChannel)}" />
-    <input id="ctrl-twitchToken" class="cfg-input cfg-input-sm" type="password"
-      placeholder="OAuth token — twitchtokengenerator.com"
-      value="${escCfg(state.twitchToken)}" />
+    <div class="cfg-section-header">
+      <div class="cfg-section-label">Twitch (optional)</div>
+      ${
+        state.twitchChannel
+          ? `<button class="cfg-disconnect-btn" id="btn-twitch-disconnect">Disconnect</button>`
+          : ""
+      }
+    </div>
+    <input id="ctrl-twitchChannel" class="cfg-input cfg-input-sm" placeholder="Channel name" value="${escCfg(state.twitchChannel)}" />
+    <input id="ctrl-twitchToken" class="cfg-input cfg-input-sm" type="password" placeholder="OAuth token — twitchtokengenerator.com" value="${escCfg(state.twitchToken)}" />
     <div class="cfg-hint">Enables !sr · !skip · !prev in chat</div>
-  </div>
-
-  <div class="cfg-divider"></div>
-
-  <div class="cfg-section cfg-commands-section">
-    <div class="cfg-section-label">Chat commands</div>
-    <div class="cfg-cmd"><code>!sr song name</code><span>Queue a song</span></div>
-    <div class="cfg-cmd"><code>!skip</code><span>Skip track</span></div>
-    <div class="cfg-cmd"><code>!prev</code><span>Previous track</span></div>
-    <div class="cfg-cmd"><code>!queue</code><span>Show queue</span></div>
   </div>
 `;
 
@@ -246,6 +207,14 @@ function renderSidebar() {
     });
   });
 
+  const disconnectBtn = document.getElementById("btn-twitch-disconnect");
+  if (disconnectBtn) {
+    disconnectBtn.addEventListener("click", () => {
+      localStorage.removeItem("nowify_twitch");
+      update({ twitchChannel: "", twitchToken: "" });
+    });
+  }
+
   const bindDebouncedInput = (id, key) => {
     const input = document.getElementById(id);
     if (!input) return;
@@ -260,8 +229,44 @@ function renderSidebar() {
   bindDebouncedInput("ctrl-clientId", "clientId");
   bindDebouncedInput("ctrl-twitchChannel", "twitchChannel");
   bindDebouncedInput("ctrl-twitchToken", "twitchToken");
-
   sidebar.scrollTop = scrollTop;
+}
+
+function checkCustomMode() {
+  const isCustom = state.layout === "custom";
+  const body = document.getElementById("cfg-body");
+  const normalSidebar = document.getElementById("cfg-sidebar");
+  if (!body || !normalSidebar) return;
+  let customContainer = document.getElementById("cfg-custom-editor");
+
+  if (isCustom) {
+    normalSidebar.style.display = "none";
+    if (!customContainer) {
+      customContainer = document.createElement("div");
+      customContainer.id = "cfg-custom-editor";
+      body.insertBefore(customContainer, body.firstChild);
+    }
+    customContainer.style.display = "flex";
+    import("./custom-editor.js").then(({ initCustomEditor }) => {
+      initCustomEditor(customContainer, previousLayout, (customState) => {
+        updateCustomPreview(customState);
+      });
+    });
+  } else {
+    normalSidebar.style.display = "";
+    if (customContainer) customContainer.style.display = "none";
+    previousLayout = state.layout;
+  }
+}
+
+function updateCustomPreview(customState) {
+  import("./custom-editor.js").then(({ buildCustomUrl }) => {
+    const url = buildCustomUrl(state, customState);
+    const iframe = document.getElementById("cfg-iframe");
+    const urlDisplay = document.getElementById("cfg-url-display");
+    if (iframe) iframe.src = url;
+    if (urlDisplay) urlDisplay.textContent = url;
+  });
 }
 
 /** Merges state updates and refreshes preview URL and sidebar UI. */
@@ -273,24 +278,37 @@ function update(newState) {
     if (!relevant.showBpm) state.showBpm = false;
     if (!relevant.moodSync) state.moodSync = false;
   }
+  if (newState.twitchChannel !== undefined || newState.twitchToken !== undefined) {
+    localStorage.setItem(
+      "nowify_twitch",
+      JSON.stringify({
+        channel: state.twitchChannel,
+        token: state.twitchToken,
+      })
+    );
+  }
   const url = buildOverlayUrl(state);
-
   const iframe = document.getElementById("cfg-iframe");
-  if (iframe) {
-    iframe.src = url;
-  }
-
   const urlDisplay = document.getElementById("cfg-url-display");
-  if (urlDisplay) {
-    urlDisplay.textContent = url;
-  }
-
+  if (iframe) iframe.src = url;
+  if (urlDisplay) urlDisplay.textContent = url;
   renderSidebar();
+  checkCustomMode();
 }
 
 /** Initializes configurator controls, preview syncing, and header actions. */
 export function initConfig() {
+  const savedTwitch = localStorage.getItem("nowify_twitch");
+  if (savedTwitch) {
+    try {
+      const parsed = JSON.parse(savedTwitch);
+      state.twitchChannel = parsed.channel || "";
+      state.twitchToken = parsed.token || "";
+    } catch (_error) {}
+  }
+
   renderSidebar();
+  checkCustomMode();
   update({});
 
   const copyButton = document.getElementById("btn-copy");
@@ -299,7 +317,9 @@ export function initConfig() {
 
   if (copyButton) {
     copyButton.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(buildOverlayUrl(state));
+      const activeUrl =
+        document.getElementById("cfg-url-display")?.textContent || buildOverlayUrl(state);
+      await navigator.clipboard.writeText(activeUrl);
       const previousText = copyButton.textContent;
       copyButton.textContent = "Copied!";
       window.setTimeout(() => {
@@ -310,7 +330,9 @@ export function initConfig() {
 
   if (openButton) {
     openButton.addEventListener("click", () => {
-      window.open(buildOverlayUrl(state), "_blank");
+      const activeUrl =
+        document.getElementById("cfg-url-display")?.textContent || buildOverlayUrl(state);
+      window.open(activeUrl, "_blank");
     });
   }
 
