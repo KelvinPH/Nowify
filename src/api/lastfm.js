@@ -23,6 +23,9 @@ export async function getLastfmNowPlaying(username, apiKey) {
     throw new Error(`Last.fm proxy error ${res.status}`);
   }
   const data = await res.json();
+  if (data?.error) {
+    throw new Error(`Last.fm error ${data.error}: ${data.message || "unknown error"}`);
+  }
   const rawTrack = data?.recenttracks?.track;
   const track = Array.isArray(rawTrack) ? rawTrack[0] : rawTrack;
   if (!track?.name) return null;

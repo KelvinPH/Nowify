@@ -14,6 +14,7 @@ let config = {};
 let progressTimer = null;
 const blockedAudioFeaturesTrackIds = new Set();
 let activeSource = "spotify";
+let sourceErrorMessage = "";
 let lastKnownProgress = {
   progressMs: 0,
   durationMs: 0,
@@ -320,6 +321,7 @@ export function parseConfig() {
 async function poll() {
   try {
     const useLastfm = !config.clientId && config.lastfmUsername && config.lastfmApiKey;
+    sourceErrorMessage = "";
     const track = useLastfm
       ? await getLastfmNowPlaying(config.lastfmUsername, config.lastfmApiKey)
       : await getNowPlaying();
@@ -366,6 +368,9 @@ async function poll() {
       }
     }
   } catch (error) {
+    const message = String(error?.message || "").trim();
+    sourceErrorMessage = message;
+    showIdle();
     console.warn("Overlay poll failed:", error);
   }
 }
@@ -462,7 +467,8 @@ function showIdle() {
     return;
   }
 
-  const message = escHtml(activeSource === "lastfm" ? "No recent Last.fm track" : "Nothing playing");
+  const fallbackMessage = activeSource === "lastfm" ? "No recent Last.fm track" : "Nothing playing";
+  const message = escHtml(sourceErrorMessage || fallbackMessage);
   app.innerHTML = `<div class="nw-idle">${message}</div>`;
   clearBeatSync(app.querySelector(".nw-overlay"));
   clearMood(app.querySelector(".nw-overlay"));
