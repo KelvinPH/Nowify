@@ -226,3 +226,143 @@ body {
   padding: 8px 12px;
   min-width: 82px;
 }
+
+.cfg-banner {
+  background: var(--cfg-bg);
+  border: 1px solid var(--cfg-border);
+  border-radius: var(--cfg-radius);
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cfg-banner-step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 12px;
+  color: var(--cfg-text);
+  line-height: 1.5;
+}
+
+.cfg-banner-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--cfg-accent);
+  color: #000;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.cfg-link {
+  color: var(--cfg-accent);
+  text-decoration: none;
+}
+
+.cfg-link:hover {
+  text-decoration: underline;
+}
+
+.cfg-code {
+  display: inline-block;
+  background: var(--cfg-bg);
+  border: 1px solid var(--cfg-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--cfg-accent);
+  margin-top: 4px;
+  word-break: break-all;
+}
+
+.cfg-toggle-label-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cfg-toggle-label {
+  font-size: 13px;
+  color: var(--cfg-text);
+}
+
+.cfg-toggle-desc {
+  font-size: 11px;
+  color: var(--cfg-muted);
+  line-height: 1.4;
+}
+
+.cfg-theme-preview {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.cfg-theme-swatch {
+  flex: 1;
+  height: 40px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0.5px solid var(--cfg-border);
+}
+
+.cfg-layout-desc {
+  font-size: 12px;
+  color: var(--cfg-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.cfg-obs-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cfg-obs-step {
+  font-size: 12px;
+  color: var(--cfg-text);
+  padding: 6px 10px;
+  background: var(--cfg-bg);
+  border-radius: var(--cfg-radius);
+  border: 0.5px solid var(--cfg-border);
+  line-height: 1.5;
+  counter-increment: obs-step;
+}
+
+.cfg-commands {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cfg-command {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  padding: 5px 0;
+  border-bottom: 0.5px solid var(--cfg-border);
+  color: var(--cfg-muted);
+}
+
+.cfg-command:last-child {
+  border-bottom: none;
+}
+
+.cfg-command code {
+  color: var(--cfg-accent);
+  font-family: monospace;
+  font-size: 12px;
+}
