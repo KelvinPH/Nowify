@@ -396,7 +396,7 @@ function render(track, extras, nextTrack = null) {
 
   applyBeatSync(rootEl, extras);
   if (config.moodSync) {
-    applyMood(rootEl, extras);
+    applyMood(rootEl, extras, track);
   } else {
     clearMood(rootEl);
   }
