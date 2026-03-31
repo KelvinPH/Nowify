@@ -247,6 +247,8 @@ function checkCustomMode() {
       body.insertBefore(customContainer, body.firstChild);
     }
     customContainer.style.display = "flex";
+    customContainer.style.flex = "0 0 320px";
+    customContainer.style.width = "320px";
     import("./custom-editor.js").then(({ initCustomEditor }) => {
       initCustomEditor(customContainer, previousLayout, (customState) => {
         updateCustomPreview(customState);
@@ -254,7 +256,11 @@ function checkCustomMode() {
     });
   } else {
     normalSidebar.style.display = "";
-    if (customContainer) customContainer.style.display = "none";
+    if (customContainer) {
+      customContainer.style.display = "none";
+      customContainer.style.flex = "";
+      customContainer.style.width = "";
+    }
     previousLayout = state.layout;
   }
 }

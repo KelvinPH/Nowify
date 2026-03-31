@@ -11,6 +11,7 @@ let currentTrackId = null;
 let pollInterval = null;
 let config = {};
 let progressTimer = null;
+const blockedAudioFeaturesTrackIds = new Set();
 let lastKnownProgress = {
   progressMs: 0,
   durationMs: 0,
@@ -55,10 +56,16 @@ async function poll() {
     if (track.trackId !== currentTrackId) {
       currentTrackId = track.trackId;
       let extras = null;
-      try {
-        extras = await getAudioFeatures(track.trackId);
-      } catch (error) {
-        extras = null;
+      if (!blockedAudioFeaturesTrackIds.has(track.trackId)) {
+        try {
+          extras = await getAudioFeatures(track.trackId);
+        } catch (error) {
+          const message = String(error?.message || "");
+          if (message.includes("Spotify API error 403")) {
+            blockedAudioFeaturesTrackIds.add(track.trackId);
+          }
+          extras = null;
+        }
       }
       render(track, extras);
       updateProgress(track);
