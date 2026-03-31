@@ -216,3 +216,28 @@
 
 .ce-conditional { transition: opacity 0.15s; }
 .ce-conditional[style*="none"] { opacity: 0; pointer-events: none; }
+
+.ce-library { margin-top: 16px; }
+.ce-library-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.ce-library-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  background: var(--cfg-bg);
+  border: 0.5px solid var(--cfg-border2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.ce-library-item:hover { border-color: rgba(255,255,255,0.25); }
+.ce-library-name { font-size: 12px; color: var(--cfg-text); }
+.ce-library-meta { font-size: 10px; color: var(--cfg-muted); }
+.ce-library-empty { font-size: 11px; color: var(--cfg-muted); padding: 8px 2px; }

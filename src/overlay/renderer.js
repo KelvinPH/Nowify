@@ -1,4 +1,4 @@
-import { getAudioFeatures, getNowPlaying } from "../api/spotify.js";
+import { getAudioFeatures, getNextTrack, getNowPlaying } from "../api/spotify.js";
 import { init as initAuth, login } from "../auth/spotify.js";
 import { LAYOUTS, escHtml, fmtTime } from "./layouts.js";
 import { initVinyl, setVinylPlaying } from "../visuals/vinyl.js";
@@ -54,7 +54,11 @@ function parseCustomConfig(params) {
     artBorder: toCustomBool(params.get("c_artBorder"), false),
     artBorderColor: params.get("c_artBorderColor") || "rgba(255,255,255,0.2)",
     showArtist: toCustomBool(params.get("c_showArtist"), true),
+    showAlbum: toCustomBool(params.get("c_showAlbum"), false),
     showProgress: toCustomBool(params.get("c_showProgress"), true),
+    showRemainingTime: toCustomBool(params.get("c_showRemainingTime"), false),
+    showNextTrack: toCustomBool(params.get("c_showNextTrack"), false),
+    showPlayState: toCustomBool(params.get("c_showPlayState"), false),
     showBpm: toCustomBool(params.get("c_showBpm"), false),
     progressHeight: toCustomNumber(params.get("c_progressHeight"), 2),
     customColors: toCustomBool(params.get("c_customColors"), false),
@@ -106,6 +110,10 @@ function applyCustomStyles(rootEl, custom) {
 
   const titleEl = rootEl.querySelector(".nw-title");
   const artistEl = rootEl.querySelector(".nw-artist");
+  const albumEl = rootEl.querySelector(".nw-custom-album");
+  const nextEl = rootEl.querySelector(".nw-custom-next");
+  const timeEl = rootEl.querySelector(".nw-custom-time");
+  const playStateEl = rootEl.querySelector(".nw-custom-playstate");
   const artEl = rootEl.querySelector(".nw-art");
   const progressEl = rootEl.querySelector(".nw-progress");
   const progressFill = rootEl.querySelector(".nw-progress-fill");
@@ -126,6 +134,16 @@ function applyCustomStyles(rootEl, custom) {
     artistEl.style.letterSpacing = `${(custom.letterSpacing || 0) / 100}em`;
     artistEl.style.color = custom.customColors ? custom.colorArtist : "";
     artistEl.style.textShadow = custom.textShadow ? "0 1px 6px rgba(0,0,0,0.45)" : "none";
+  }
+
+  if (albumEl) {
+    albumEl.style.display = custom.showAlbum ? "" : "none";
+    albumEl.style.fontSize = `${Math.max(10, custom.artistSize - 1)}px`;
+    albumEl.style.color = custom.customColors ? custom.colorArtist : "";
+    albumEl.style.opacity = "0.9";
+    albumEl.style.whiteSpace = "nowrap";
+    albumEl.style.overflow = "hidden";
+    albumEl.style.textOverflow = "ellipsis";
   }
 
   if (artEl) {
@@ -155,6 +173,38 @@ function applyCustomStyles(rootEl, custom) {
     bpmEl.style.display = custom.showBpm ? "" : "none";
   }
 
+  if (timeEl) {
+    timeEl.style.display = custom.showRemainingTime ? "" : "none";
+    timeEl.style.fontSize = "11px";
+    timeEl.style.color = custom.customColors ? custom.colorArtist : "";
+  }
+
+  if (nextEl) {
+    nextEl.style.display = custom.showNextTrack ? "" : "none";
+    nextEl.style.fontSize = "11px";
+    nextEl.style.color = custom.customColors ? custom.colorArtist : "";
+    nextEl.style.whiteSpace = "nowrap";
+    nextEl.style.overflow = "hidden";
+    nextEl.style.textOverflow = "ellipsis";
+    nextEl.style.maxWidth = "220px";
+  }
+
+  if (playStateEl) {
+    playStateEl.style.display = custom.showPlayState ? "" : "none";
+    playStateEl.style.fontSize = "11px";
+    playStateEl.style.color = custom.customColors ? custom.colorArtist : "";
+  }
+
+  const metaEl = rootEl.querySelector(".nw-custom-meta");
+  if (metaEl) {
+    metaEl.style.display = "flex";
+    metaEl.style.gap = "8px";
+    metaEl.style.alignItems = "center";
+    metaEl.style.marginTop = "6px";
+    metaEl.style.minHeight = "14px";
+    metaEl.style.flexWrap = "nowrap";
+  }
+
   if (custom.customColors) {
     rootEl.style.setProperty("--nw-bg", custom.colorBg);
     rootEl.style.setProperty("--nw-accent", custom.colorAccent);
@@ -162,6 +212,53 @@ function applyCustomStyles(rootEl, custom) {
     rootEl.style.setProperty("--nw-text-muted", custom.colorArtist);
     rootEl.style.setProperty("--nw-progress-bg", custom.colorBorder);
     rootEl.style.setProperty("--nw-glass-border", custom.colorBorder);
+  }
+}
+
+function applyCustomDynamicFields(rootEl, track, extras, nextTrack) {
+  if (!rootEl) return;
+  const custom = config.custom || {};
+  const albumEl = rootEl.querySelector(".nw-custom-album");
+  const timeEl = rootEl.querySelector(".nw-custom-time");
+  const nextEl = rootEl.querySelector(".nw-custom-next");
+  const playStateEl = rootEl.querySelector(".nw-custom-playstate");
+  const bpmEl = rootEl.querySelector(".nw-bpm");
+
+  if (albumEl) {
+    albumEl.textContent = track?.album || "";
+  }
+
+  if (timeEl) {
+    if (custom.showRemainingTime && track?.durationMs) {
+      const remainingMs = Math.max(0, (track.durationMs || 0) - (track.progressMs || 0));
+      timeEl.textContent = `-${fmtTime(remainingMs)}`;
+    } else {
+      timeEl.textContent = "";
+    }
+  }
+
+  if (nextEl) {
+    if (custom.showNextTrack && nextTrack?.title) {
+      nextEl.textContent = `Next: ${nextTrack.title}`;
+    } else {
+      nextEl.textContent = "";
+    }
+  }
+
+  if (playStateEl) {
+    if (custom.showPlayState) {
+      playStateEl.textContent = track?.isPlaying ? "Playing" : "Paused";
+    } else {
+      playStateEl.textContent = "";
+    }
+  }
+
+  if (bpmEl) {
+    if (custom.showBpm && extras?.bpm) {
+      bpmEl.textContent = `${extras.bpm} BPM`;
+    } else {
+      bpmEl.textContent = "";
+    }
   }
 }
 
@@ -214,13 +311,27 @@ async function poll() {
           extras = null;
         }
       }
-      render(track, extras);
+      let nextTrack = null;
+      if (config.layout === "custom" && config.custom?.showNextTrack) {
+        try {
+          nextTrack = await getNextTrack();
+        } catch (_error) {
+          nextTrack = null;
+        }
+      }
+      render(track, extras, nextTrack);
       updateProgress(track);
       return;
     }
 
     updateProgress(track);
     updateStripTime(track);
+    if (config.layout === "custom") {
+      const rootEl = document.querySelector(".nw-overlay.nw-custom");
+      if (rootEl) {
+        applyCustomDynamicFields(rootEl, track, null, null);
+      }
+    }
   } catch (error) {
     console.warn("Overlay poll failed:", error);
   }
@@ -236,7 +347,7 @@ export async function startPolling(intervalMs = 3000) {
 }
 
 /** Renders a track using the selected layout and transition class. */
-function render(track, extras) {
+function render(track, extras, nextTrack = null) {
   const app = document.getElementById("app");
   if (!app) {
     return;
@@ -255,6 +366,7 @@ function render(track, extras) {
   if (fill) fill.style.transition = "width 0.1s linear";
   if (config.layout === "custom") {
     applyCustomStyles(rootEl, config.custom);
+    applyCustomDynamicFields(rootEl, track, extras, nextTrack);
   }
 
   applyBeatSync(rootEl, extras);
@@ -268,6 +380,8 @@ function render(track, extras) {
   window.setTimeout(() => {
     rootEl.classList.remove("nw-animate-in");
   }, 600);
+
+  window.dispatchEvent(new CustomEvent("nowify:trackchange", { detail: { track } }));
 }
 
 /** Updates progress bar width for the currently rendered track. */

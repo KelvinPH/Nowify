@@ -7,14 +7,14 @@ main = "workers/index.js"
 compatibility_date = "2024-01-01"
 
 [vars]
-ALLOWED_ORIGIN = "https://kelvinph.github.io/Nowify/"
+ALLOWED_ORIGIN = "https://kelvinph.github.io"
 
 [[kv_namespaces]]
 binding = "HISTORY"
 id = "4518f1c9eff449fcaa1c658eff1384a8"
-preview_id = ""
+preview_id = "4518f1c9eff449fcaa1c658eff1384a8"
 
 [[kv_namespaces]]
 binding = "THEMES"
 id = "25c3d434daad4359897369905fb60e2e"
-preview_id = ""
+preview_id = "25c3d434daad4359897369905fb60e2e"

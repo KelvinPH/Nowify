@@ -116,4 +116,29 @@ export const LAYOUTS = {
     </div>
   </section>`;
   },
+
+  custom(track, extras, config) {
+    const title = escHtml(track?.title || "Unknown title");
+    const artist = escHtml(track?.artist || "Unknown artist");
+    const album = escHtml(track?.album || "");
+    const bpm =
+      config?.custom?.showBpm === true && extras?.bpm
+        ? `<div class="nw-bpm">${escHtml(extras.bpm)} BPM</div>`
+        : '<div class="nw-bpm"></div>';
+    return `<section class="nw-overlay nw-glasscard nw-custom">
+      ${artEl(track, "")}
+      <div class="nw-info">
+        <div class="nw-title">${title}</div>
+        <div class="nw-artist">${artist}</div>
+        <div class="nw-custom-album">${album}</div>
+        ${progressEl(config)}
+        <div class="nw-custom-meta">
+          <div class="nw-custom-time">0:00</div>
+          <div class="nw-custom-next"></div>
+          <div class="nw-custom-playstate"></div>
+          ${bpm}
+        </div>
+      </div>
+    </section>`;
+  },
 };

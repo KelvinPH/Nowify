@@ -52,6 +52,7 @@ let debounceTimer = null;
 let onChangeCallback = null;
 let activeColorKey = null;
 let wheelRaf = null;
+const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
 
 function renderTabButton(name, label, svg, active = false) {
   return `<button class="ce-tab ${active ? "ce-tab-active" : ""}" data-tab="${name}">
@@ -206,6 +207,11 @@ function renderColoursPanel() {
         <div class="ce-art-swatches" id="ce-art-swatches"></div>
       </div>
     </div>
+    <div class="ce-library">
+      <div class="ce-section-label">Preset library</div>
+      <button class="ce-btn" id="ce-refresh-library">Refresh library</button>
+      <div class="ce-library-list" id="ce-library-list"></div>
+    </div>
   </div>`;
 }
 
@@ -356,6 +362,8 @@ function attachListeners(containerEl) {
 
   setupColorWheel(containerEl);
   updateConditionals(containerEl);
+  attachLibraryListeners(containerEl);
+  refreshLibrary(containerEl);
 }
 
 function updateConditionals(containerEl) {
@@ -377,6 +385,52 @@ function triggerChange() {
   debounceTimer = setTimeout(() => {
     if (onChangeCallback) onChangeCallback(customState);
   }, 300);
+}
+
+function attachLibraryListeners(containerEl) {
+  const refresh = containerEl.querySelector("#ce-refresh-library");
+  if (refresh) {
+    refresh.addEventListener("click", () => {
+      refreshLibrary(containerEl);
+    });
+  }
+}
+
+async function refreshLibrary(containerEl) {
+  const listEl = containerEl.querySelector("#ce-library-list");
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="ce-library-empty">Loading presets...</div>';
+  try {
+    const res = await fetch(`${WORKER_BASE_URL}/presets`);
+    if (!res.ok) throw new Error(`status ${res.status}`);
+    const data = await res.json();
+    const presets = (data?.presets || []).filter((p) => p?.customState);
+    if (!presets.length) {
+      listEl.innerHTML = '<div class="ce-library-empty">No public custom presets yet.</div>';
+      return;
+    }
+    listEl.innerHTML = presets
+      .slice(0, 24)
+      .map(
+        (p) => `<button class="ce-library-item" data-preset-id="${p.id || ""}">
+          <span class="ce-library-name">${p.name || "Untitled"}</span>
+          <span class="ce-library-meta">by ${p.author || "anonymous"}</span>
+        </button>`
+      )
+      .join("");
+    listEl.querySelectorAll(".ce-library-item").forEach((btn, idx) => {
+      btn.addEventListener("click", () => {
+        const selected = presets[idx];
+        if (!selected?.customState) return;
+        customState = { ...CUSTOM_DEFAULTS, ...selected.customState };
+        saveCustomState();
+        renderEditor(containerEl);
+        triggerChange();
+      });
+    });
+  } catch (_error) {
+    listEl.innerHTML = '<div class="ce-library-empty">Could not load public presets.</div>';
+  }
 }
 
 function formatSliderValue(key, value, unit) {

@@ -1,4 +1,4 @@
-const WORKER_BASE_URL = "https://nowify.workers.dev";
+const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
 const MAX_SESSION_TRACKS = 500;
 const BANGER_VOTE_THRESHOLD = 5;
 const BANGER_CHAT_THRESHOLD = 10;

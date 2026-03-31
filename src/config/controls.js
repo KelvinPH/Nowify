@@ -23,6 +23,8 @@ const LAYOUT_OPTIONS = {
 let state = { ...DEFAULT_STATE };
 let inputDebounceTimer = null;
 let previousLayout = "glasscard";
+const CUSTOM_PRESETS_KEY = "nowify_custom_presets";
+const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
 
 /** Builds the full overlay URL from the current configurator state. */
 export function buildOverlayUrl(currentState) {
@@ -254,6 +256,7 @@ function checkCustomMode() {
         updateCustomPreview(customState);
       });
     });
+    ensureCustomHeaderButtons(true);
   } else {
     normalSidebar.style.display = "";
     if (customContainer) {
@@ -262,6 +265,107 @@ function checkCustomMode() {
       customContainer.style.width = "";
     }
     previousLayout = state.layout;
+    ensureCustomHeaderButtons(false);
+  }
+}
+
+function getCustomPresets() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_PRESETS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function saveCustomPresetWithPrompt() {
+  import("./custom-editor.js").then(({ loadCustomState }) => {
+    const presetName = window.prompt("Name your custom preset:");
+    if (!presetName || !presetName.trim()) return;
+    const customState = loadCustomState();
+    if (!customState) return;
+    const name = presetName.trim();
+    const current = getCustomPresets();
+    const filtered = current.filter((item) => item?.name !== name);
+    filtered.push({
+      name,
+      customState,
+      updatedAt: new Date().toISOString(),
+    });
+    localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(filtered));
+  });
+}
+
+async function publishCustomPresetWithPrompt() {
+  const presetName = window.prompt("Name for public preset:");
+  if (!presetName || !presetName.trim()) return;
+  const authorName = window.prompt("Author name (optional):") || "anonymous";
+  const name = presetName.trim();
+
+  const { loadCustomState } = await import("./custom-editor.js");
+  const customState = loadCustomState();
+  if (!customState) return;
+
+  const res = await fetch(`${WORKER_BASE_URL}/presets`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name,
+      author: authorName.trim() || "anonymous",
+      customState,
+    }),
+  });
+
+  if (!res.ok) {
+    console.warn("Nowify: Failed to publish custom preset", res.status);
+    return;
+  }
+}
+
+function ensureCustomHeaderButtons(isCustom) {
+  const actions = document.querySelector(".cfg-header-actions");
+  if (!actions) return;
+  let exitBtn = document.getElementById("btn-exit-custom");
+  let saveBtn = document.getElementById("btn-save-custom-preset");
+  let publishBtn = document.getElementById("btn-publish-custom-preset");
+
+  if (isCustom) {
+    if (!saveBtn) {
+      saveBtn = document.createElement("button");
+      saveBtn.id = "btn-save-custom-preset";
+      saveBtn.className = "cfg-btn";
+      saveBtn.textContent = "Save custom preset";
+      saveBtn.addEventListener("click", () => {
+        saveCustomPresetWithPrompt();
+      });
+      actions.prepend(saveBtn);
+    }
+    if (!publishBtn) {
+      publishBtn = document.createElement("button");
+      publishBtn.id = "btn-publish-custom-preset";
+      publishBtn.className = "cfg-btn";
+      publishBtn.textContent = "Publish preset";
+      publishBtn.addEventListener("click", () => {
+        publishCustomPresetWithPrompt();
+      });
+      actions.prepend(publishBtn);
+    }
+    if (!exitBtn) {
+      exitBtn = document.createElement("button");
+      exitBtn.id = "btn-exit-custom";
+      exitBtn.className = "cfg-btn";
+      exitBtn.textContent = "Exit custom";
+      exitBtn.addEventListener("click", () => {
+        update({ layout: previousLayout || "glasscard" });
+      });
+      actions.prepend(exitBtn);
+    }
+  } else {
+    if (saveBtn) saveBtn.remove();
+    if (publishBtn) publishBtn.remove();
+    if (exitBtn) exitBtn.remove();
   }
 }
 

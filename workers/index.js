@@ -243,87 +243,120 @@ async function handleFeaturedThemes(request, env) {
 }
 
 async function handlePresets(request, env) {
+  if (request.method === "POST") {
+    const body = await request.json();
+    if (!body?.name || !body?.customState) {
+      return errorResponse("name and customState required", 400, env);
+    }
+    if (!env?.THEMES) {
+      return errorResponse("Preset storage unavailable", 503, env);
+    }
+    const id = generateCode();
+    const preset = {
+      id,
+      name: String(body.name).slice(0, 80),
+      author: String(body.author || "anonymous").slice(0, 40),
+      customState: body.customState,
+      createdAt: new Date().toISOString(),
+    };
+    await env.THEMES.put(`publicPreset:${id}`, JSON.stringify(preset), {
+      expirationTtl: 60 * 60 * 24 * 365,
+    });
+    return jsonResponse({ ok: true, id }, 200, env);
+  }
+
   if (request.method !== "GET") {
     return errorResponse("Method not allowed", 405, env);
   }
-  return jsonResponse(
+
+  const builtinPresets = [
     {
-      presets: [
-        {
-          name: "classic",
-          label: "Classic Vinyl",
-          description: "The original SpotiStream look, refined",
-          config: {
-            layout: "record",
-            theme: "spotify",
-            vinyl: false,
-            moodSync: true,
-            showProgress: true,
-            showBpm: false,
-            transparent: false,
-          },
-        },
-        {
-          name: "vinyl3d",
-          label: "3D Vinyl Pro",
-          description: "Spinning 3D disc with mood lighting",
-          config: {
-            layout: "record",
-            theme: "spotify",
-            vinyl: true,
-            moodSync: true,
-            showProgress: true,
-            showBpm: true,
-            transparent: false,
-          },
-        },
-        {
-          name: "minimal-dark",
-          label: "Minimal Dark",
-          description: "Clean bar overlay for competitive streams",
-          config: {
-            layout: "bar",
-            theme: "minimal",
-            vinyl: false,
-            moodSync: false,
-            showProgress: false,
-            showBpm: false,
-            transparent: true,
-          },
-        },
-        {
-          name: "neon-card",
-          label: "Neon Card",
-          description: "Bold neon colours with BPM pulse",
-          config: {
-            layout: "card",
-            theme: "neon",
-            vinyl: false,
-            moodSync: true,
-            showProgress: true,
-            showBpm: true,
-            transparent: false,
-          },
-        },
-        {
-          name: "lofi-vibes",
-          label: "Lo-Fi Vibes",
-          description: "Warm tones for chill study streams",
-          config: {
-            layout: "record",
-            theme: "lofi",
-            vinyl: false,
-            moodSync: true,
-            showProgress: true,
-            showBpm: false,
-            transparent: false,
-          },
-        },
-      ],
+      name: "classic",
+      label: "Classic Vinyl",
+      description: "The original SpotiStream look, refined",
+      config: {
+        layout: "record",
+        theme: "spotify",
+        vinyl: false,
+        moodSync: true,
+        showProgress: true,
+        showBpm: false,
+        transparent: false,
+      },
     },
-    200,
-    env
-  );
+    {
+      name: "vinyl3d",
+      label: "3D Vinyl Pro",
+      description: "Spinning 3D disc with mood lighting",
+      config: {
+        layout: "record",
+        theme: "spotify",
+        vinyl: true,
+        moodSync: true,
+        showProgress: true,
+        showBpm: true,
+        transparent: false,
+      },
+    },
+    {
+      name: "minimal-dark",
+      label: "Minimal Dark",
+      description: "Clean bar overlay for competitive streams",
+      config: {
+        layout: "bar",
+        theme: "minimal",
+        vinyl: false,
+        moodSync: false,
+        showProgress: false,
+        showBpm: false,
+        transparent: true,
+      },
+    },
+    {
+      name: "neon-card",
+      label: "Neon Card",
+      description: "Bold neon colours with BPM pulse",
+      config: {
+        layout: "card",
+        theme: "neon",
+        vinyl: false,
+        moodSync: true,
+        showProgress: true,
+        showBpm: true,
+        transparent: false,
+      },
+    },
+    {
+      name: "lofi-vibes",
+      label: "Lo-Fi Vibes",
+      description: "Warm tones for chill study streams",
+      config: {
+        layout: "record",
+        theme: "lofi",
+        vinyl: false,
+        moodSync: true,
+        showProgress: true,
+        showBpm: false,
+        transparent: false,
+      },
+    },
+  ];
+
+  const publicPresets = [];
+  if (env?.THEMES) {
+    const listed = await env.THEMES.list({ prefix: "publicPreset:", limit: 100 });
+    for (const key of listed.keys || []) {
+      const raw = await env.THEMES.get(key.name);
+      if (!raw) continue;
+      try {
+        publicPresets.push(JSON.parse(raw));
+      } catch (_error) {
+        // ignore invalid entries
+      }
+    }
+  }
+
+  return jsonResponse({ presets: [...publicPresets, ...builtinPresets] }, 200, env);
 }
 
 async function handleYouTubeEvents(request, env) {
