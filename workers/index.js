@@ -53,6 +53,7 @@ export default {
     if (path === "/theme") return handleTheme(request, env, url);
     if (path === "/themes/featured") return handleFeaturedThemes(request, env);
     if (path === "/presets") return handlePresets(request, env);
+    if (path.startsWith("/presets/")) return handlePresetDelete(request, env, path);
     if (path === "/youtube/events") return handleYouTubeEvents(request, env);
     if (path === "/youtube/webhook") return handleYouTubeWebhook(request, env, url);
     if (path === "/proxy") return handleProxy(request, env, url);
@@ -257,6 +258,7 @@ async function handlePresets(request, env) {
       name: String(body.name).slice(0, 80),
       author: String(body.author || "anonymous").slice(0, 40),
       customState: body.customState,
+      ownerKey: String(body.ownerKey || "").slice(0, 120),
       createdAt: new Date().toISOString(),
     };
     await env.THEMES.put(`publicPreset:${id}`, JSON.stringify(preset), {
@@ -357,6 +359,32 @@ async function handlePresets(request, env) {
   }
 
   return jsonResponse({ presets: [...publicPresets, ...builtinPresets] }, 200, env);
+}
+
+async function handlePresetDelete(request, env, path) {
+  if (request.method !== "DELETE") {
+    return errorResponse("Method not allowed", 405, env);
+  }
+  if (!env?.THEMES) {
+    return errorResponse("Preset storage unavailable", 503, env);
+  }
+  const id = path.split("/")[2];
+  if (!id) return errorResponse("preset id required", 400, env);
+  const raw = await env.THEMES.get(`publicPreset:${id}`);
+  if (!raw) return errorResponse("Preset not found", 404, env);
+  const body = await request.json().catch(() => ({}));
+  const incomingOwnerKey = String(body?.ownerKey || "");
+  let preset;
+  try {
+    preset = JSON.parse(raw);
+  } catch (_error) {
+    return errorResponse("Invalid preset data", 500, env);
+  }
+  if (!preset?.ownerKey || incomingOwnerKey !== preset.ownerKey) {
+    return errorResponse("Forbidden", 403, env);
+  }
+  await env.THEMES.delete(`publicPreset:${id}`);
+  return jsonResponse({ ok: true }, 200, env);
 }
 
 async function handleYouTubeEvents(request, env) {

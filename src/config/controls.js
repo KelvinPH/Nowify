@@ -25,6 +25,7 @@ let inputDebounceTimer = null;
 let previousLayout = "glasscard";
 const CUSTOM_PRESETS_KEY = "nowify_custom_presets";
 const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
+const OWNER_KEY_STORAGE = "nowify_owner_key";
 
 /** Builds the full overlay URL from the current configurator state. */
 export function buildOverlayUrl(currentState) {
@@ -280,22 +281,12 @@ function getCustomPresets() {
   }
 }
 
-function saveCustomPresetWithPrompt() {
-  import("./custom-editor.js").then(({ loadCustomState }) => {
-    const presetName = window.prompt("Name your custom preset:");
-    if (!presetName || !presetName.trim()) return;
-    const customState = loadCustomState();
-    if (!customState) return;
-    const name = presetName.trim();
-    const current = getCustomPresets();
-    const filtered = current.filter((item) => item?.name !== name);
-    filtered.push({
-      name,
-      customState,
-      updatedAt: new Date().toISOString(),
-    });
-    localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(filtered));
-  });
+function getOrCreateOwnerKey() {
+  const existing = localStorage.getItem(OWNER_KEY_STORAGE);
+  if (existing) return existing;
+  const generated = (crypto.randomUUID && crypto.randomUUID()) || `${Date.now()}-${Math.random()}`;
+  localStorage.setItem(OWNER_KEY_STORAGE, generated);
+  return generated;
 }
 
 async function publishCustomPresetWithPrompt() {
@@ -303,6 +294,7 @@ async function publishCustomPresetWithPrompt() {
   if (!presetName || !presetName.trim()) return;
   const authorName = window.prompt("Author name (optional):") || "anonymous";
   const name = presetName.trim();
+  const ownerKey = getOrCreateOwnerKey();
 
   const { loadCustomState } = await import("./custom-editor.js");
   const customState = loadCustomState();
@@ -315,6 +307,7 @@ async function publishCustomPresetWithPrompt() {
       name,
       author: authorName.trim() || "anonymous",
       customState,
+      ownerKey,
     }),
   });
 
@@ -328,20 +321,9 @@ function ensureCustomHeaderButtons(isCustom) {
   const actions = document.querySelector(".cfg-header-actions");
   if (!actions) return;
   let exitBtn = document.getElementById("btn-exit-custom");
-  let saveBtn = document.getElementById("btn-save-custom-preset");
   let publishBtn = document.getElementById("btn-publish-custom-preset");
 
   if (isCustom) {
-    if (!saveBtn) {
-      saveBtn = document.createElement("button");
-      saveBtn.id = "btn-save-custom-preset";
-      saveBtn.className = "cfg-btn";
-      saveBtn.textContent = "Save custom preset";
-      saveBtn.addEventListener("click", () => {
-        saveCustomPresetWithPrompt();
-      });
-      actions.prepend(saveBtn);
-    }
     if (!publishBtn) {
       publishBtn = document.createElement("button");
       publishBtn.id = "btn-publish-custom-preset";
@@ -363,10 +345,162 @@ function ensureCustomHeaderButtons(isCustom) {
       actions.prepend(exitBtn);
     }
   } else {
-    if (saveBtn) saveBtn.remove();
     if (publishBtn) publishBtn.remove();
     if (exitBtn) exitBtn.remove();
   }
+}
+
+function ensurePresetHeaderButton() {
+  const actions = document.querySelector(".cfg-header-actions");
+  if (!actions) return;
+  let presetsBtn = document.getElementById("btn-presets");
+  if (presetsBtn) return;
+  presetsBtn = document.createElement("button");
+  presetsBtn.id = "btn-presets";
+  presetsBtn.className = "cfg-btn";
+  presetsBtn.textContent = "Presets";
+  presetsBtn.addEventListener("click", () => openPresetsModal());
+  actions.prepend(presetsBtn);
+}
+
+function closePresetsModal() {
+  const modal = document.getElementById("cfg-presets-modal");
+  if (modal) modal.remove();
+}
+
+function applyCustomState(customState) {
+  if (!customState) return;
+  localStorage.setItem("nowify_custom_layout", JSON.stringify(customState));
+  update({ layout: "custom" });
+}
+
+function deleteLocalPresetByName(name) {
+  if (!name) return;
+  const kept = getCustomPresets().filter((p) => p?.name !== name);
+  localStorage.setItem(CUSTOM_PRESETS_KEY, JSON.stringify(kept));
+}
+
+function renderLocalPresetList() {
+  const listEl = document.getElementById("cfg-presets-local");
+  if (!listEl) return;
+  const localPresets = getCustomPresets().slice().reverse();
+  if (!localPresets.length) {
+    listEl.innerHTML = '<div class="cfg-presets-empty">No saved presets yet.</div>';
+    return;
+  }
+  listEl.innerHTML = localPresets
+    .map(
+      (p) => `<div class="cfg-presets-row">
+        <button class="cfg-presets-item" data-local-apply="${escCfg(p.name)}">
+          <span>${p.name || "Untitled"}</span>
+        </button>
+        <button class="cfg-presets-delete" data-local-delete="${escCfg(p.name)}">Delete</button>
+      </div>`
+    )
+    .join("");
+
+  listEl.querySelectorAll("[data-local-apply]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const name = btn.getAttribute("data-local-apply");
+      const target = localPresets.find((p) => p?.name === name);
+      if (!target?.customState) return;
+      applyCustomState(target.customState);
+      closePresetsModal();
+    });
+  });
+  listEl.querySelectorAll("[data-local-delete]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const name = btn.getAttribute("data-local-delete");
+      deleteLocalPresetByName(name);
+      renderLocalPresetList();
+    });
+  });
+}
+
+async function renderPublicPresetList() {
+  const listEl = document.getElementById("cfg-presets-public");
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="cfg-presets-empty">Loading presets...</div>';
+  try {
+    const ownerKey = getOrCreateOwnerKey();
+    const res = await fetch(`${WORKER_BASE_URL}/presets`);
+    if (!res.ok) throw new Error(`status ${res.status}`);
+    const data = await res.json();
+    const presets = (data?.presets || []).filter((p) => p?.customState);
+    if (!presets.length) {
+      listEl.innerHTML = '<div class="cfg-presets-empty">No public presets yet.</div>';
+      return;
+    }
+    listEl.innerHTML = presets
+      .slice(0, 32)
+      .map(
+        (p) => `<div class="cfg-presets-row">
+          <button class="cfg-presets-item" data-public-idx="${p.id}">
+            <span>${p.name || "Untitled"} - by ${p.author || "anonymous"}</span>
+          </button>
+          ${
+            p.ownerKey === ownerKey
+              ? `<button class="cfg-presets-delete" data-public-delete="${p.id}">Delete</button>`
+              : ""
+          }
+        </div>`
+      )
+      .join("");
+
+    listEl.querySelectorAll("[data-public-idx]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.getAttribute("data-public-idx");
+        const selected = presets.find((p) => p.id === id);
+        if (!selected?.customState) return;
+        applyCustomState(selected.customState);
+        closePresetsModal();
+      });
+    });
+    listEl.querySelectorAll("[data-public-delete]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-public-delete");
+        const ownerKey = getOrCreateOwnerKey();
+        const res = await fetch(`${WORKER_BASE_URL}/presets/${id}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ownerKey }),
+        });
+        if (!res.ok) return;
+        await renderPublicPresetList();
+      });
+    });
+  } catch (_error) {
+    listEl.innerHTML = '<div class="cfg-presets-empty">Could not load public presets.</div>';
+  }
+}
+
+async function openPresetsModal() {
+  closePresetsModal();
+  const shell = document.getElementById("cfg-shell");
+  if (!shell) return;
+  const modal = document.createElement("div");
+  modal.id = "cfg-presets-modal";
+  modal.className = "cfg-presets-modal";
+  modal.innerHTML = `
+    <div class="cfg-presets-dialog">
+      <div class="cfg-presets-header">
+        <div class="cfg-presets-title">Presets</div>
+        <button class="cfg-btn" id="cfg-presets-close">Close</button>
+      </div>
+      <div class="cfg-presets-section-label">Saved presets</div>
+      <div class="cfg-presets-list" id="cfg-presets-local"></div>
+      <div class="cfg-presets-section-label">Public presets</div>
+      <div class="cfg-presets-list" id="cfg-presets-public"></div>
+    </div>
+  `;
+  shell.appendChild(modal);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closePresetsModal();
+  });
+  const closeBtn = document.getElementById("cfg-presets-close");
+  if (closeBtn) closeBtn.addEventListener("click", () => closePresetsModal());
+  renderLocalPresetList();
+  await renderPublicPresetList();
 }
 
 function updateCustomPreview(customState) {
@@ -402,6 +536,7 @@ function update(newState) {
   const urlDisplay = document.getElementById("cfg-url-display");
   if (iframe) iframe.src = url;
   if (urlDisplay) urlDisplay.textContent = url;
+  ensurePresetHeaderButton();
   renderSidebar();
   checkCustomMode();
 }
@@ -418,6 +553,7 @@ export function initConfig() {
   }
 
   renderSidebar();
+  ensurePresetHeaderButton();
   checkCustomMode();
   update({});
 
