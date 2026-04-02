@@ -41,6 +41,11 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   border-radius: 8px; font-size: 13px; cursor: pointer;
   transition: all 0.15s; white-space: nowrap;
 }
+.cfg-btn-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
 .cfg-btn:hover { background: var(--cfg-surface2); border-color: rgba(255,255,255,0.2); }
 #btn-copy { background: var(--cfg-accent); border-color: var(--cfg-accent); color: #0b0d10; font-weight: 600; }
 #btn-copy:hover { opacity: 0.88; }
