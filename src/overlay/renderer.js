@@ -719,10 +719,24 @@ async function resolveTwitchUserId(channelName, token) {
 /** Initializes auth, applies config, and starts overlay polling. */
 export async function init() {
   config = parseConfig();
+  const callbackHasCode = new URLSearchParams(window.location.search).has("code");
+  const storedClientId = localStorage.getItem("nowify_client_id") || "";
+  if (!config.clientId && storedClientId) {
+    config.clientId = storedClientId;
+  }
   document.documentElement.setAttribute("data-theme", config.theme);
   const useLastfm = !config.clientId && config.lastfmUsername && config.lastfmApiKey;
   const hasSpotifySource = Boolean(config.clientId);
   const hasLastfmSource = Boolean(config.lastfmUsername && config.lastfmApiKey);
+
+  if (callbackHasCode) {
+    const callbackHandled = await handleAuthCallback();
+    if (callbackHandled) {
+      await startPolling();
+      startProgressTimer();
+      return;
+    }
+  }
 
   if (config.demo || (!config.clientId && !hasLastfmSource)) {
     startDemo();
@@ -738,17 +752,14 @@ export async function init() {
 
   if (!useLastfm) {
     localStorage.setItem("nowify_client_id", config.clientId);
-    const callbackHandled = await handleAuthCallback();
-    if (!callbackHandled) {
-      try {
-        await getValidToken();
-      } catch (error) {
-        if (error?.name === "NoTokenError" || error instanceof NoTokenError) {
-          await startAuthRedirect();
-          return;
-        }
-        console.warn("[Spotify] Init token check failed:", error);
+    try {
+      await getValidToken();
+    } catch (error) {
+      if (error?.name === "NoTokenError" || error instanceof NoTokenError) {
+        await startAuthRedirect();
+        return;
       }
+      console.warn("[Spotify] Init token check failed:", error);
     }
   }
 
