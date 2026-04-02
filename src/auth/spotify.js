@@ -26,6 +26,13 @@ const REDIRECT_URI = `${window.location.origin}${APP_BASE_PATH}overlay.html`;
 const PKCE_CHARS =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
 
+export class NoTokenError extends Error {
+  constructor() {
+    super("No refresh token available");
+    this.name = "NoTokenError";
+  }
+}
+
 /** Generates a random PKCE code verifier string. */
 function generateCodeVerifier() {
   const bytes = new Uint8Array(128);
@@ -165,7 +172,7 @@ export async function login(clientId) {
 export async function refreshToken() {
   const existingRefreshToken = getRefreshToken();
   if (!existingRefreshToken) {
-    throw new Error("No refresh token available");
+    throw new NoTokenError();
   }
 
   const clientId = getClientId();
@@ -203,6 +210,12 @@ export async function refreshToken() {
 
 /** Returns a non-expired access token for API requests. */
 export async function getValidToken() {
+  const accessToken = getAccessToken();
+  const refresh = getRefreshToken();
+  if (!accessToken && !refresh) {
+    throw new NoTokenError();
+  }
+
   if (isExpired()) {
     await refreshToken();
   }
