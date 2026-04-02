@@ -20,6 +20,10 @@ function renderLanding() {
 }
 
 export function init() {
+  if (window.location.pathname.endsWith("overlay.html")) {
+    import("./overlay/renderer.js").then(({ init }) => init());
+    return;
+  }
   renderLanding();
 }
 

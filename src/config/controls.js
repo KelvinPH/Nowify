@@ -1,6 +1,9 @@
+import { initWizard, isSetupComplete, showWizard } from "./wizard.js";
+
 const DEFAULT_STATE = {
   layout: "glasscard",
   theme: "obsidian",
+  source: "spotify",
   clientId: "",
   showProgress: true,
   showBpm: false,
@@ -25,6 +28,7 @@ const LAYOUT_OPTIONS = {
 let state = { ...DEFAULT_STATE };
 let inputDebounceTimer = null;
 let previousLayout = "glasscard";
+let sourceSettingsOpen = false;
 const CUSTOM_PRESETS_KEY = "nowify_custom_presets";
 const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
 const OWNER_KEY_STORAGE = "nowify_owner_key";
@@ -105,32 +109,86 @@ function renderSidebar() {
   };
 
   sidebar.innerHTML = `
-  <div class="cfg-intro">
-    <div class="cfg-intro-step">
-      <span class="cfg-step-num">1</span>
-      <div>
-        <div class="cfg-step-title">Create a Spotify app</div>
-        <div class="cfg-step-body">
-          Go to <a href="https://developer.spotify.com/dashboard" target="_blank" class="cfg-link">developer.spotify.com</a>,
-          create an app, then add this redirect URI:
+  <div class="cfg-source-bar">
+    <span class="cfg-source-label">Music source</span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="cfg-source-pills">
+        <button class="cfg-source-pill ${state.source === "spotify" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="spotify" type="button">
+          Spotify
+        </button>
+        <button class="cfg-source-pill ${state.source === "lastfm" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="lastfm" type="button">
+          Last.fm
+        </button>
+      </div>
+      <button id="btn-source-settings" class="cfg-gear-btn" type="button" title="Settings">
+        &#9881;
+      </button>
+    </div>
+  </div>
+
+  ${sourceSettingsOpen ? `
+    <div class="cfg-section" style="padding-top:14px;">
+      ${state.source === "spotify" ? `
+        <div class="cfg-section-label">Spotify API key</div>
+        <input
+          id="ctrl-clientId"
+          class="cfg-input"
+          placeholder="Paste your Spotify Client ID"
+          value="${escCfg(state.clientId)}"
+        />
+        <div class="cfg-hint">
+          Uses your Client ID for the overlay. The redirect URI is:
           <div class="cfg-copy-box" id="cfg-redirect-uri">${getRedirectUri()}</div>
         </div>
-      </div>
+      ` : `
+        <div class="cfg-section-header" style="margin-bottom:8px;">
+          <div class="cfg-section-label">Last.fm API keys</div>
+          ${
+            state.lastfmUsername || state.lastfmApiKey
+              ? `<button class="cfg-disconnect-btn" id="btn-lastfm-disconnect" type="button">Disconnect</button>`
+              : ""
+          }
+        </div>
+        <div class="cfg-source-info" style="margin-bottom:10px;">
+          Used to fetch your now playing track from Last.fm recent tracks.
+        </div>
+        <input
+          id="ctrl-lastfmUsername"
+          class="cfg-input cfg-input-sm"
+          type="text"
+          placeholder="Last.fm username"
+          value="${escCfg(state.lastfmUsername)}"
+        />
+        <input
+          id="ctrl-lastfmApiKey"
+          class="cfg-input cfg-input-sm"
+          type="text"
+          placeholder="API key"
+          value="${escCfg(state.lastfmApiKey)}"
+        />
+        ${
+          state.lastfmUsername && state.lastfmApiKey
+            ? `<div class="cfg-source-active-badge">Last.fm active. Now playing enabled.</div>`
+            : ""
+        }
+      `}
     </div>
-    <div class="cfg-intro-step">
-      <span class="cfg-step-num">2</span>
-      <div>
-        <div class="cfg-step-title">Paste your Client ID</div>
-        <input id="ctrl-clientId" class="cfg-input" placeholder="e.g. fe21f433..." value="${escCfg(state.clientId)}" />
-      </div>
+  ` : ""}
+
+  <div class="cfg-divider"></div>
+
+  <div class="cfg-section">
+    <div class="cfg-section-header">
+      <div class="cfg-section-label">Twitch (optional)</div>
+      ${
+        state.twitchChannel
+          ? `<button class="cfg-disconnect-btn" id="btn-twitch-disconnect" type="button">Disconnect</button>`
+          : ""
+      }
     </div>
-    <div class="cfg-intro-step">
-      <span class="cfg-step-num">3</span>
-      <div>
-        <div class="cfg-step-title">Design, then copy URL to OBS</div>
-        <div class="cfg-step-body">Browser Source, 900 x 300 px, then right click and select Interact to log in</div>
-      </div>
-    </div>
+    <input id="ctrl-twitchChannel" class="cfg-input cfg-input-sm" placeholder="Channel name" value="${escCfg(state.twitchChannel)}" />
+    <input id="ctrl-twitchToken" class="cfg-input cfg-input-sm" type="password" placeholder="OAuth token from twitchtokengenerator.com" value="${escCfg(state.twitchToken)}" />
+    <div class="cfg-hint">Enables !sr, !skip, and !prev in chat</div>
   </div>
 
   <div class="cfg-divider"></div>
@@ -175,65 +233,20 @@ function renderSidebar() {
   <div class="cfg-section">
     <div class="cfg-section-label">Options</div>
     ${toggleRow("Progress bar", "showProgress", "Track position indicator", LAYOUT_OPTIONS[state.layout]?.showProgress ?? true)}
-    ${toggleRow("Show BPM", "showBpm", "Tempo, albumfocus layout only", LAYOUT_OPTIONS[state.layout]?.showBpm ?? false)}
+    ${state.source === "spotify" ? toggleRow("Show BPM", "showBpm", "Tempo, albumfocus layout only", LAYOUT_OPTIONS[state.layout]?.showBpm ?? false) : ""}
     ${toggleRow("Transparent background", "transparent", "Removes background for gameplay scenes", LAYOUT_OPTIONS[state.layout]?.transparent ?? true)}
-    ${toggleRow("Mood sync", "moodSync", "Overrides theme background colour with song mood", LAYOUT_OPTIONS[state.layout]?.moodSync ?? true)}
-  </div>
-
-  <div class="cfg-divider"></div>
-
-  <div class="cfg-section">
-    <div class="cfg-section-header">
-      <div class="cfg-section-label">Twitch (optional)</div>
-      ${
-        state.twitchChannel
-          ? `<button class="cfg-disconnect-btn" id="btn-twitch-disconnect">Disconnect</button>`
-          : ""
-      }
-    </div>
-    <input id="ctrl-twitchChannel" class="cfg-input cfg-input-sm" placeholder="Channel name" value="${escCfg(state.twitchChannel)}" />
-    <input id="ctrl-twitchToken" class="cfg-input cfg-input-sm" type="password" placeholder="OAuth token from twitchtokengenerator.com" value="${escCfg(state.twitchToken)}" />
-    <div class="cfg-hint">Enables !sr, !skip, and !prev in chat</div>
-  </div>
-
-  <div class="cfg-section">
-    <div class="cfg-section-header">
-      <div class="cfg-section-label">Last.fm (optional)</div>
-      ${
-        state.lastfmUsername || state.lastfmApiKey
-          ? `<button class="cfg-disconnect-btn" id="btn-lastfm-disconnect">Disconnect</button>`
-          : ""
-      }
-    </div>
-
-    <div class="cfg-source-info">
-      Last.fm scrobbles music from Spotify, Apple Music, Tidal,
-      and more. Use it as a fallback source or for cross platform
-      listening history. Get a free API key at
-      <a href="https://www.last.fm/api/account/create" target="_blank" class="cfg-link">last.fm/api</a>.
-    </div>
-
-    <input
-      id="ctrl-lastfmUsername"
-      class="cfg-input cfg-input-sm"
-      type="text"
-      placeholder="Last.fm username"
-      value="${escCfg(state.lastfmUsername)}"
-    />
-    <input
-      id="ctrl-lastfmApiKey"
-      class="cfg-input cfg-input-sm"
-      type="text"
-      placeholder="API key"
-      value="${escCfg(state.lastfmApiKey)}"
-    />
-
+    ${state.source === "spotify" ? toggleRow("Mood sync", "moodSync", "Overrides theme background colour with song mood", LAYOUT_OPTIONS[state.layout]?.moodSync ?? true) : ""}
     ${
-      state.lastfmUsername && state.lastfmApiKey
-        ? `<div class="cfg-source-active-badge">Last.fm active. Scrobble history enabled.</div>`
+      state.source === "lastfm"
+        ? `<div class="cfg-lastfm-notice">
+      Using Last.fm — BPM display and mood sync are not available.
+      Switch to Spotify for full features.
+    </div>`
         : ""
     }
   </div>
+
+  <div class="cfg-divider"></div>
 `;
 
   sidebar.querySelectorAll("[data-set-key]").forEach((button) => {
@@ -250,6 +263,14 @@ function renderSidebar() {
       update({ [key]: input.checked });
     });
   });
+
+  const settingsBtn = document.getElementById("btn-source-settings");
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => {
+      sourceSettingsOpen = !sourceSettingsOpen;
+      renderSidebar();
+    });
+  }
 
   const disconnectBtn = document.getElementById("btn-twitch-disconnect");
   if (disconnectBtn) {
@@ -413,6 +434,36 @@ function ensurePresetHeaderButton() {
   actions.prepend(presetsBtn);
 }
 
+function ensureSetupHeaderButton() {
+  const actions = document.querySelector(".cfg-header-actions");
+  if (!actions) return;
+  let setupBtn = document.getElementById("btn-setup");
+  if (setupBtn) return;
+
+  setupBtn = document.createElement("button");
+  setupBtn.id = "btn-setup";
+  setupBtn.className = "cfg-btn";
+  setupBtn.textContent = "Setup";
+  setupBtn.addEventListener("click", () => {
+    showWizard((chosenSource) => {
+      state.source = chosenSource;
+      const savedLastfm = localStorage.getItem("nowify_lastfm");
+      if (savedLastfm) {
+        try {
+          const parsed = JSON.parse(savedLastfm);
+          state.lastfmUsername = parsed.username || "";
+          state.lastfmApiKey = parsed.apiKey || "";
+        } catch (_error) {}
+      } else {
+        state.lastfmUsername = "";
+        state.lastfmApiKey = "";
+      }
+      update({ source: chosenSource });
+    });
+  });
+  actions.prepend(setupBtn);
+}
+
 function closePresetsModal() {
   const modal = document.getElementById("cfg-presets-modal");
   if (modal) modal.remove();
@@ -566,11 +617,32 @@ function updateCustomPreview(customState) {
 /** Merges state updates and refreshes preview URL and sidebar UI. */
 function update(newState) {
   Object.assign(state, newState);
+  if (newState.source !== undefined) {
+    localStorage.setItem("nowify_source", state.source);
+  }
+
+  if (newState.clientId !== undefined) {
+    localStorage.setItem("nowify_client_id", state.clientId);
+  }
+
+  if (newState.source === "spotify") {
+    state.clientId = localStorage.getItem("nowify_client_id") || "";
+  }
+
+  if (state.source === "lastfm") {
+    state.clientId = "";
+    state.showBpm = false;
+    state.moodSync = false;
+  }
   if (newState.layout) {
     const relevant = LAYOUT_OPTIONS[newState.layout] || {};
     if (!relevant.showProgress) state.showProgress = false;
     if (!relevant.showBpm) state.showBpm = false;
     if (!relevant.moodSync) state.moodSync = false;
+  }
+  if (state.source === "lastfm") {
+    state.showBpm = false;
+    state.moodSync = false;
   }
   if (newState.twitchChannel !== undefined || newState.twitchToken !== undefined) {
     localStorage.setItem(
@@ -602,57 +674,97 @@ function update(newState) {
 
 /** Initializes configurator controls, preview syncing, and header actions. */
 export function initConfig() {
-  const savedTwitch = localStorage.getItem("nowify_twitch");
-  if (savedTwitch) {
-    try {
-      const parsed = JSON.parse(savedTwitch);
-      state.twitchChannel = parsed.channel || "";
-      state.twitchToken = parsed.token || "";
-    } catch (_error) {}
+  function finishInit() {
+    const savedTwitch = localStorage.getItem("nowify_twitch");
+    if (savedTwitch) {
+      try {
+        const parsed = JSON.parse(savedTwitch);
+        state.twitchChannel = parsed.channel || "";
+        state.twitchToken = parsed.token || "";
+      } catch (_error) {}
+    }
+
+    state.clientId = localStorage.getItem("nowify_client_id") || "";
+
+    const savedLastfm = localStorage.getItem("nowify_lastfm");
+    if (savedLastfm) {
+      try {
+        const parsed = JSON.parse(savedLastfm);
+        state.lastfmUsername = parsed.username || "";
+        state.lastfmApiKey = parsed.apiKey || "";
+      } catch (_error) {}
+    }
+
+    const savedSource = localStorage.getItem("nowify_source");
+    if (savedSource === "spotify" || savedSource === "lastfm") {
+      state.source = savedSource;
+    } else {
+      const hasLastfm = Boolean(state.lastfmUsername && state.lastfmApiKey);
+      state.source = hasLastfm && !state.clientId ? "lastfm" : "spotify";
+    }
+
+    if (state.source === "lastfm") {
+      state.clientId = "";
+      state.showBpm = false;
+      state.moodSync = false;
+    }
+
+    renderSidebar();
+    ensurePresetHeaderButton();
+    ensureSetupHeaderButton();
+    checkCustomMode();
+    update({});
+
+    const copyButton = document.getElementById("btn-copy");
+    const openButton = document.getElementById("btn-open");
+    const resetButton = document.getElementById("btn-reset");
+
+    if (copyButton) {
+      copyButton.addEventListener("click", async () => {
+        const activeUrl =
+          document.getElementById("cfg-url-display")?.textContent || buildOverlayUrl(state);
+        await navigator.clipboard.writeText(activeUrl);
+        const previousText = copyButton.textContent;
+        copyButton.textContent = "Copied!";
+        window.setTimeout(() => {
+          copyButton.textContent = previousText;
+        }, 1000);
+      });
+    }
+
+    if (openButton) {
+      openButton.addEventListener("click", () => {
+        const activeUrl =
+          document.getElementById("cfg-url-display")?.textContent || buildOverlayUrl(state);
+        window.open(activeUrl, "_blank");
+      });
+    }
+
+    if (resetButton) {
+      resetButton.addEventListener("click", () => {
+        state = { ...DEFAULT_STATE };
+        update({});
+      });
+    }
   }
-  const savedLastfm = localStorage.getItem("nowify_lastfm");
-  if (savedLastfm) {
-    try {
-      const parsed = JSON.parse(savedLastfm);
-      state.lastfmUsername = parsed.username || "";
-      state.lastfmApiKey = parsed.apiKey || "";
-    } catch (_error) {}
-  }
 
-  renderSidebar();
-  ensurePresetHeaderButton();
-  checkCustomMode();
-  update({});
+  if (!isSetupComplete()) {
+    initWizard((chosenSource) => {
+      state.source = chosenSource;
+      const savedLastfm = localStorage.getItem("nowify_lastfm");
+      if (savedLastfm) {
+        try {
+          const parsed = JSON.parse(savedLastfm);
+          state.lastfmUsername = parsed.username || "";
+          state.lastfmApiKey = parsed.apiKey || "";
+        } catch (_error) {}
+      }
 
-  const copyButton = document.getElementById("btn-copy");
-  const openButton = document.getElementById("btn-open");
-  const resetButton = document.getElementById("btn-reset");
-
-  if (copyButton) {
-    copyButton.addEventListener("click", async () => {
-      const activeUrl =
-        document.getElementById("cfg-url-display")?.textContent || buildOverlayUrl(state);
-      await navigator.clipboard.writeText(activeUrl);
-      const previousText = copyButton.textContent;
-      copyButton.textContent = "Copied!";
-      window.setTimeout(() => {
-        copyButton.textContent = previousText;
-      }, 1000);
+      finishInit();
+      update({ source: chosenSource });
     });
+    return;
   }
 
-  if (openButton) {
-    openButton.addEventListener("click", () => {
-      const activeUrl =
-        document.getElementById("cfg-url-display")?.textContent || buildOverlayUrl(state);
-      window.open(activeUrl, "_blank");
-    });
-  }
-
-  if (resetButton) {
-    resetButton.addEventListener("click", () => {
-      state = { ...DEFAULT_STATE };
-      update({});
-    });
-  }
+  finishInit();
 }
