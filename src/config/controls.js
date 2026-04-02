@@ -397,6 +397,23 @@ function renderSidebar() {
           Enable Songify web server in File -> Settings -> Web Server.
           Default port is 4002.
         </div>
+        <div class="cfg-songify-preview-note ${
+          typeof window !== "undefined" && window.location.protocol === "https:"
+            ? "cfg-songify-preview-note-warn"
+            : ""
+        }">
+          <strong>Live preview</strong> uses
+          <code>ws://localhost:${escCfg(String(state.songifyPort))}</code> from this
+          browser. Songify must run on the <strong>same PC</strong>, and this page
+          must be served over <strong>HTTP</strong> (for example
+          <code>http://localhost/…/config.html</code>). HTTPS pages cannot open that
+          WebSocket to your machine.
+          ${
+            typeof window !== "undefined" && window.location.protocol === "https:"
+              ? "<br /><br />You are on HTTPS, so the built-in preview will not receive Songify here. Run Nowify from a local HTTP server or paste the copied overlay URL into OBS Browser Source on the Songify PC."
+              : ""
+          }
+        </div>
         <div class="cfg-songify-beta-note">
           Songify integration is in beta. Some players or Songify versions may report
           slightly different metadata fields.

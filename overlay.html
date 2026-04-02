@@ -11,9 +11,7 @@
 <body>
   <div id="app"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script type="module">
-    import { init } from "./src/overlay/renderer.js";
-    init();
-  </script>
+  <!-- main.js picks Spotify/Last.fm (renderer) vs Songify (WebSocket) from ?source= -->
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>
