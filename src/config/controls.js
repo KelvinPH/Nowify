@@ -6,9 +6,16 @@ const DEFAULT_STATE = {
   source: "spotify",
   clientId: "",
   showProgress: true,
+  showTimeLeft: false,
+  showNextTrack: false,
   showBpm: false,
+  showAlbum: false,
+  showPlayState: false,
   transparent: false,
   moodSync: true,
+  stackDir: "row",
+  artPosition: "left",
+  maxCardWidth: 900,
   twitchChannel: "",
   twitchToken: "",
   lastfmUsername: "",
@@ -23,6 +30,39 @@ const LAYOUT_OPTIONS = {
   albumfocus: { showProgress: false, showBpm: true, transparent: true, moodSync: true },
   sidebar: { showProgress: true, showBpm: false, transparent: true, moodSync: true },
   custom: { showProgress: true, showBpm: true, transparent: true, moodSync: true },
+};
+
+const LAYOUT_CONTENT = {
+  glasscard: {
+    showProgress: true, showTimeLeft: true, showNextTrack: true,
+    showBpm: true, showAlbum: true, showPlayState: true,
+    stackDir: true, artPosition: true,
+  },
+  pill: {
+    showProgress: false, showTimeLeft: false, showNextTrack: false,
+    showBpm: false, showAlbum: false, showPlayState: true,
+    stackDir: false, artPosition: false,
+  },
+  island: {
+    showProgress: true, showTimeLeft: true, showNextTrack: false,
+    showBpm: true, showAlbum: true, showPlayState: true,
+    stackDir: false, artPosition: false,
+  },
+  strip: {
+    showProgress: false, showTimeLeft: true, showNextTrack: false,
+    showBpm: false, showAlbum: false, showPlayState: false,
+    stackDir: false, artPosition: true,
+  },
+  albumfocus: {
+    showProgress: true, showTimeLeft: true, showNextTrack: false,
+    showBpm: true, showAlbum: true, showPlayState: true,
+    stackDir: false, artPosition: false,
+  },
+  sidebar: {
+    showProgress: true, showTimeLeft: false, showNextTrack: false,
+    showBpm: false, showAlbum: false, showPlayState: false,
+    stackDir: false, artPosition: false,
+  },
 };
 
 let state = { ...DEFAULT_STATE };
@@ -232,10 +272,60 @@ function renderSidebar() {
 
   <div class="cfg-section">
     <div class="cfg-section-label">Options</div>
-    ${toggleRow("Progress bar", "showProgress", "Track position indicator", LAYOUT_OPTIONS[state.layout]?.showProgress ?? true)}
-    ${state.source === "spotify" ? toggleRow("Show BPM", "showBpm", "Tempo, albumfocus layout only", LAYOUT_OPTIONS[state.layout]?.showBpm ?? false) : ""}
     ${toggleRow("Transparent background", "transparent", "Removes background for gameplay scenes", LAYOUT_OPTIONS[state.layout]?.transparent ?? true)}
-    ${state.source === "spotify" ? toggleRow("Mood sync", "moodSync", "Overrides theme background colour with song mood", LAYOUT_OPTIONS[state.layout]?.moodSync ?? true) : ""}
+  </div>
+
+  <div class="cfg-divider"></div>
+
+  <div class="cfg-section">
+    <div class="cfg-section-label">Now playing</div>
+
+    ${LAYOUT_CONTENT[state.layout]?.showProgress !== false
+      ? toggleRow("Progress bar", "showProgress", "Track position indicator")
+      : ""}
+
+    ${LAYOUT_CONTENT[state.layout]?.showTimeLeft
+      ? toggleRow("Time remaining", "showTimeLeft", "Shows time left instead of elapsed")
+      : ""}
+
+    ${LAYOUT_CONTENT[state.layout]?.showNextTrack
+      ? toggleRow("Next track", "showNextTrack", "Requires queue permission — see setup")
+      : ""}
+
+    ${LAYOUT_CONTENT[state.layout]?.showBpm
+      ? toggleRow("BPM badge", "showBpm", "Tempo from Spotify audio features")
+      : ""}
+
+    ${LAYOUT_CONTENT[state.layout]?.showAlbum
+      ? toggleRow("Album name", "showAlbum", "")
+      : ""}
+
+    ${LAYOUT_CONTENT[state.layout]?.showPlayState
+      ? toggleRow("Play state dot", "showPlayState", "Pulsing dot when track is playing")
+      : ""}
+
+    ${state.layout === "custom" && LAYOUT_CONTENT[state.layout]?.stackDir
+      ? `<div class="cfg-section-label" style="margin-top:8px">Layout direction</div>
+         <div class="cfg-btn-group">
+           <button class="cfg-btn cfg-sm-btn ${state.stackDir === "row" ? "cfg-active" : ""}" data-set-key="stackDir" data-set-value="row">Horizontal</button>
+           <button class="cfg-btn cfg-sm-btn ${state.stackDir === "column" ? "cfg-active" : ""}" data-set-key="stackDir" data-set-value="column">Vertical</button>
+         </div>`
+      : ""}
+
+    ${state.layout === "custom" && LAYOUT_CONTENT[state.layout]?.artPosition
+      ? `<div class="cfg-section-label" style="margin-top:8px">Art position</div>
+         <div class="cfg-btn-group">
+           <button class="cfg-btn cfg-sm-btn ${state.artPosition === "left" ? "cfg-active" : ""}" data-set-key="artPosition" data-set-value="left">Left</button>
+           <button class="cfg-btn cfg-sm-btn ${state.artPosition === "right" ? "cfg-active" : ""}" data-set-key="artPosition" data-set-value="right">Right</button>
+         </div>`
+      : ""}
+  </div>
+
+  <div class="cfg-divider"></div>
+
+  <div class="cfg-section">
+    <div class="cfg-section-label">Mood sync</div>
+    ${toggleRow("Mood sync", "moodSync", "Background shifts with song energy — works on all layouts", state.source === "spotify")}
     ${
       state.source === "lastfm"
         ? `<div class="cfg-lastfm-notice">

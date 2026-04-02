@@ -49,6 +49,7 @@ function parseCustomConfig(params) {
     titleWeight: params.get("c_titleWeight") || "600",
     artistWeight: params.get("c_artistWeight") || "400",
     contentAlign: params.get("c_contentAlign") || "left",
+    contentGap: toCustomNumber(params.get("c_contentGap"), 6),
     letterSpacing: toCustomNumber(params.get("c_letterSpacing"), 0),
     textShadow: toCustomBool(params.get("c_textShadow"), false),
     artSize: toCustomNumber(params.get("c_artSize"), 52),
@@ -64,6 +65,35 @@ function parseCustomConfig(params) {
     showNextTrack: toCustomBool(params.get("c_showNextTrack"), false),
     showPlayState: toCustomBool(params.get("c_showPlayState"), false),
     showBpm: toCustomBool(params.get("c_showBpm"), false),
+    contentOrder: (params.get("c_contentOrder") || "title,artist,album,progress").split(","),
+    separatorStyle: params.get("c_separatorStyle") || "none",
+    showTimeLeft: toCustomBool(params.get("c_showTimeLeft"), false),
+    stackDir: params.get("c_stackDir") || "row",
+    artPosition: params.get("c_artPosition") || "left",
+    textAlign: params.get("c_textAlign") || "left",
+    maxCardWidth: toCustomNumber(params.get("c_maxCardWidth"), 900),
+    bgType: params.get("c_bgType") || "solid",
+    gradientAngle: toCustomNumber(params.get("c_gradientAngle"), 135),
+    gradientRadius: toCustomNumber(params.get("c_gradientRadius"), 70),
+    gradientColor1: params.get("c_gradientColor1") || "rgba(10,10,10,0.85)",
+    gradientColor2: params.get("c_gradientColor2") || "rgba(30,30,30,0.85)",
+    gradientColor3: params.get("c_gradientColor3") || "rgba(20,20,20,0.85)",
+    gradientColor4: params.get("c_gradientColor4") || "rgba(15,15,15,0.85)",
+    gradientPos1: toCustomNumber(params.get("c_gradientPos1"), 0),
+    gradientPos2: toCustomNumber(params.get("c_gradientPos2"), 100),
+    gradientPos3: toCustomNumber(params.get("c_gradientPos3"), 50),
+    gradientPos4: toCustomNumber(params.get("c_gradientPos4"), 75),
+    borderStyle: params.get("c_borderStyle") || "solid",
+    accentLine: toCustomBool(params.get("c_accentLine"), false),
+    accentLineColor: params.get("c_accentLineColor") || "#1DB954",
+    cardShadow: toCustomNumber(params.get("c_cardShadow"), 0),
+    innerGlow: toCustomNumber(params.get("c_innerGlow"), 0),
+    progressStyle: params.get("c_progressStyle") || "line",
+    progressPosition: params.get("c_progressPosition") || "bottom",
+    animateIn: params.get("c_animateIn") || "slide",
+    animateSpeed: toCustomNumber(params.get("c_animateSpeed"), 250),
+    trackTransition: params.get("c_trackTransition") || "crossfade",
+    moodTransition: toCustomBool(params.get("c_moodTransition"), true),
     progressHeight: toCustomNumber(params.get("c_progressHeight"), 2),
     customColors: toCustomBool(params.get("c_customColors"), false),
     colorBg: params.get("c_colorBg") || "#0a0a0a",
@@ -73,6 +103,72 @@ function parseCustomConfig(params) {
     colorProgress: params.get("c_colorProgress") || "#ffffff",
     colorBorder: params.get("c_colorBorder") || "rgba(255,255,255,0.12)",
   };
+}
+
+function buildBackgroundCSS(custom) {
+  // If user disabled custom colours, don't override theme/mood background.
+  if (!custom?.customColors) return "var(--nw-bg)";
+
+  const c1 = custom.gradientColor1 || "rgba(10,10,10,0.85)";
+  const c2 = custom.gradientColor2 || "rgba(30,30,30,0.85)";
+  const c3 = custom.gradientColor3 || "rgba(20,20,20,0.85)";
+  const c4 = custom.gradientColor4 || "rgba(15,15,15,0.85)";
+  const p1 = custom.gradientPos1 ?? 0;
+  const p2 = custom.gradientPos2 ?? 100;
+  const p3 = custom.gradientPos3 ?? 50;
+  const p4 = custom.gradientPos4 ?? 75;
+  const angle = custom.gradientAngle || 135;
+  const radialRadius = custom.gradientRadius ?? 70;
+  if (custom.bgType === "linear") return `linear-gradient(${angle}deg, ${c1} ${p1}%, ${c2} ${p2}%)`;
+  if (custom.bgType === "radial")
+    return `radial-gradient(circle at center, ${c1} ${p1}%, ${c2} ${radialRadius}%)`;
+  if (custom.bgType === "conic") return `conic-gradient(from ${angle}deg, ${c1}, ${c2}, ${c1})`;
+  if (custom.bgType === "multistop")
+    return `linear-gradient(${angle}deg, ${c1} ${p1}%, ${c2} ${p2}%, ${c3} ${p3}%, ${c4} ${p4}%)`;
+  return custom.colorBg || "var(--nw-bg)";
+}
+
+function applyAdvancedCssVars(custom) {
+  if (!custom) return;
+  const root = document.documentElement;
+  root.style.setProperty("--nw-stack-dir", custom.stackDir || "row");
+  root.style.setProperty("--nw-art-order", custom.artPosition === "right" ? "2" : "0");
+  root.style.setProperty("--nw-art-display", custom.artPosition === "hidden" ? "none" : "flex");
+  root.style.setProperty("--nw-text-align", custom.textAlign || "left");
+  root.style.setProperty("--nw-max-width", `${custom.maxCardWidth || 900}px`);
+  // background is derived from var(--nw-card-bg) which is now safe because buildBackgroundCSS
+  // respects custom.customColors.
+  root.style.setProperty("--nw-card-bg", buildBackgroundCSS(custom));
+  root.style.setProperty("--nw-border-width", `${custom.borderWidth || 0.5}px`);
+  root.style.setProperty("--nw-border-style", custom.borderStyle || "solid");
+  root.style.setProperty("--nw-border-color", custom.borderColor || "rgba(255,255,255,0.12)");
+  const shadows = [
+    "none",
+    "0 2px 8px rgba(0,0,0,0.3)",
+    "0 4px 20px rgba(0,0,0,0.4)",
+    "0 8px 32px rgba(0,0,0,0.5)",
+    "0 16px 48px rgba(0,0,0,0.6)",
+  ];
+  root.style.setProperty("--nw-card-shadow", shadows[custom.cardShadow || 0]);
+  const accent = custom.colorAccent || "var(--nw-accent)";
+  const glows = [
+    "none",
+    `inset 0 0 8px ${accent}22`,
+    `inset 0 0 16px ${accent}33`,
+    `inset 0 0 24px ${accent}44`,
+    `inset 0 0 32px ${accent}55`,
+  ];
+  root.style.setProperty("--nw-inner-glow", glows[custom.innerGlow || 0]);
+  if (custom.accentLine) {
+    root.style.setProperty("--nw-accent-line-color", custom.accentLineColor || "var(--nw-accent)");
+    root.style.setProperty("--nw-accent-line", "3px");
+  } else {
+    root.style.removeProperty("--nw-accent-line");
+  }
+  root.style.setProperty("--nw-animate-speed", `${custom.animateSpeed || 250}ms`);
+
+  // Keep border rendering radius-safe by using normal border style.
+  root.style.removeProperty("--nw-border-gradient");
 }
 
 function customShadow(level) {
@@ -94,12 +190,13 @@ function applyCustomStyles(rootEl, custom) {
 
   rootEl.style.display = "flex";
   rootEl.style.flexDirection = custom.direction === "column" ? "column" : "row";
-  rootEl.style.width = `${custom.cardWidth}px`;
-  rootEl.style.height = `${custom.cardHeight}px`;
+  const widthPx = custom.maxCardWidth || custom.cardWidth || 400;
+  rootEl.style.width = `${widthPx}px`;
   rootEl.style.maxWidth = "100%";
   rootEl.style.borderRadius = `${custom.cardRadius}px`;
   rootEl.style.padding = `${custom.cardPadding}px`;
   rootEl.style.borderWidth = `${custom.borderWidth}px`;
+  rootEl.dataset.nwBorderGradient = "";
   rootEl.style.borderColor = custom.borderColor;
   rootEl.style.backdropFilter = `blur(${custom.blurAmount}px) saturate(180%)`;
   rootEl.style.webkitBackdropFilter = `blur(${custom.blurAmount}px) saturate(180%)`;
@@ -108,9 +205,27 @@ function applyCustomStyles(rootEl, custom) {
   rootEl.style.alignItems = custom.direction === "column" ? "center" : "center";
   rootEl.style.justifyContent = custom.direction === "column" ? "center" : "flex-start";
   rootEl.style.fontFamily = customFontFamily(custom.fontFamily);
+  // For gradients we must use var(--nw-card-bg) instead of custom.colorBg.
   rootEl.style.background = custom.customColors
-    ? custom.colorBg
+    ? "var(--nw-card-bg)"
     : `rgba(10,10,10,${Math.max(0, Math.min(1, custom.bgOpacity / 100))})`;
+
+  // Mood sync should not override user-chosen colours.
+  rootEl.dataset.nwCustomColors = custom.customColors ? "1" : "";
+
+  // Allow the card to grow when more elements are enabled, instead of hard-clipping.
+  const visibleMetaCount =
+    (custom.showRemainingTime || custom.showTimeLeft ? 1 : 0) +
+    (custom.showNextTrack ? 1 : 0) +
+    (custom.showPlayState ? 1 : 0) +
+    (custom.showBpm ? 1 : 0);
+  const visibleContentCount =
+    (custom.showArtist ? 1 : 0) +
+    (custom.showAlbum ? 1 : 0) +
+    (custom.showProgress ? 1 : 0);
+  const extra = visibleMetaCount * 18 + visibleContentCount * 10;
+  rootEl.style.height = "auto";
+  rootEl.style.minHeight = `${Math.max(custom.cardHeight || 80, (custom.cardHeight || 80) + extra)}px`;
 
   const titleEl = rootEl.querySelector(".nw-title");
   const artistEl = rootEl.querySelector(".nw-artist");
@@ -171,10 +286,16 @@ function applyCustomStyles(rootEl, custom) {
   if (progressEl) {
     progressEl.style.display = custom.showProgress ? "" : "none";
     progressEl.style.height = `${custom.progressHeight}px`;
+    progressEl.dataset.progressStyle = custom.progressStyle || "line";
   }
 
   if (progressFill) {
-    progressFill.style.background = custom.customColors ? custom.colorProgress : "";
+    if (custom.progressStyle === "dots") {
+      const accentColor = custom.customColors ? custom.colorProgress : "var(--nw-accent)";
+      progressFill.style.background = `repeating-radial-gradient(circle at center, ${accentColor} 0 1.1px, transparent 1.25px)`;
+    } else {
+      progressFill.style.background = custom.customColors ? custom.colorProgress : "";
+    }
   }
 
   if (bpmEl) {
@@ -182,7 +303,8 @@ function applyCustomStyles(rootEl, custom) {
   }
 
   if (timeEl) {
-    timeEl.style.display = custom.showRemainingTime ? "" : "none";
+    timeEl.style.display =
+      custom.showTimeLeft || custom.showRemainingTime ? "" : "none";
     timeEl.style.fontSize = "11px";
     timeEl.style.color = custom.customColors ? custom.colorArtist : "";
     timeEl.style.textAlign = custom.contentAlign;
@@ -207,7 +329,10 @@ function applyCustomStyles(rootEl, custom) {
   }
 
   if (infoEl) {
+    infoEl.style.display = "flex";
+    infoEl.style.flexDirection = "column";
     infoEl.style.width = "100%";
+    infoEl.style.gap = `${Math.max(0, custom.contentGap ?? 6)}px`;
     infoEl.style.alignItems =
       custom.contentAlign === "center"
         ? "center"
@@ -243,6 +368,35 @@ function applyCustomStyles(rootEl, custom) {
   }
 }
 
+function applyDefaultDynamicFields(rootEl, track, nextTrack) {
+  if (!rootEl) return;
+  const albumEl = rootEl.querySelector(".nw-meta-album");
+  const timeEl = rootEl.querySelector(".nw-meta-time");
+  const nextEl = rootEl.querySelector(".nw-meta-next");
+  const playEl = rootEl.querySelector(".nw-meta-playstate");
+
+  if (albumEl) {
+    albumEl.textContent = track?.album ? `Album: ${track.album}` : "";
+  }
+
+  if (timeEl) {
+    if (config.showTimeLeft && track?.durationMs) {
+      const remainingMs = Math.max(0, (track.durationMs || 0) - (track.progressMs || 0));
+      timeEl.textContent = `-${fmtTime(remainingMs)}`;
+    } else {
+      timeEl.textContent = "";
+    }
+  }
+
+  if (nextEl) {
+    nextEl.textContent = config.showNextTrack && nextTrack?.title ? `Next: ${nextTrack.title}` : "";
+  }
+
+  if (playEl) {
+    playEl.innerHTML = config.showPlayState && track?.isPlaying ? '<div class="nw-playing-dot"></div>' : "";
+  }
+}
+
 function applyCustomDynamicFields(rootEl, track, extras, nextTrack) {
   if (!rootEl) return;
   const custom = config.custom || {};
@@ -257,7 +411,7 @@ function applyCustomDynamicFields(rootEl, track, extras, nextTrack) {
   }
 
   if (timeEl) {
-    if (custom.showRemainingTime && track?.durationMs) {
+    if ((custom.showTimeLeft || custom.showRemainingTime) && track?.durationMs) {
       const remainingMs = Math.max(0, (track.durationMs || 0) - (track.progressMs || 0));
       timeEl.textContent = `-${fmtTime(remainingMs)}`;
     } else {
@@ -275,9 +429,11 @@ function applyCustomDynamicFields(rootEl, track, extras, nextTrack) {
 
   if (playStateEl) {
     if (custom.showPlayState) {
-      playStateEl.textContent = track?.isPlaying ? "Playing" : "Paused";
+      playStateEl.innerHTML = track?.isPlaying
+        ? '<div class="nw-playing-dot"></div>'
+        : "";
     } else {
-      playStateEl.textContent = "";
+      playStateEl.innerHTML = "";
     }
   }
 
@@ -305,6 +461,10 @@ export function parseConfig() {
     theme: params.get("theme") || "spotify",
     clientId: params.get("clientId") || "",
     showBpm: toBool(params.get("showBpm"), false),
+    showTimeLeft: toBool(params.get("showTimeLeft"), false),
+    showNextTrack: toBool(params.get("showNextTrack"), false),
+    showAlbum: toBool(params.get("showAlbum"), false),
+    showPlayState: toBool(params.get("showPlayState"), false),
     showProgress: toBool(params.get("showProgress"), true),
     transparent: toBool(params.get("transparent"), false),
     moodSync: toBool(params.get("moodSync"), true),
@@ -332,6 +492,15 @@ async function poll() {
       return;
     }
 
+    let nextTrack = null;
+    if (!useLastfm && (config.showNextTrack || (config.layout === "custom" && config.custom?.showNextTrack))) {
+      try {
+        nextTrack = await getNextTrack();
+      } catch (_error) {
+        nextTrack = null;
+      }
+    }
+
     if (track.trackId !== currentTrackId) {
       currentTrackId = track.trackId;
       let extras = null;
@@ -346,14 +515,6 @@ async function poll() {
           extras = null;
         }
       }
-      let nextTrack = null;
-      if (!useLastfm && config.layout === "custom" && config.custom?.showNextTrack) {
-        try {
-          nextTrack = await getNextTrack();
-        } catch (_error) {
-          nextTrack = null;
-        }
-      }
       render(track, extras, nextTrack);
       updateProgress(track);
       return;
@@ -365,6 +526,11 @@ async function poll() {
       const rootEl = document.querySelector(".nw-overlay.nw-custom");
       if (rootEl) {
         applyCustomDynamicFields(rootEl, track, null, null);
+      }
+    } else {
+      const rootEl = document.querySelector(".nw-overlay");
+      if (rootEl) {
+        applyDefaultDynamicFields(rootEl, track, nextTrack);
       }
     }
   } catch (error) {
@@ -403,8 +569,12 @@ function render(track, extras, nextTrack = null) {
   const fill = app.querySelector(".nw-progress-fill");
   if (fill) fill.style.transition = "width 0.1s linear";
   if (config.layout === "custom") {
+    rootEl.setAttribute("data-animate", config.custom?.animateIn || "slide");
+    applyAdvancedCssVars(config.custom);
     applyCustomStyles(rootEl, config.custom);
     applyCustomDynamicFields(rootEl, track, extras, nextTrack);
+  } else {
+    applyDefaultDynamicFields(rootEl, track, nextTrack);
   }
 
   applyBeatSync(rootEl, extras);
@@ -443,7 +613,13 @@ function updateProgress(track) {
 
 function updateStripTime(track) {
   const timeEl = document.querySelector(".nw-strip-time");
-  if (timeEl && track?.progressMs) {
+  if (!timeEl) return;
+  if (config.showTimeLeft && track?.durationMs) {
+    const remainingMs = Math.max(0, (track.durationMs || 0) - (track.progressMs || 0));
+    timeEl.textContent = `-${fmtTime(remainingMs)}`;
+    return;
+  }
+  if (track?.progressMs) {
     timeEl.textContent = fmtTime(track.progressMs);
   }
 }
@@ -511,11 +687,12 @@ export async function init() {
   config = parseConfig();
   document.documentElement.setAttribute("data-theme", config.theme);
   const useLastfm = !config.clientId && config.lastfmUsername && config.lastfmApiKey;
+  const isEmbeddedPreview = window.self !== window.top;
 
   if (!useLastfm) {
     await initAuth();
     const hasToken = Boolean(localStorage.getItem("nowify_access_token"));
-    if (config.clientId && !hasToken) {
+    if (config.clientId && !hasToken && !isEmbeddedPreview) {
       await login(config.clientId);
       return;
     }

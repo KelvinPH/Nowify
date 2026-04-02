@@ -49,6 +49,7 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   background: var(--cfg-surface);
   border-right: 0.5px solid var(--cfg-border2);
   scrollbar-width: none;
+  padding: 8px 0 14px;
 }
 #cfg-sidebar::-webkit-scrollbar { display: none; }
 
@@ -107,9 +108,15 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   user-select: all;
 }
 
-.cfg-divider { height: 0.5px; background: var(--cfg-border2); margin: 0 16px; }
+.cfg-divider { height: 0.5px; background: rgba(255,255,255,0.05); margin: 10px 18px; }
 
-.cfg-section { padding: 16px; }
+.cfg-section {
+  padding: 14px 14px 12px;
+  margin: 0 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.015);
+  border: 0.5px solid rgba(255,255,255,0.05);
+}
 .cfg-section-label {
   font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
   color: var(--cfg-muted); margin-bottom: 12px; text-transform: uppercase;
@@ -722,11 +729,14 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 }
 
 .cfg-source-bar {
-  padding: 12px 16px;
+  padding: 10px 14px;
+  margin: 0 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.015);
+  border: 0.5px solid rgba(255,255,255,0.05);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 0.5px solid var(--cfg-border2);
 }
 
 .cfg-source-label {
@@ -740,9 +750,9 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 }
 
 .cfg-source-pill {
-  padding: 4px 12px;
+  padding: 5px 11px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 11px;
   background: var(--cfg-bg);
   border: 0.5px solid var(--cfg-border2);
   color: var(--cfg-muted);
@@ -751,9 +761,9 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 }
 
 .cfg-pill-active {
-  background: var(--cfg-accent);
-  border-color: var(--cfg-accent);
-  color: #000;
+  background: rgba(210, 215, 224, 0.12);
+  border-color: rgba(210, 215, 224, 0.24);
+  color: var(--cfg-text);
   font-weight: 500;
 }
 
@@ -784,4 +794,21 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 .cfg-gear-btn:hover {
   background: rgba(255, 255, 255, 0.04);
   color: var(--cfg-text);
+}
+
+.cfg-btn-group {
+  display: flex;
+  gap: 6px;
+}
+
+.cfg-sm-btn {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.cfg-sm-btn.cfg-active {
+  background: var(--cfg-accent);
+  border-color: var(--cfg-accent);
+  color: #000;
+  font-weight: 600;
 }
