@@ -393,8 +393,9 @@ function renderSidebar() {
           />
         </div>
         <div class="cfg-source-info" style="margin-bottom:0;">
-          Nowify connects to Songify's local WebSocket on this port.
-          Enable Songify web server in File -> Settings -> Web Server.
+          Nowify uses <code>ws://localhost:PORT/ws/data</code> for track updates and
+          <code>ws://localhost:PORT/</code> for chat commands. Enable the web server in
+          File → Settings → Web Server.
           Default port is 4002.
         </div>
         <div class="cfg-songify-preview-note ${
@@ -403,11 +404,12 @@ function renderSidebar() {
             : ""
         }">
           <strong>Live preview</strong> uses
-          <code>ws://localhost:${escCfg(String(state.songifyPort))}</code> from this
-          browser. Songify must run on the <strong>same PC</strong>, and this page
-          must be served over <strong>HTTP</strong> (for example
-          <code>http://localhost/…/config.html</code>). HTTPS pages cannot open that
-          WebSocket to your machine.
+          <code>ws://localhost:${escCfg(String(state.songifyPort))}/ws/data</code>
+          (and <code>GET http://127.0.0.1:${escCfg(String(state.songifyPort))}/</code>)
+          from this browser. Songify must run on the <strong>same PC</strong>, and this
+          page must be served over <strong>HTTP</strong> (for example
+          <code>http://localhost/…/config.html</code>). HTTPS pages may block those
+          local connections depending on the browser.
           ${
             typeof window !== "undefined" && window.location.protocol === "https:"
               ? "<br /><br />You are on HTTPS, so the built-in preview will not receive Songify here. Run Nowify from a local HTTP server or paste the copied overlay URL into OBS Browser Source on the Songify PC."
@@ -617,7 +619,7 @@ function renderSidebar() {
       statusEl.textContent = "Checking...";
       statusEl.classList.remove("cfg-status-connected", "cfg-status-error");
       try {
-        const testWs = new WebSocket(`ws://localhost:${state.songifyPort}`);
+        const testWs = new WebSocket(`ws://localhost:${state.songifyPort}/ws/data`);
         let settled = false;
         const finalize = (ok) => {
           if (settled) return;

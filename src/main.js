@@ -64,8 +64,10 @@ async function initSongifyOverlay() {
 
   let currentTrack = null;
   let currentTrackTs = 0;
+  let hasRenderedTrack = false;
 
   function renderSongifyTrack(track) {
+    hasRenderedTrack = true;
     currentTrack = track;
     currentTrackTs = Date.now();
     app.innerHTML = (LAYOUTS[config.layout] || LAYOUTS.glasscard)(track, null, config);
@@ -82,7 +84,17 @@ async function initSongifyOverlay() {
   }
 
   function showIdle() {
-    app.innerHTML = '<div class="nw-idle">Songify not connected</div>';
+    hasRenderedTrack = false;
+    app.innerHTML =
+      '<div class="nw-idle">Cannot reach Songify — start the web server and check the port.</div>';
+  }
+
+  function showWaitingForTrack() {
+    if (hasRenderedTrack) {
+      return;
+    }
+    app.innerHTML =
+      '<div class="nw-idle">Songify connected — waiting for track (HTTP + WebSocket)</div>';
   }
 
   function updateProgress() {
@@ -114,10 +126,11 @@ async function initSongifyOverlay() {
       }
     },
     onConnect: function () {
-      console.warn("[Songify] Connected - waiting for track");
+      console.warn("[Songify] Track stream open on /ws/data (HTTP GET / still polls as fallback)");
+      showWaitingForTrack();
     },
     onDisconnect: function () {
-      console.warn("[Songify] Disconnected - reconnecting");
+      console.warn("[Songify] WebSocket closed — reconnecting");
       showIdle();
     },
   });
