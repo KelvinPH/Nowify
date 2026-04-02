@@ -15,6 +15,7 @@ let progressTimer = null;
 const blockedAudioFeaturesTrackIds = new Set();
 let activeSource = "spotify";
 let sourceErrorMessage = "";
+let hasTriggeredReauth = false;
 let lastKnownProgress = {
   progressMs: 0,
   durationMs: 0,
@@ -535,6 +536,18 @@ async function poll() {
     }
   } catch (error) {
     const message = String(error?.message || "").trim();
+    if (
+      message.includes("No refresh token available") &&
+      config?.clientId &&
+      window.self === window.top &&
+      !hasTriggeredReauth
+    ) {
+      hasTriggeredReauth = true;
+      sourceErrorMessage = "Reconnecting Spotify session...";
+      showIdle();
+      await login(config.clientId);
+      return;
+    }
     sourceErrorMessage = message;
     showIdle();
     console.warn("Overlay poll failed:", error);
@@ -694,7 +707,16 @@ export async function init() {
   if (!useLastfm) {
     await initAuth();
     const hasToken = Boolean(localStorage.getItem("nowify_access_token"));
+    const hasRefresh = Boolean(localStorage.getItem("nowify_refresh_token"));
+    const expiryRaw = Number(localStorage.getItem("nowify_token_expiry") || "0");
+    const isExpired = !Number.isFinite(expiryRaw) || Date.now() >= expiryRaw - 60 * 1000;
     if (config.clientId && !hasToken && !isEmbeddedPreview) {
+      await login(config.clientId);
+      return;
+    }
+    if (config.clientId && hasToken && isExpired && !hasRefresh && !isEmbeddedPreview) {
+      localStorage.removeItem("nowify_access_token");
+      localStorage.removeItem("nowify_token_expiry");
       await login(config.clientId);
       return;
     }
