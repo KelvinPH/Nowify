@@ -524,6 +524,16 @@ function attachListeners(containerEl) {
       if (key === "bgType") {
         activeColorKey = value === "solid" ? "colorBg" : "gradientColor1";
       }
+
+      // bgType/borderStyle drive conditional UI fragments rendered with inline styles.
+      // Re-render active panel so gradient controls and color rows appear immediately.
+      if (key === "bgType" || key === "borderStyle") {
+        const activePanel = containerEl.querySelector(".ce-tab-active")?.dataset.tab || "colours";
+        renderEditor(containerEl, activePanel);
+        triggerChange();
+        return;
+      }
+
       const siblings = containerEl.querySelectorAll(`[data-custom-key="${key}"][data-custom-value]`);
       siblings.forEach((s) => s.classList.toggle("ce-btn-active", s === btn));
       updateConditionals(containerEl);
