@@ -17,11 +17,9 @@ const SCOPES = [
   "user-modify-playback-state",
   "user-read-recently-played",
 ];
-const PKCE_VERIFIER_KEY = "nowify_pkce_verifier";
-const PKCE_STATE_KEY = "nowify_pkce_state";
-const REDIRECT_URI = `${window.location.origin}${window.location.pathname}`;
-const PKCE_CHARS =
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
+const PKCE_VERIFIER_KEY = "nowify_code_verifier";
+const PKCE_STATE_KEY = "nowify_auth_state";
+const REDIRECT_URI_KEY = "nowify_redirect_uri";
 
 export class NoTokenError extends Error {
   constructor() {
@@ -30,130 +28,163 @@ export class NoTokenError extends Error {
   }
 }
 
-/** Generates a random PKCE code verifier string. */
-function generateCodeVerifier() {
-  const bytes = new Uint8Array(128);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (value) => PKCE_CHARS[value % PKCE_CHARS.length]).join(
-    ""
-  );
+function base64UrlEncode(array) {
+  return btoa(String.fromCharCode(...array))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=/g, "");
 }
 
-/** Generates a SHA-256 based base64url code challenge. */
+function generateCodeVerifier() {
+  const array = new Uint8Array(64);
+  crypto.getRandomValues(array);
+  return base64UrlEncode(array);
+}
+
 async function generateCodeChallenge(verifier) {
   const encoder = new TextEncoder();
   const data = encoder.encode(verifier);
   const digest = await crypto.subtle.digest("SHA-256", data);
-  const bytes = new Uint8Array(digest);
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  return base64UrlEncode(new Uint8Array(digest));
 }
 
-/** Generates a short random OAuth state string. */
-function generateState() {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (value) => PKCE_CHARS[value % PKCE_CHARS.length]).join(
-    ""
-  );
+function generateRandomString(length) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const array = new Uint8Array(length);
+  crypto.getRandomValues(array);
+  return Array.from(array)
+    .map((x) => chars[x % chars.length])
+    .join("");
 }
 
-/** Handles Spotify OAuth callback exchange and local token persistence. */
-async function handleCallback() {
-  const url = new URL(window.location.href);
-  const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
-
-  if (!code) {
-    throw new Error("Spotify callback is missing authorization code.");
-  }
-
-  const savedState = sessionStorage.getItem(PKCE_STATE_KEY);
-  if (!state || !savedState || state !== savedState) {
-    throw new Error("Spotify callback state mismatch. Authorization was rejected.");
-  }
-
-  const verifier = sessionStorage.getItem(PKCE_VERIFIER_KEY);
-  if (!verifier) {
-    throw new Error("Missing PKCE verifier in session storage.");
-  }
-
-  const clientId = getClientId();
-  if (!clientId) {
-    throw new Error("Missing Spotify client ID. Call login(clientId) first.");
-  }
-
-  const response = await fetch(TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      redirect_uri: REDIRECT_URI,
-      client_id: clientId,
-      code_verifier: verifier,
-    }),
-  });
-
-  if (!response.ok) {
-    const bodyText = await response.text();
-    throw new Error(
-      `Spotify token exchange failed (${response.status}): ${bodyText}`
-    );
-  }
-
-  const data = await response.json();
-  saveTokens({
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresIn: data.expires_in,
-  });
-
-  sessionStorage.removeItem(PKCE_VERIFIER_KEY);
-  sessionStorage.removeItem(PKCE_STATE_KEY);
-  history.replaceState({}, document.title, REDIRECT_URI);
+function cleanUrl() {
+  window.history.replaceState({}, "", window.location.pathname);
 }
 
-/** Handles OAuth callback if code is present, returning whether it was handled. */
 export async function handleAuthCallback() {
-  const hasCode = new URL(window.location.href).searchParams.has("code");
-  if (!hasCode) return false;
-  await handleCallback();
-  return true;
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+  const state = params.get("state");
+  const error = params.get("error");
+
+  if (error) {
+    console.warn("[Spotify] Auth denied:", error);
+    cleanUrl();
+    return false;
+  }
+
+  if (!code) return false;
+
+  const storedState = localStorage.getItem(PKCE_STATE_KEY);
+  if (state !== storedState) {
+    console.warn("[Spotify] State mismatch - possible CSRF");
+    cleanUrl();
+    return false;
+  }
+
+  const codeVerifier = localStorage.getItem(PKCE_VERIFIER_KEY);
+  const clientId = localStorage.getItem("nowify_client_id");
+  const redirectUri = localStorage.getItem(REDIRECT_URI_KEY);
+
+  if (!codeVerifier) {
+    console.warn("[Spotify] Missing code verifier");
+    cleanUrl();
+    return false;
+  }
+  if (!clientId) {
+    console.warn("[Spotify] Missing client ID");
+    cleanUrl();
+    return false;
+  }
+  if (!redirectUri) {
+    console.warn("[Spotify] Missing redirect URI");
+    cleanUrl();
+    return false;
+  }
+
+  try {
+    const response = await fetch(TOKEN_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: redirectUri,
+        client_id: clientId,
+        code_verifier: codeVerifier,
+      }).toString(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.warn(
+        "[Spotify] Token exchange failed:",
+        data?.error,
+        data?.error_description
+      );
+      cleanUrl();
+      return false;
+    }
+
+    localStorage.setItem("nowify_access_token", data.access_token);
+    localStorage.setItem("nowify_refresh_token", data.refresh_token);
+    localStorage.setItem(
+      "nowify_token_expiry",
+      String(Date.now() + data.expires_in * 1000)
+    );
+
+    localStorage.removeItem(PKCE_VERIFIER_KEY);
+    localStorage.removeItem(PKCE_STATE_KEY);
+    localStorage.removeItem(REDIRECT_URI_KEY);
+
+    const cleanParams = new URLSearchParams({ clientId });
+    window.history.replaceState(
+      {},
+      "",
+      `${window.location.pathname}?${cleanParams.toString()}`
+    );
+
+    console.warn("[Spotify] Auth successful");
+    return true;
+  } catch (err) {
+    console.warn("[Spotify] Token exchange error:", err);
+    cleanUrl();
+    return false;
+  }
 }
 
 /** Initializes Spotify auth by handling callback or starting refresh polling. */
 export async function init() {
   const handled = await handleAuthCallback();
-  if (handled) {
-    return;
-  }
-
-  if (getAccessToken()) {
-    startRefreshLoop(refreshToken);
-  }
+  if (handled) return;
+  if (getAccessToken()) startRefreshLoop(refreshToken);
 }
 
 /** Starts the Spotify PKCE OAuth redirect flow. */
-export async function login(clientId) {
+export async function initiateAuth(clientId) {
+  if (!clientId) {
+    console.warn("[Spotify] initiateAuth: no clientId");
+    return;
+  }
+
+  localStorage.setItem("nowify_client_id", clientId);
   saveClientId(clientId);
 
-  const verifier = generateCodeVerifier();
-  const challenge = await generateCodeChallenge(verifier);
-  const state = generateState();
-
-  sessionStorage.setItem(PKCE_VERIFIER_KEY, verifier);
-  sessionStorage.setItem(PKCE_STATE_KEY, state);
+  const codeVerifier = generateCodeVerifier();
+  localStorage.setItem(PKCE_VERIFIER_KEY, codeVerifier);
+  const challenge = await generateCodeChallenge(codeVerifier);
+  const redirectUri = `${window.location.origin}${window.location.pathname}`;
+  localStorage.setItem(REDIRECT_URI_KEY, redirectUri);
+  const state = generateRandomString(16);
+  localStorage.setItem(PKCE_STATE_KEY, state);
 
   const params = new URLSearchParams({
     client_id: clientId,
     response_type: "code",
-    redirect_uri: REDIRECT_URI,
+    redirect_uri: redirectUri,
     scope: SCOPES.join(" "),
     code_challenge: challenge,
     code_challenge_method: "S256",
@@ -171,6 +202,8 @@ export async function login(clientId) {
   }
   window.location.href = authUrl;
 }
+
+export const login = initiateAuth;
 
 /** Refreshes the Spotify access token using the stored refresh token. */
 export async function refreshToken() {

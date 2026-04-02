@@ -3,7 +3,7 @@ import { getLastfmNowPlaying } from "../api/lastfm.js";
 import {
   handleAuthCallback,
   getValidToken,
-  login,
+  initiateAuth,
   NoTokenError,
 } from "../auth/spotify.js";
 import { LAYOUTS, escHtml, fmtTime } from "./layouts.js";
@@ -543,10 +543,10 @@ async function poll() {
   } catch (error) {
     if (error?.name === "NoTokenError" || error instanceof NoTokenError) {
       stopPolling();
-      initiateAuth();
+      await initiateAuth(config.clientId);
       return;
     }
-    console.warn("Overlay poll failed:", error);
+    console.warn("[Spotify] Poll error:", error);
   }
 }
 
@@ -572,9 +572,9 @@ function stopPolling() {
   }
 }
 
-function initiateAuth() {
+async function startAuthRedirect() {
   if (!config?.clientId) return;
-  login(config.clientId);
+  await initiateAuth(config.clientId);
 }
 
 function startDemo() {
@@ -724,7 +724,7 @@ export async function init() {
   const hasSpotifySource = Boolean(config.clientId);
   const hasLastfmSource = Boolean(config.lastfmUsername && config.lastfmApiKey);
 
-  if (config.demo) {
+  if (config.demo || (!config.clientId && !hasLastfmSource)) {
     startDemo();
     return;
   }
@@ -737,16 +737,17 @@ export async function init() {
   }
 
   if (!useLastfm) {
+    localStorage.setItem("nowify_client_id", config.clientId);
     const callbackHandled = await handleAuthCallback();
     if (!callbackHandled) {
       try {
         await getValidToken();
       } catch (error) {
         if (error?.name === "NoTokenError" || error instanceof NoTokenError) {
-          initiateAuth();
+          await startAuthRedirect();
           return;
         }
-        console.warn("[Spotify] Token check failed:", error);
+        console.warn("[Spotify] Init token check failed:", error);
       }
     }
   }
