@@ -703,6 +703,15 @@ export async function init() {
   document.documentElement.setAttribute("data-theme", config.theme);
   const useLastfm = !config.clientId && config.lastfmUsername && config.lastfmApiKey;
   const isEmbeddedPreview = window.self !== window.top;
+  const hasSpotifySource = Boolean(config.clientId);
+  const hasLastfmSource = Boolean(config.lastfmUsername && config.lastfmApiKey);
+
+  // Direct overlay URL without source config should not poll endlessly.
+  if (!hasSpotifySource && !hasLastfmSource) {
+    sourceErrorMessage = "No source configured. Open the Configurator and copy your overlay URL.";
+    showIdle();
+    return;
+  }
 
   if (!useLastfm) {
     await initAuth();
