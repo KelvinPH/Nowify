@@ -6,36 +6,49 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nowify Stream Stats</title>
   <link rel="stylesheet" href="src/styles/base.css" />
+  <link rel="stylesheet" href="src/styles/config.css" />
   <link rel="stylesheet" href="src/styles/stats.css" />
+  <style>
+    body { background: #0a0a0a; }
+  </style>
 </head>
 <body>
   <div id="stats-shell">
     <header id="stats-header">
-      <span class="st-logo">Nowify</span>
-      <span class="st-tagline">Stream recap</span>
-      <div class="st-header-actions">
-        <button id="btn-export">Export JSON</button>
-        <button id="btn-clear">Clear session</button>
+      <a href="config.html" class="stats-back-link" title="Open configurator">Configurator</a>
+      <img class="cfg-logo stats-logo" src="assets/logo/logo.png" alt="Nowify" />
+      <div class="stats-header-text">
+        <span class="stats-title">Stream stats</span>
+        <span class="stats-subtitle">Session recap from your overlay</span>
+      </div>
+      <div class="cfg-header-actions">
+        <button type="button" id="btn-export" class="cfg-btn">Export JSON</button>
+        <button type="button" id="btn-clear" class="cfg-btn">Clear session</button>
       </div>
     </header>
 
-    <main id="stats-app">
-      <section id="stats-summary" class="st-section"></section>
+    <main id="stats-app" class="stats-main">
+      <div class="stats-content">
+        <section id="stats-summary" class="stats-summary stats-surface" aria-label="Summary"></section>
 
-      <section id="stats-bangers" class="st-section">
-        <h2 class="st-section-title">Banger moments</h2>
-      </section>
+        <section id="stats-bangers" class="stats-block stats-surface">
+          <h2 class="stats-block-title">Banger moments</h2>
+          <div class="stats-block-body" id="stats-bangers-body"></div>
+        </section>
 
-      <section id="stats-mood" class="st-section">
-        <h2 class="st-section-title">Mood map</h2>
-        <div class="st-chart-wrap">
-          <canvas id="mood-chart"></canvas>
-        </div>
-      </section>
+        <section id="stats-mood" class="stats-block stats-surface">
+          <h2 class="stats-block-title">Mood map</h2>
+          <p class="stats-block-desc">Energy and valence per track (Spotify audio features).</p>
+          <div class="stats-chart-wrap">
+            <canvas id="mood-chart" aria-label="Mood scatter chart"></canvas>
+          </div>
+        </section>
 
-      <section id="stats-top" class="st-section">
-        <h2 class="st-section-title">Top tracks</h2>
-      </section>
+        <section id="stats-top" class="stats-block stats-surface">
+          <h2 class="stats-block-title">Top tracks</h2>
+          <div class="stats-block-body" id="stats-top-body"></div>
+        </section>
+      </div>
     </main>
   </div>
   <a

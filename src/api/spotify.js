@@ -86,16 +86,36 @@ export async function getNowPlaying() {
   };
 }
 
+/** Picks a finite number from an API field, or null. */
+function featureNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  return null;
+}
+
 /** Returns key audio feature values for a Spotify track. */
 export async function getAudioFeatures(trackId) {
   const data = await spotifyFetch(`/audio-features/${encodeURIComponent(trackId)}`);
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+
+  const tempo = featureNumber(data.tempo);
+  const bpm = tempo !== null ? Math.round(tempo) : null;
+  const energy = featureNumber(data.energy);
+  const valence = featureNumber(data.valence);
+
+  if (bpm === null && energy === null && valence === null) {
+    return null;
+  }
 
   return {
-    bpm: Math.round(data.tempo),
-    energy: data.energy,
-    valence: data.valence,
-    danceability: data.danceability,
-    acousticness: data.acousticness,
+    bpm,
+    energy,
+    valence,
+    danceability: featureNumber(data.danceability),
+    acousticness: featureNumber(data.acousticness),
   };
 }
 

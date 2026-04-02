@@ -92,6 +92,42 @@ export function loadSession() {
   return sessionTracks;
 }
 
+/**
+ * Fills missing audio feature fields on the current session row (same track only).
+ * Used when the initial fetch failed but a later poll succeeds.
+ */
+export function backfillCurrentTrackFeatures(trackId, extras) {
+  if (!extras || !currentEntry || currentEntry.trackId !== trackId) {
+    return;
+  }
+
+  let changed = false;
+  if (currentEntry.bpm == null && typeof extras.bpm === "number" && Number.isFinite(extras.bpm)) {
+    currentEntry.bpm = extras.bpm;
+    changed = true;
+  }
+  if (
+    currentEntry.energy == null &&
+    typeof extras.energy === "number" &&
+    Number.isFinite(extras.energy)
+  ) {
+    currentEntry.energy = extras.energy;
+    changed = true;
+  }
+  if (
+    currentEntry.valence == null &&
+    typeof extras.valence === "number" &&
+    Number.isFinite(extras.valence)
+  ) {
+    currentEntry.valence = extras.valence;
+    changed = true;
+  }
+
+  if (changed) {
+    localStorage.setItem("nowify_session", JSON.stringify(sessionTracks));
+  }
+}
+
 /** Persists all in-memory session tracks to the history worker endpoint. */
 export async function saveToWorker(streamerId) {
   let saved = 0;

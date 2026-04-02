@@ -19,7 +19,15 @@ export function init() {
   if (!tracks.length) {
     const app = document.getElementById("stats-app");
     if (app) {
-      app.innerHTML = '<p class="st-empty">No session data available yet.</p>';
+      app.innerHTML = `
+        <div class="stats-empty-wrap">
+          <div class="stats-surface stats-empty-card">
+            <p class="stats-empty">No session data available yet.</p>
+            <p class="stats-empty-hint">Play music with the overlay connected, then open this page again.</p>
+            <a href="config.html" class="stats-empty-link">Open configurator</a>
+          </div>
+        </div>
+      `;
     }
   } else {
     renderAll(tracks);
@@ -62,6 +70,20 @@ function renderAll(tracks) {
   renderTopTracks(tracks);
 }
 
+/** Coerces stored JSON values (e.g. strings) to a finite number, or null. */
+function finiteNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    if (Number.isFinite(n)) {
+      return n;
+    }
+  }
+  return null;
+}
+
 function renderSummaryCards(tracks) {
   const container = document.getElementById("stats-summary");
   if (!container) {
@@ -69,71 +91,82 @@ function renderSummaryCards(tracks) {
   }
 
   const uniqueTracks = new Set(tracks.map((track) => track.trackId || "")).size;
-  const bpmValues = tracks.map((t) => t.bpm).filter((v) => typeof v === "number");
+  const bpmValues = tracks.map((t) => finiteNumber(t.bpm)).filter((v) => v !== null);
   const avgBpm = bpmValues.length
     ? Math.round(bpmValues.reduce((sum, v) => sum + v, 0) / bpmValues.length)
-    : 0;
+    : null;
   const bangerCount = tracks.filter((track) => track.isBanger === true).length;
   const energyValues = tracks
-    .map((track) => track.energy)
-    .filter((value) => typeof value === "number");
+    .map((track) => finiteNumber(track.energy))
+    .filter((value) => value !== null);
   const avgEnergyPct = energyValues.length
     ? Math.round(
         (energyValues.reduce((sum, value) => sum + value, 0) / energyValues.length) * 100
       )
-    : 0;
+    : null;
 
   const cards = [
     { label: "Total tracks", value: String(tracks.length) },
     { label: "Unique tracks", value: String(uniqueTracks) },
-    { label: "Average BPM", value: String(avgBpm) },
+    {
+      label: "Average BPM",
+      value: avgBpm !== null ? String(avgBpm) : "—",
+      hint:
+        "Needs Spotify on the overlay. Last.fm has no BPM. A 403 from Spotify also blocks this.",
+    },
     { label: "Banger count", value: String(bangerCount) },
-    { label: "Average energy", value: `${avgEnergyPct}%` },
+    {
+      label: "Average energy",
+      value: avgEnergyPct !== null ? `${avgEnergyPct}%` : "—",
+      hint: "Same as BPM: from Spotify audio-features while the overlay is open.",
+    },
   ];
 
   container.innerHTML = cards
-    .map(
-      (card) => `
-      <div class="st-card">
-        <div class="st-card-label">${esc(card.label)}</div>
-        <div class="st-card-value">${esc(card.value)}</div>
+    .map((card) => {
+      const hintBlock =
+        card.hint && card.value === "—"
+          ? `<div class="stats-metric-hint">${esc(card.hint)}</div>`
+          : "";
+      return `
+      <div class="stats-metric">
+        <div class="stats-metric-label">${esc(card.label)}</div>
+        <div class="stats-metric-value">${esc(card.value)}</div>
+        ${hintBlock}
       </div>
-    `
-    )
+    `;
+    })
     .join("");
 }
 
 function renderBangerList(tracks) {
-  const container = document.getElementById("stats-bangers");
+  const container = document.getElementById("stats-bangers-body");
   if (!container) {
     return;
   }
 
-  const title = '<h2 class="st-section-title">Banger moments</h2>';
   const bangers = tracks.filter((track) => track.isBanger === true);
 
   if (!bangers.length) {
-    container.innerHTML = `${title}<p class="st-empty">No bangers detected this session.</p>`;
+    container.innerHTML = '<p class="stats-inline-empty">No bangers detected this session.</p>';
     return;
   }
 
-  const listHtml = bangers
+  container.innerHTML = bangers
     .map((track) => {
       const time = formatTime(track.playedAt);
       return `
-        <div class="st-banger-item">
-          <img src="${esc(track.albumArt || "")}" class="st-banger-art" alt="Album art" />
-          <div class="st-banger-info">
-            <div class="st-banger-title">${esc(track.title || "Unknown track")}</div>
-            <div class="st-banger-artist">${esc(track.artist || "Unknown artist")}</div>
+        <div class="stats-banger-item">
+          <img src="${esc(track.albumArt || "")}" class="stats-banger-art" alt="Album art" />
+          <div class="stats-banger-info">
+            <div class="stats-banger-title">${esc(track.title || "Unknown track")}</div>
+            <div class="stats-banger-artist">${esc(track.artist || "Unknown artist")}</div>
           </div>
-          <div class="st-banger-time">${esc(time)}</div>
+          <div class="stats-banger-time">${esc(time)}</div>
         </div>
       `;
     })
     .join("");
-
-  container.innerHTML = `${title}${listHtml}`;
 }
 
 function renderMoodChart(tracks) {
@@ -148,15 +181,20 @@ function renderMoodChart(tracks) {
   }
 
   const points = tracks
-    .filter(
-      (track) => typeof track.energy === "number" && typeof track.valence === "number"
-    )
-    .map((track) => ({
-      x: track.energy,
-      y: track.valence,
-      label: truncate(track.title || "Untitled", 20),
-      color: moodColor(track.energy, track.valence),
-    }));
+    .map((track) => {
+      const e = finiteNumber(track.energy);
+      const v = finiteNumber(track.valence);
+      if (e === null || v === null) {
+        return null;
+      }
+      return {
+        x: e,
+        y: v,
+        label: truncate(track.title || "Untitled", 20),
+        color: moodColor(e, v),
+      };
+    })
+    .filter(Boolean);
 
   if (moodChart) {
     moodChart.destroy();
@@ -182,6 +220,13 @@ function renderMoodChart(tracks) {
       plugins: {
         legend: { display: false },
         tooltip: {
+          backgroundColor: "rgba(22, 24, 30, 0.96)",
+          borderColor: "rgba(255, 255, 255, 0.12)",
+          borderWidth: 1,
+          titleColor: "#f3f4f7",
+          bodyColor: "rgba(255, 255, 255, 0.72)",
+          padding: 10,
+          cornerRadius: 8,
           callbacks: {
             label(context) {
               const label = context.raw?.label || "Track";
@@ -191,15 +236,37 @@ function renderMoodChart(tracks) {
         },
       },
       scales: {
-        x: { min: 0, max: 1, title: { display: true, text: "Energy" } },
-        y: { min: 0, max: 1, title: { display: true, text: "Valence" } },
+        x: {
+          min: 0,
+          max: 1,
+          title: {
+            display: true,
+            text: "Energy",
+            color: "rgba(255, 255, 255, 0.45)",
+          },
+          grid: { color: "rgba(255, 255, 255, 0.06)" },
+          ticks: { color: "rgba(255, 255, 255, 0.38)" },
+          border: { color: "rgba(255, 255, 255, 0.08)" },
+        },
+        y: {
+          min: 0,
+          max: 1,
+          title: {
+            display: true,
+            text: "Valence",
+            color: "rgba(255, 255, 255, 0.45)",
+          },
+          grid: { color: "rgba(255, 255, 255, 0.06)" },
+          ticks: { color: "rgba(255, 255, 255, 0.38)" },
+          border: { color: "rgba(255, 255, 255, 0.08)" },
+        },
       },
     },
   });
 }
 
 function renderTopTracks(tracks) {
-  const container = document.getElementById("stats-top");
+  const container = document.getElementById("stats-top-body");
   if (!container) {
     return;
   }
@@ -217,24 +284,23 @@ function renderTopTracks(tracks) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  const title = '<h2 class="st-section-title">Top tracks</h2>';
   const rows = top
     .map(
       (track, index) => `
-      <div class="st-top-item">
-        <span class="st-top-rank">${index + 1}</span>
-        <img src="${esc(track.albumArt || "")}" class="st-top-art" alt="Album art" />
-        <div class="st-top-info">
-          <div class="st-top-title">${esc(track.title || "Unknown track")}</div>
-          <div class="st-top-artist">${esc(track.artist || "Unknown artist")}</div>
+      <div class="stats-top-item">
+        <span class="stats-top-rank">${index + 1}</span>
+        <img src="${esc(track.albumArt || "")}" class="stats-top-art" alt="Album art" />
+        <div class="stats-top-info">
+          <div class="stats-top-title">${esc(track.title || "Unknown track")}</div>
+          <div class="stats-top-artist">${esc(track.artist || "Unknown artist")}</div>
         </div>
-        <span class="st-top-count">${track.count}x</span>
+        <span class="stats-top-count">${track.count}x</span>
       </div>
     `
     )
     .join("");
 
-  container.innerHTML = `${title}${rows || '<p class="st-empty">No tracks available.</p>'}`;
+  container.innerHTML = rows || '<p class="stats-inline-empty">No tracks available.</p>';
 }
 
 function truncate(value, maxLen) {

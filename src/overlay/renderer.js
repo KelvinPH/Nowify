@@ -11,7 +11,12 @@ import { initVinyl, setVinylPlaying } from "../visuals/vinyl.js";
 import { applyBeatSync, clearBeatSync } from "../visuals/beatsync.js";
 import { applyMood, clearMood } from "../visuals/mood.js";
 import { connectIRC, connectEventSub } from "../platforms/twitch.js";
-import { startTrack } from "../stats/session.js";
+import {
+  backfillCurrentTrackFeatures,
+  getSession,
+  loadSession,
+  startTrack,
+} from "../stats/session.js";
 
 let currentTrackId = null;
 let pollInterval = null;
@@ -19,6 +24,7 @@ let pollingTimer = null;
 let config = {};
 let progressTimer = null;
 const blockedAudioFeaturesTrackIds = new Set();
+const audioFeaturesBackfillAttempted = new Set();
 let activeSource = "spotify";
 let sourceErrorMessage = "";
 let lastKnownProgress = {
@@ -530,6 +536,7 @@ async function poll() {
     }
 
     if (track.trackId !== currentTrackId) {
+      audioFeaturesBackfillAttempted.clear();
       currentTrackId = track.trackId;
       let extras = null;
       if (!useLastfm && !blockedAudioFeaturesTrackIds.has(track.trackId)) {
@@ -539,6 +546,9 @@ async function poll() {
           const message = String(error?.message || "");
           if (message.includes("Spotify API error 403")) {
             blockedAudioFeaturesTrackIds.add(track.trackId);
+            console.warn(
+              "[Nowify] Spotify blocked audio-features for this track or app (403). BPM / energy stats need that endpoint."
+            );
           }
           extras = null;
         }
@@ -550,6 +560,31 @@ async function poll() {
 
     updateProgress(track);
     updateStripTime(track);
+
+    if (
+      !useLastfm &&
+      track.trackId &&
+      !blockedAudioFeaturesTrackIds.has(track.trackId) &&
+      !audioFeaturesBackfillAttempted.has(track.trackId)
+    ) {
+      const { tracks: sessionTracks } = getSession();
+      const last = sessionTracks[sessionTracks.length - 1];
+      if (
+        last?.trackId === track.trackId &&
+        (last.bpm == null || last.energy == null || last.valence == null)
+      ) {
+        audioFeaturesBackfillAttempted.add(track.trackId);
+        try {
+          const extras = await getAudioFeatures(track.trackId);
+          if (extras) {
+            backfillCurrentTrackFeatures(track.trackId, extras);
+          }
+        } catch (_error) {
+          /* ignore */
+        }
+      }
+    }
+
     if (config.layout === "custom") {
       const rootEl = document.querySelector(".nw-overlay.nw-custom");
       if (rootEl) {
@@ -740,6 +775,13 @@ async function resolveTwitchUserId(channelName, token) {
 /** Initializes auth, applies config, and starts overlay polling. */
 export async function init() {
   config = parseConfig();
+  loadSession();
+  const { tracks: restoredTracks } = getSession();
+  const lastRestored = restoredTracks[restoredTracks.length - 1];
+  if (lastRestored?.trackId) {
+    currentTrackId = lastRestored.trackId;
+  }
+
   const callbackHasCode = new URLSearchParams(window.location.search).has("code");
   const storedClientId = localStorage.getItem("nowify_client_id") || "";
   if (!config.clientId && storedClientId) {
