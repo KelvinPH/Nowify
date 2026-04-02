@@ -1,0 +1,415 @@
+/* Queue overlay — uses theme tokens from overlay.css (linked in queue.html). */
+
+:root {
+  --q-item-radius:  10px;
+  --q-item-padding: 10px;
+  --q-item-opacity: 0.8;
+  --q-art-size:     40px;
+  --q-gap:          6px;
+}
+
+body {
+  font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+}
+
+#queue-app {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: var(--q-gap);
+  padding: 8px;
+  overflow: hidden;
+}
+
+#queue-app[data-q-art="right"] .q-item {
+  flex-direction: row-reverse;
+}
+
+#queue-app[data-q-art="right"] .q-meta {
+  align-items: flex-start;
+}
+
+/* —— Header (now playing context: time to next, progress, up next) —— */
+
+.q-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--q-item-radius);
+  background: var(
+    --q-card-bg,
+    color-mix(in srgb, var(--nw-surface) 78%, var(--nw-bg))
+  );
+  border: 0.5px solid var(--nw-glass-border);
+  -webkit-backdrop-filter: var(--nw-blur);
+  backdrop-filter: var(--nw-blur);
+  font-size: calc(var(--nw-font-size, 13px) * 0.92);
+  color: var(--nw-text-muted);
+}
+
+.q-header-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.q-header-row strong {
+  color: var(--nw-text);
+  font-weight: 600;
+}
+
+.q-header-next {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--nw-text-muted);
+}
+
+.q-header-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--nw-text-sub, rgba(255, 255, 255, 0.28));
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.q-header-dot-playing {
+  background: #30d158;
+  box-shadow: 0 0 8px rgba(48, 209, 88, 0.5);
+}
+
+.q-header-progress {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--nw-progress-bg, rgba(255, 255, 255, 0.12));
+  overflow: hidden;
+}
+
+.q-header-progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--nw-accent);
+  transition: width 0.35s ease;
+}
+
+/* —— Queue rows —— */
+
+.q-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--q-item-padding);
+  border-radius: var(--q-item-radius);
+  background: var(
+    --q-card-bg,
+    color-mix(in srgb, var(--nw-surface) 78%, var(--nw-bg))
+  );
+  border: 0.5px solid var(--nw-glass-border);
+  -webkit-backdrop-filter: var(--nw-blur);
+  backdrop-filter: var(--nw-blur);
+  font-size: var(--nw-font-size, 13px);
+  font-family: var(--nw-font, inherit);
+  color: var(--nw-text);
+  min-width: 0;
+}
+
+/* Song requests: same border weight as other rows; accent via fill (high-contrast borders read as “thicker” on subpixel displays) */
+.q-item-sr {
+  border: 0.5px solid var(--nw-glass-border);
+  background: color-mix(
+    in srgb,
+    var(--nw-accent) 11%,
+    var(--q-card-bg, color-mix(in srgb, var(--nw-surface) 78%, var(--nw-bg)))
+  );
+}
+
+.q-position {
+  font-size: calc(var(--nw-font-size, 13px) * 0.85);
+  color: var(--nw-text-muted);
+  font-weight: 600;
+  min-width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.q-art {
+  width: var(--q-art-size);
+  height: var(--q-art-size);
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.q-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.q-title {
+  font-size: var(--nw-font-size, 13px);
+  font-weight: 500;
+  color: var(--nw-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.q-artist {
+  font-size: calc(var(--nw-font-size, 13px) * 0.85);
+  color: var(--nw-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.q-album {
+  font-size: calc(var(--nw-font-size, 13px) * 0.78);
+  color: var(--nw-text-sub, rgba(255, 255, 255, 0.28));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.q-requester {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: calc(var(--nw-font-size, 13px) * 0.78);
+  color: var(--nw-accent);
+  margin-top: 1px;
+}
+
+.q-requester-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.q-requester-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.q-requester-badge {
+  flex-shrink: 0;
+  font-size: calc(var(--nw-font-size, 13px) * 0.65);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 4px;
+  line-height: 1.2;
+  color: var(--nw-text);
+}
+
+.q-requester-badge-yt {
+  background: rgba(255, 0, 0, 0.22);
+  border: 0.5px solid rgba(255, 80, 80, 0.45);
+}
+
+.q-requester-badge-sp {
+  background: rgba(30, 215, 96, 0.18);
+  border: 0.5px solid rgba(30, 215, 96, 0.4);
+}
+
+.q-requester-badge-tw {
+  background: rgba(145, 70, 255, 0.2);
+  border: 0.5px solid rgba(145, 70, 255, 0.45);
+}
+
+.q-requester-avatar {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.q-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.q-duration {
+  font-size: calc(var(--nw-font-size, 13px) * 0.82);
+  color: var(--nw-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.q-liked {
+  font-size: 10px;
+  color: var(--nw-accent);
+  opacity: 0.7;
+}
+
+/* Layout presets (same names as main overlay; strip = horizontal scroll of vertical cards) */
+
+#queue-app[data-q-layout="pill"] .q-item {
+  border-radius: 999px;
+  padding: calc(var(--q-item-padding) * 0.85) calc(var(--q-item-padding) * 1.1);
+}
+
+#queue-app[data-q-layout="pill"] .q-art {
+  border-radius: 50%;
+}
+
+/* Island: stacked “widget” card — art on top, text centered, lifted look */
+#queue-app[data-q-layout="island"] .q-item {
+  position: relative;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 16px 14px 14px;
+  border-radius: calc(var(--q-item-radius) + 6px);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+#queue-app[data-q-layout="island"][data-q-art="right"] .q-item {
+  flex-direction: column;
+}
+
+#queue-app[data-q-layout="island"] .q-art {
+  width: min(88%, 112px);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 14px;
+  margin-bottom: 10px;
+}
+
+#queue-app[data-q-layout="island"] .q-info {
+  align-items: center;
+  width: 100%;
+}
+
+#queue-app[data-q-layout="island"] .q-meta {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 6px;
+  gap: 10px;
+}
+
+#queue-app[data-q-layout="island"] .q-position {
+  position: absolute;
+  margin: 0;
+  top: 10px;
+  left: 10px;
+}
+
+/* Strip: header fixed; rows scroll horizontally, each card is vertical (art on top) */
+#queue-app[data-q-layout="strip"] {
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#queue-app[data-q-layout="strip"] .q-header {
+  flex-shrink: 0;
+}
+
+#queue-app[data-q-layout="strip"] .q-strip-track {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: var(--q-gap);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 4px 14px;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+#queue-app[data-q-layout="strip"] .q-strip-track::-webkit-scrollbar {
+  height: 6px;
+}
+
+#queue-app[data-q-layout="strip"] .q-strip-track::-webkit-scrollbar-thumb {
+  background: var(--nw-glass-border);
+  border-radius: 3px;
+}
+
+#queue-app[data-q-layout="strip"] .q-strip-track .q-item {
+  flex: 0 0 auto;
+  width: 132px;
+  min-width: 132px;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  padding: 10px 10px 12px;
+  gap: 8px;
+}
+
+#queue-app[data-q-layout="strip"] .q-strip-track .q-art {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 10px;
+}
+
+#queue-app[data-q-layout="strip"] .q-strip-track .q-meta {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+#queue-app[data-q-layout="strip"] .q-strip-track .q-position {
+  align-self: flex-start;
+}
+
+#queue-app[data-q-layout="albumfocus"] .q-art {
+  width: calc(var(--q-art-size) * 1.35);
+  height: calc(var(--q-art-size) * 1.35);
+  border-radius: 12px;
+}
+
+#queue-app[data-q-layout="albumfocus"] .q-title {
+  font-weight: 600;
+  font-size: calc(var(--nw-font-size, 13px) * 1.05);
+}
+
+/* Animations */
+
+@keyframes q-slide-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes q-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes q-pop-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+[data-animate="slide"] .q-animate {
+  animation: q-slide-in 0.22s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+[data-animate="fade"] .q-animate {
+  animation: q-fade-in 0.2s ease both;
+}
+[data-animate="pop"] .q-animate {
+  animation: q-pop-in 0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}

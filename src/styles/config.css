@@ -934,6 +934,16 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   color: var(--cfg-text);
 }
 
+.cfg-slider-val {
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--cfg-accent);
+  font-family: "SF Mono", ui-monospace, monospace;
+  min-width: 2.5em;
+  text-align: right;
+}
+
 .cfg-twitch-explainer {
   font-size: 12px;
   color: var(--cfg-muted);
@@ -1146,4 +1156,374 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   border-color: var(--cfg-accent);
   color: #000;
   font-weight: 600;
+}
+
+/* Queue banner in sidebar */
+
+.cfg-queue-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(145,70,255,0.06);
+  border: 0.5px solid rgba(145,70,255,0.2);
+  border-radius: 10px;
+  margin: 0 16px;
+}
+
+.cfg-queue-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cfg-queue-banner-icon {
+  font-size: 18px;
+  color: var(--cfg-accent);
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.cfg-queue-banner-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cfg-text);
+  margin-bottom: 2px;
+}
+
+.cfg-queue-banner-desc {
+  font-size: 11px;
+  color: var(--cfg-muted);
+  line-height: 1.4;
+}
+
+.cfg-btn-primary {
+  background: var(--cfg-accent);
+  border-color: var(--cfg-accent);
+  color: #000;
+  font-weight: 600;
+}
+
+.cfg-btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+/* Queue configurator — preview pane (queue only) */
+
+body.cfg-queue-mode #cfg-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#cfg-queue-preview-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 40px 20px;
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+}
+
+#cfg-queue-preview-wrap iframe {
+  width: 100%;
+  max-width: 360px;
+  height: min(520px, calc(100vh - 220px));
+  border-radius: 16px;
+  border: none;
+  background: transparent;
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.55);
+}
+
+/* Queue preview header */
+
+.cfg-queue-preview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 22px 12px;
+  border-bottom: 0.5px solid var(--cfg-border2);
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.cfg-queue-preview-heading {
+  min-width: 0;
+}
+
+.cfg-queue-preview-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cfg-text);
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+
+.cfg-queue-preview-sub {
+  font-size: 12px;
+  color: var(--cfg-muted);
+  line-height: 1.45;
+  max-width: 42ch;
+}
+
+/* URL bar in queue mode */
+
+body.cfg-queue-mode #cfg-preview-bar {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  height: auto;
+  min-height: 44px;
+  gap: 8px;
+  padding: 10px 16px 12px;
+  flex-shrink: 0;
+  border-top: 0.5px solid var(--cfg-border2);
+}
+
+.cfg-url-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.cfg-url-row-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--cfg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  min-width: 72px;
+  flex-shrink: 0;
+}
+
+.cfg-url-mono {
+  font-size: 11px;
+  color: rgba(230, 233, 238, 0.75);
+  font-family: "SF Mono", ui-monospace, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Queue sidebar (matches main configurator sections) */
+
+#cfg-sidebar.cfg-queue-sidebar-mode {
+  padding-top: 12px;
+}
+
+.cfg-queue-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px 12px;
+  margin: 0 12px 2px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--cfg-surface);
+  border-bottom: 0.5px solid var(--cfg-border2);
+}
+
+.cfg-queue-tab {
+  flex: 1 1 calc(33% - 4px);
+  min-width: 56px;
+  padding: 7px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 0.5px solid var(--cfg-border2);
+  background: var(--cfg-bg);
+  color: var(--cfg-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.cfg-queue-tab:hover {
+  color: var(--cfg-text);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.cfg-queue-tab-active {
+  color: var(--cfg-text);
+  border-color: var(--cfg-accent);
+  background: rgba(210, 215, 224, 0.1);
+}
+
+.cfg-queue-tab-panel {
+  padding-bottom: 20px;
+}
+
+.cfg-queue-source-pills {
+  margin-top: 10px;
+}
+
+.cfg-queue-layout-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.cfg-queue-layout-grid .cfg-layout-btn span {
+  font-size: 10px;
+  text-transform: lowercase;
+}
+
+.cfg-queue-color-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 8px;
+}
+
+.cfg-queue-color-grid .cfg-field-group {
+  padding: 8px 0;
+}
+
+.cfg-queue-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cfg-queue-color-wheel {
+  flex-shrink: 0;
+  width: 40px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--cfg-border, rgba(255, 255, 255, 0.12));
+  border-radius: 8px;
+  cursor: pointer;
+  background: transparent;
+}
+
+.cfg-queue-color-wheel::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+.cfg-queue-color-wheel::-webkit-color-swatch {
+  border-radius: 5px;
+  border: none;
+}
+
+.cfg-queue-color-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.cfg-queue-color-hint {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--cfg-muted, rgba(255, 255, 255, 0.45));
+}
+
+.cfg-queue-slider-block {
+  margin-bottom: 14px;
+}
+
+.cfg-queue-slider-block:last-child {
+  margin-bottom: 0;
+}
+
+.cfg-queue-slider-block .cfg-slider-row {
+  margin-bottom: 8px;
+}
+
+.cfg-queue-range {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  accent-color: var(--cfg-accent);
+  cursor: pointer;
+}
+
+.cfg-queue-source-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cfg-queue-source-btn {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  cursor: pointer;
+  border: 0.5px solid var(--cfg-border2);
+  background: var(--cfg-bg);
+  color: var(--cfg-muted);
+  transition: border-color 0.12s, background 0.12s, color 0.12s, transform 0.12s;
+}
+
+.cfg-queue-source-btn:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: var(--cfg-text);
+  transform: translateY(-1px);
+}
+
+.cfg-queue-source-btn-active {
+  border-color: var(--cfg-accent);
+  color: var(--cfg-text);
+  background: rgba(210, 215, 224, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.cfg-queue-select-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 0.5px solid var(--cfg-border);
+}
+
+.cfg-queue-select-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cfg-text);
+}
+
+.cfg-select.cfg-select-block {
+  width: 100%;
+  max-width: none;
+  font-size: 13px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 0.5px solid var(--cfg-border2);
+  background: var(--cfg-bg);
+  color: var(--cfg-text);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.cfg-select.cfg-select-block:focus {
+  border-color: var(--cfg-accent);
+}
+
+.cfg-queue-obs-note {
+  margin-top: 0;
+}
+
+.cfg-obs-tip {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--cfg-muted);
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 0.5px solid var(--cfg-border2);
+  background: var(--cfg-bg);
 }
