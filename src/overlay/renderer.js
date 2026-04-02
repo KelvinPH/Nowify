@@ -129,9 +129,22 @@ function buildBackgroundCSS(custom) {
   if (custom.bgType === "radial")
     return `radial-gradient(circle at center, ${c1} ${p1}%, ${c2} ${radialRadius}%)`;
   if (custom.bgType === "conic") return `conic-gradient(from ${angle}deg, ${c1}, ${c2}, ${c1})`;
-  if (custom.bgType === "multistop")
-    return `linear-gradient(${angle}deg, ${c1} ${p1}%, ${c2} ${p2}%, ${c3} ${p3}%, ${c4} ${p4}%)`;
-  return custom.colorBg || "var(--nw-bg)";
+  if (custom.bgType === "multistop") {
+    const stops = [
+      { c: c1, p: p1 },
+      { c: c2, p: p2 },
+      { c: c3, p: p3 },
+      { c: c4, p: p4 },
+    ].sort((a, b) => a.p - b.p);
+    const body = stops.map((s) => `${s.c} ${s.p}%`).join(", ");
+    return `linear-gradient(${angle}deg, ${body})`;
+  }
+  const solid = custom.colorBg || "var(--nw-bg)";
+  const op = Number(custom.bgOpacity);
+  if (Number.isFinite(op) && op < 100 && op >= 0) {
+    return `color-mix(in srgb, ${solid} ${op}%, transparent)`;
+  }
+  return solid;
 }
 
 function applyAdvancedCssVars(custom) {
@@ -147,7 +160,10 @@ function applyAdvancedCssVars(custom) {
   root.style.setProperty("--nw-card-bg", buildBackgroundCSS(custom));
   root.style.setProperty("--nw-border-width", `${custom.borderWidth || 0.5}px`);
   root.style.setProperty("--nw-border-style", custom.borderStyle || "solid");
-  root.style.setProperty("--nw-border-color", custom.borderColor || "rgba(255,255,255,0.12)");
+  const borderTint = custom.customColors
+    ? custom.colorBorder || "rgba(255,255,255,0.12)"
+    : custom.borderColor || "rgba(255,255,255,0.12)";
+  root.style.setProperty("--nw-border-color", borderTint);
   const shadows = [
     "none",
     "0 2px 8px rgba(0,0,0,0.3)",
@@ -203,7 +219,9 @@ function applyCustomStyles(rootEl, custom) {
   rootEl.style.padding = `${custom.cardPadding}px`;
   rootEl.style.borderWidth = `${custom.borderWidth}px`;
   rootEl.dataset.nwBorderGradient = "";
-  rootEl.style.borderColor = custom.borderColor;
+  rootEl.style.borderColor = custom.customColors
+    ? custom.colorBorder || custom.borderColor
+    : custom.borderColor;
   rootEl.style.backdropFilter = `blur(${custom.blurAmount}px) saturate(180%)`;
   rootEl.style.webkitBackdropFilter = `blur(${custom.blurAmount}px) saturate(180%)`;
   rootEl.style.overflow = "hidden";
@@ -286,7 +304,10 @@ function applyCustomStyles(rootEl, custom) {
       artEl.style.borderRadius = `${custom.artRadius}px`;
     }
     artEl.style.boxShadow = customShadow(custom.artShadow);
-    artEl.style.border = custom.artBorder ? `1px solid ${custom.artBorderColor}` : "none";
+    const artBorderCol = custom.customColors
+      ? custom.colorBorder || "rgba(255,255,255,0.25)"
+      : "rgba(255,255,255,0.25)";
+    artEl.style.border = custom.artBorder ? `1px solid ${artBorderCol}` : "none";
   }
 
   if (progressEl) {

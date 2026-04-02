@@ -189,12 +189,6 @@ function renderArtPanel() {
     ${sliderRow("Corner radius", "artRadius", 0, 40, customState.artRadius, "px", "1", "artShape:rounded")}
     ${sliderRow("Shadow", "artShadow", 0, 3, customState.artShadow)}
     ${toggleRow("Art border", "artBorder")}
-    <div class="ce-color-row ce-conditional" data-condition="artBorder:true"><span class="ce-color-label">Art border colour</span>
-      <div class="ce-color-picker-wrap">
-        <div class="ce-color-preview" style="background:${customState.artBorderColor}" data-color-key="artBorderColor"></div>
-        <input type="text" class="ce-color-hex" value="${customState.artBorderColor}" data-color-key="artBorderColor" />
-      </div>
-    </div>
   </div>`;
 }
 
@@ -275,57 +269,98 @@ function renderContentPanel() {
 }
 
 function renderColoursPanel() {
-  const showGradientControls = customState.bgType !== "solid";
-  const showMultiStops = customState.bgType === "multistop";
-  const showRadialRadius = customState.bgType === "radial";
+  const bg = customState.bgType;
+  const showSolidFill = bg === "solid";
+  const showGradientBlock = bg !== "solid";
+  const showAngle = bg === "linear" || bg === "multistop" || bg === "conic";
+  const showRadialRadius = bg === "radial";
+  const showMultiStops = bg === "multistop";
+  const showTwoColors = bg === "linear" || bg === "radial" || bg === "conic";
+
+  let posRows = "";
+  if (bg === "linear" || bg === "multistop") {
+    posRows =
+      sliderRow("Stop 1 position", "gradientPos1", 0, 100, customState.gradientPos1, "%", "1") +
+      sliderRow("Stop 2 position", "gradientPos2", 0, 100, customState.gradientPos2, "%", "1");
+  } else if (bg === "radial") {
+    posRows = sliderRow("Inner stop position", "gradientPos1", 0, 100, customState.gradientPos1, "%", "1");
+  }
+
+  const pos34 = showMultiStops
+    ? sliderRow("Stop 3 position", "gradientPos3", 0, 100, customState.gradientPos3, "%", "1") +
+      sliderRow("Stop 4 position", "gradientPos4", 0, 100, customState.gradientPos4, "%", "1")
+    : "";
+
+  const colors12 =
+    showTwoColors && !showMultiStops
+      ? renderColorPicker("Colour 1", "gradientColor1") + renderColorPicker("Colour 2", "gradientColor2")
+      : "";
+
+  const colorsMulti = showMultiStops
+    ? renderColorPicker("Colour 1", "gradientColor1") +
+      renderColorPicker("Colour 2", "gradientColor2") +
+      renderColorPicker("Colour 3", "gradientColor3") +
+      renderColorPicker("Colour 4", "gradientColor4")
+    : "";
+
+  const angleSliders = showAngle
+    ? sliderRow("Angle", "gradientAngle", 0, 360, customState.gradientAngle, "deg", "1")
+    : "";
+  const radialRadiusBlock = showRadialRadius
+    ? sliderRow("Radius", "gradientRadius", 10, 100, customState.gradientRadius, "%", "1")
+    : "";
+
   return `<div class="ce-section">
     <div class="ce-section-label">Custom colours</div>
     ${toggleRow("Enable custom colours", "customColors", "When off, colours come from your selected theme")}
     <div class="ce-colours-section" style="${customState.customColors ? "" : "display:none;"}">
-      <div class="ce-section-label" style="margin-top:10px">Background type</div>
-      ${buttonGroup("bgType", [
-        { label: "Solid", value: "solid" },
-        { label: "Linear", value: "linear" },
-        { label: "Radial", value: "radial" },
-        { label: "Conic", value: "conic" },
-        { label: "Multi-stop", value: "multistop" },
-      ])}
-      ${customState.bgType === "solid" ? renderColorPicker("Background", "colorBg") : ""}
-      ${renderColorPicker("Border", "colorBorder")}
-      ${renderColorPicker("Accent", "colorAccent")}
-      ${renderColorPicker("Title text", "colorTitle")}
-      ${renderColorPicker("Artist text", "colorArtist")}
-      ${renderColorPicker("Progress bar", "colorProgress")}
-
-      <div style="${showGradientControls ? "" : "display:none;"}">
-        <div class="ce-section-label" style="margin-top:12px">Gradient builder</div>
-        ${sliderRow("Angle", "gradientAngle", 0, 360, customState.gradientAngle, "deg", "1")}
-        <div style="${showRadialRadius ? "" : "display:none;"}">
-          ${sliderRow("Radius", "gradientRadius", 10, 100, customState.gradientRadius, "%", "1")}
-        </div>
-        ${sliderRow("Stop 1 position", "gradientPos1", 0, 100, customState.gradientPos1, "%", "1")}
-        ${sliderRow("Stop 2 position", "gradientPos2", 0, 100, customState.gradientPos2, "%", "1")}
-        <div style="${showMultiStops ? "" : "display:none;"}">
-          ${sliderRow("Stop 3 position", "gradientPos3", 0, 100, customState.gradientPos3, "%", "1")}
-          ${sliderRow("Stop 4 position", "gradientPos4", 0, 100, customState.gradientPos4, "%", "1")}
-        </div>
-        ${renderColorPicker("Stop 1", "gradientColor1")}
-        ${renderColorPicker("Stop 2", "gradientColor2")}
-        <div style="${showMultiStops ? "" : "display:none;"}">
-          ${renderColorPicker("Stop 3", "gradientColor3")}
-          ${renderColorPicker("Stop 4", "gradientColor4")}
+      <div class="ce-colour-block">
+        <div class="ce-section-label">Card fill</div>
+        <p class="ce-colour-hint">Solid fill: use Container &gt; Opacity to blend the card background. Card edge colour is &quot;Card border&quot; below.</p>
+        ${buttonGroup("bgType", [
+          { label: "Solid", value: "solid" },
+          { label: "Linear", value: "linear" },
+          { label: "Radial", value: "radial" },
+          { label: "Conic", value: "conic" },
+          { label: "Multi-stop", value: "multistop" },
+        ])}
+        ${showSolidFill ? renderColorPicker("Card background", "colorBg") : ""}
+        <div class="ce-gradient-panel" style="${showGradientBlock ? "" : "display:none;"}">
+          <div class="ce-colour-subhead">Gradient</div>
+          ${angleSliders}
+          ${radialRadiusBlock}
+          ${posRows}
+          ${pos34}
+          ${colors12}
+          ${colorsMulti}
         </div>
       </div>
 
-      <div class="ce-section-label" style="margin-top:12px">Color wheel</div>
-      <div class="ce-wheel-wrap" id="ce-color-wheel">
-        <canvas id="ce-wheel-canvas" width="200" height="200"></canvas>
-        <div class="ce-wheel-lightness"><input type="range" id="ce-lightness-slider" min="0" max="100" value="50" /></div>
-        <div class="ce-wheel-active-label" id="ce-wheel-label">Select a color above to edit</div>
+      <div class="ce-colour-block">
+        <div class="ce-section-label">Border and accent</div>
+        ${renderColorPicker("Card border", "colorBorder")}
+        ${renderColorPicker("Accent", "colorAccent")}
       </div>
-      <div class="ce-art-extract">
-        <span class="ce-art-extract-label">Sample from album art</span>
-        <div class="ce-art-swatches" id="ce-art-swatches"></div>
+
+      <div class="ce-colour-block">
+        <div class="ce-section-label">Text and progress</div>
+        ${renderColorPicker("Title", "colorTitle")}
+        ${renderColorPicker("Artist", "colorArtist")}
+        ${renderColorPicker("Progress bar", "colorProgress")}
+      </div>
+
+      <div class="ce-colour-block">
+        <div class="ce-section-label">Colour wheel</div>
+        <p class="ce-colour-hint">Click a swatch, then pick on the wheel.</p>
+        <div class="ce-wheel-wrap" id="ce-color-wheel">
+          <canvas id="ce-wheel-canvas" width="200" height="200"></canvas>
+          <div class="ce-wheel-lightness"><input type="range" id="ce-lightness-slider" min="0" max="100" value="50" /></div>
+          <div class="ce-wheel-active-label" id="ce-wheel-label">Select a color above to edit</div>
+        </div>
+        <div class="ce-art-extract">
+          <span class="ce-art-extract-label">Sample from album art</span>
+          <div class="ce-art-swatches" id="ce-art-swatches"></div>
+        </div>
       </div>
     </div>
   </div>`;
@@ -333,11 +368,12 @@ function renderColoursPanel() {
 
 function renderColorPicker(label, key) {
   const value = customState[key];
+  const safeVal = escAttr(value);
   return `<div class="ce-color-row">
     <span class="ce-color-label">${label}</span>
     <div class="ce-color-picker-wrap">
       <div class="ce-color-preview" style="background:${value}" data-color-key="${key}"></div>
-      <input type="text" class="ce-color-hex" value="${value}" data-color-key="${key}" placeholder="#000000" />
+      <input type="text" class="ce-color-hex" value="${safeVal}" data-color-key="${key}" placeholder="#000000" />
     </div>
   </div>`;
 }
@@ -347,6 +383,19 @@ function pickDefaultActiveColorKey() {
   return "colorBg";
 }
 
+const COLOR_KEY_LABELS = {
+  colorBg: "card background",
+  gradientColor1: "gradient colour 1",
+  gradientColor2: "gradient colour 2",
+  gradientColor3: "gradient colour 3",
+  gradientColor4: "gradient colour 4",
+  colorBorder: "card border",
+  colorAccent: "accent",
+  colorTitle: "title",
+  colorArtist: "artist",
+  colorProgress: "progress bar",
+};
+
 function updateActiveColorUi(containerEl) {
   if (!activeColorKey) return;
   const swatches = containerEl.querySelectorAll(".ce-color-preview");
@@ -354,7 +403,10 @@ function updateActiveColorUi(containerEl) {
   const activeSwatch = containerEl.querySelector(`.ce-color-preview[data-color-key="${activeColorKey}"]`);
   if (activeSwatch) activeSwatch.classList.add("ce-color-active");
   const label = containerEl.querySelector("#ce-wheel-label");
-  if (label) label.textContent = `Editing ${activeColorKey}`;
+  if (label) {
+    const human = COLOR_KEY_LABELS[activeColorKey] || activeColorKey;
+    label.textContent = `Editing ${human}`;
+  }
 }
 
 function renderEditor(containerEl, activePanel = "container") {
@@ -504,7 +556,14 @@ function attachListeners(containerEl) {
     input.addEventListener("change", () => {
       const key = input.dataset.customKey;
       customState[key] = input.checked;
+      if (key === "customColors") {
+        activeColorKey = pickDefaultActiveColorKey();
+      }
       updateConditionals(containerEl);
+      if (key === "customColors") {
+        setupColorWheel(containerEl);
+        updateActiveColorUi(containerEl);
+      }
       triggerChange();
     });
   });

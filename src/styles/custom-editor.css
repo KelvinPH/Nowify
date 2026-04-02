@@ -381,3 +381,36 @@
   border-color: var(--cfg-accent);
   color: var(--cfg-accent);
 }
+
+.ce-colour-block {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
+}
+
+.ce-colour-block:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.ce-colour-hint {
+  font-size: 11px;
+  color: var(--cfg-muted);
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+
+.ce-colour-subhead {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cfg-text);
+  margin: 10px 0 8px;
+  letter-spacing: 0.02em;
+}
+
+.ce-gradient-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
