@@ -2,24 +2,28 @@ export const CUSTOM_DEFAULTS = {
   direction: "row",
   cardWidth: 400,
   cardHeight: 80,
+  maxCardWidth: 900,
   cardRadius: 16,
   cardPadding: 14,
   blurAmount: 24,
   bgOpacity: 85,
   borderWidth: 0.5,
   borderColor: "rgba(255,255,255,0.12)",
+  borderStyle: "solid",
   fontFamily: "system",
   titleSize: 14,
   artistSize: 12,
   titleWeight: "600",
   artistWeight: "400",
   contentAlign: "left",
+  contentGap: 6,
   letterSpacing: 0,
   textShadow: false,
   artSize: 52,
   artShape: "rounded",
   artRadius: 10,
   artShadow: 0,
+  artPosition: "left",
   artBorder: false,
   artBorderColor: "rgba(255,255,255,0.2)",
   showArtist: true,
@@ -30,6 +34,21 @@ export const CUSTOM_DEFAULTS = {
   showNextTrack: false,
   showPlayState: false,
   showBpm: false,
+  contentOrder: ["title", "artist", "album", "progress"],
+  separatorStyle: "none",
+  progressStyle: "line",
+  progressPosition: "bottom",
+  bgType: "solid",
+  gradientAngle: 135,
+  gradientRadius: 70,
+  gradientColor1: "rgba(10,10,10,0.85)",
+  gradientColor2: "rgba(30,30,30,0.85)",
+  gradientColor3: "rgba(20,20,20,0.85)",
+  gradientColor4: "rgba(15,15,15,0.85)",
+  gradientPos1: 0,
+  gradientPos2: 100,
+  gradientPos3: 50,
+  gradientPos4: 75,
   customColors: false,
   colorBg: "#0a0a0a",
   colorAccent: "#1db954",
@@ -38,6 +57,10 @@ export const CUSTOM_DEFAULTS = {
   colorProgress: "#ffffff",
   colorBorder: "rgba(255,255,255,0.12)",
 };
+
+function escAttr(str) {
+  return String(str || "").replace(/"/g, "&quot;");
+}
 
 const LAYOUT_SEEDS = {
   glasscard: { direction: "row", cardWidth: 380, cardHeight: 80, artSize: 52, cardRadius: 16 },
@@ -53,6 +76,7 @@ let debounceTimer = null;
 let onChangeCallback = null;
 let activeColorKey = null;
 let wheelRaf = null;
+let activeSeedLayout = "glasscard";
 
 function renderTabButton(name, label, svg, active = false) {
   return `<button class="ce-tab ${active ? "ce-tab-active" : ""}" data-tab="${name}">
@@ -103,19 +127,25 @@ function renderContainerPanel() {
         { label: "Horizontal", value: "row" },
         { label: "Vertical", value: "column" },
       ])}
+      <div class="ce-section-label" style="margin-top:12px">Art position</div>
+      ${buttonGroup("artPosition", [
+        { label: "Left", value: "left" },
+        { label: "Right", value: "right" },
+        { label: "Hidden", value: "hidden" },
+      ])}
       ${sliderRow("Card width", "cardWidth", 80, 900, customState.cardWidth, "px")}
+      ${sliderRow("Max card width", "maxCardWidth", 80, 900, customState.maxCardWidth, "px")}
       ${sliderRow("Card height", "cardHeight", 40, 400, customState.cardHeight, "px")}
       ${sliderRow("Corner radius", "cardRadius", 0, 60, customState.cardRadius, "px")}
       ${sliderRow("Padding", "cardPadding", 4, 40, customState.cardPadding, "px")}
       ${sliderRow("Blur", "blurAmount", 0, 40, customState.blurAmount, "px")}
       ${sliderRow("Opacity", "bgOpacity", 0, 100, customState.bgOpacity, "%")}
       ${sliderRow("Border width", "borderWidth", 0, 4, customState.borderWidth, "px", "0.5")}
-      <div class="ce-color-row"><span class="ce-color-label">Border colour</span>
-        <div class="ce-color-picker-wrap">
-          <div class="ce-color-preview" style="background:${customState.borderColor}" data-color-key="borderColor"></div>
-          <input type="text" class="ce-color-hex" value="${customState.borderColor}" data-color-key="borderColor" />
-        </div>
-      </div>
+      <div class="ce-section-label" style="margin-top:10px">Border style</div>
+      ${buttonGroup("borderStyle", [
+        { label: "Solid", value: "solid" },
+        { label: "Gradient", value: "gradient" },
+      ])}
     </div>`;
 }
 
@@ -169,6 +199,39 @@ function renderArtPanel() {
 }
 
 function renderContentPanel() {
+  const orderLabels = {
+    title: "Title",
+    artist: "Artist",
+    album: "Album",
+    progress: "Progress",
+  };
+
+  const order = Array.isArray(customState.contentOrder)
+    ? customState.contentOrder
+    : ["title", "artist", "album", "progress"];
+
+  const orderItemsHtml = order
+    .map((key, idx) => {
+      const label = orderLabels[key] || key;
+      const upBtn =
+        idx > 0
+          ? `<button type="button" class="ce-order-btn" data-order-key="${escAttr(
+              key
+            )}" data-order-dir="up" aria-label="Move ${label} up">^</button>`
+          : "";
+      const downBtn =
+        idx < order.length - 1
+          ? `<button type="button" class="ce-order-btn" data-order-key="${escAttr(
+              key
+            )}" data-order-dir="down" aria-label="Move ${label} down">v</button>`
+          : "";
+      return `<div class="ce-order-item">
+        <span>${label}</span>
+        <div class="ce-order-btns">${upBtn}${downBtn}</div>
+      </div>`;
+    })
+    .join("");
+
   return `<div class="ce-section">
     <div class="ce-section-label">Content</div>
     <div class="ce-section-label">Text alignment</div>
@@ -177,10 +240,30 @@ function renderContentPanel() {
       { label: "Center", value: "center" },
       { label: "Right", value: "right" },
     ])}
+    ${sliderRow("Content spacing", "contentGap", 0, 24, customState.contentGap, "px", "1")}
+
+    <div class="ce-section-label" style="margin-top:12px">Order</div>
+    ${orderItemsHtml}
+
+    ${buttonGroup("separatorStyle", [
+      { label: "None", value: "none" },
+      { label: "Dot", value: "dot" },
+      { label: "Dash", value: "dash" },
+      { label: "Pipe", value: "pipe" },
+    ])}
+
     ${toggleRow("Show artist", "showArtist")}
     ${toggleRow("Show album", "showAlbum")}
     ${toggleRow("Show progress bar", "showProgress")}
     ${sliderRow("Progress height", "progressHeight", 1, 8, customState.progressHeight, "px", "1", "showProgress:true")}
+
+    <div class="ce-section-label" style="margin-top:12px">Progress style</div>
+    ${buttonGroup("progressStyle", [
+      { label: "Line", value: "line" },
+      { label: "Thick", value: "thick" },
+      { label: "Dots", value: "dots" },
+    ])}
+
     ${toggleRow("Show remaining time", "showRemainingTime", "Shows time left instead of elapsed time")}
     ${toggleRow("Show next track", "showNextTrack", "Uses your Spotify queue data")}
     <div class="ce-disclaimer">If next track is blank, reconnect Spotify in OBS
@@ -192,16 +275,49 @@ function renderContentPanel() {
 }
 
 function renderColoursPanel() {
+  const showGradientControls = customState.bgType !== "solid";
+  const showMultiStops = customState.bgType === "multistop";
+  const showRadialRadius = customState.bgType === "radial";
   return `<div class="ce-section">
     <div class="ce-section-label">Custom colours</div>
     ${toggleRow("Enable custom colours", "customColors", "When off, colours come from your selected theme")}
     <div class="ce-colours-section" style="${customState.customColors ? "" : "display:none;"}">
-      ${renderColorPicker("Background", "colorBg")}
+      <div class="ce-section-label" style="margin-top:10px">Background type</div>
+      ${buttonGroup("bgType", [
+        { label: "Solid", value: "solid" },
+        { label: "Linear", value: "linear" },
+        { label: "Radial", value: "radial" },
+        { label: "Conic", value: "conic" },
+        { label: "Multi-stop", value: "multistop" },
+      ])}
+      ${customState.bgType === "solid" ? renderColorPicker("Background", "colorBg") : ""}
+      ${renderColorPicker("Border", "colorBorder")}
       ${renderColorPicker("Accent", "colorAccent")}
       ${renderColorPicker("Title text", "colorTitle")}
       ${renderColorPicker("Artist text", "colorArtist")}
       ${renderColorPicker("Progress bar", "colorProgress")}
-      ${renderColorPicker("Border", "colorBorder")}
+
+      <div style="${showGradientControls ? "" : "display:none;"}">
+        <div class="ce-section-label" style="margin-top:12px">Gradient builder</div>
+        ${sliderRow("Angle", "gradientAngle", 0, 360, customState.gradientAngle, "deg", "1")}
+        <div style="${showRadialRadius ? "" : "display:none;"}">
+          ${sliderRow("Radius", "gradientRadius", 10, 100, customState.gradientRadius, "%", "1")}
+        </div>
+        ${sliderRow("Stop 1 position", "gradientPos1", 0, 100, customState.gradientPos1, "%", "1")}
+        ${sliderRow("Stop 2 position", "gradientPos2", 0, 100, customState.gradientPos2, "%", "1")}
+        <div style="${showMultiStops ? "" : "display:none;"}">
+          ${sliderRow("Stop 3 position", "gradientPos3", 0, 100, customState.gradientPos3, "%", "1")}
+          ${sliderRow("Stop 4 position", "gradientPos4", 0, 100, customState.gradientPos4, "%", "1")}
+        </div>
+        ${renderColorPicker("Stop 1", "gradientColor1")}
+        ${renderColorPicker("Stop 2", "gradientColor2")}
+        <div style="${showMultiStops ? "" : "display:none;"}">
+          ${renderColorPicker("Stop 3", "gradientColor3")}
+          ${renderColorPicker("Stop 4", "gradientColor4")}
+        </div>
+      </div>
+
+      <div class="ce-section-label" style="margin-top:12px">Color wheel</div>
       <div class="ce-wheel-wrap" id="ce-color-wheel">
         <canvas id="ce-wheel-canvas" width="200" height="200"></canvas>
         <div class="ce-wheel-lightness"><input type="range" id="ce-lightness-slider" min="0" max="100" value="50" /></div>
@@ -226,24 +342,49 @@ function renderColorPicker(label, key) {
   </div>`;
 }
 
-function renderEditor(containerEl) {
+function pickDefaultActiveColorKey() {
+  if (customState.bgType !== "solid") return "gradientColor1";
+  return "colorBg";
+}
+
+function updateActiveColorUi(containerEl) {
+  if (!activeColorKey) return;
+  const swatches = containerEl.querySelectorAll(".ce-color-preview");
+  swatches.forEach((s) => s.classList.remove("ce-color-active"));
+  const activeSwatch = containerEl.querySelector(`.ce-color-preview[data-color-key="${activeColorKey}"]`);
+  if (activeSwatch) activeSwatch.classList.add("ce-color-active");
+  const label = containerEl.querySelector("#ce-wheel-label");
+  if (label) label.textContent = `Editing ${activeColorKey}`;
+}
+
+function renderEditor(containerEl, activePanel = "container") {
   containerEl.innerHTML = `<div class="ce-shell">
+    <div class="ce-topbar">
+      <button class="ce-reset-btn" id="ce-reset-custom" type="button">Reset custom</button>
+    </div>
     <div class="ce-tabs">
-      ${renderTabButton("container", "Container", '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="currentColor"/></svg>', true)}
-      ${renderTabButton("typography", "Typography", '<svg viewBox="0 0 24 24"><path d="M4 6h16v2h-7v10h-2V8H4z" fill="currentColor"/></svg>')}
-      ${renderTabButton("art", "Art", '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" fill="currentColor"/></svg>')}
-      ${renderTabButton("content", "Content", '<svg viewBox="0 0 24 24"><path d="M6 7h12v2H6zm0 4h12v2H6zm0 4h8v2H6z" fill="currentColor"/></svg>')}
-      ${renderTabButton("colours", "Colours", '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg>')}
+      ${renderTabButton("container", "Container", '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="currentColor"/></svg>', activePanel === "container")}
+      ${renderTabButton("typography", "Typography", '<svg viewBox="0 0 24 24"><path d="M4 6h16v2h-7v10h-2V8H4z" fill="currentColor"/></svg>', activePanel === "typography")}
+      ${renderTabButton("art", "Art", '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" fill="currentColor"/></svg>', activePanel === "art")}
+      ${renderTabButton("content", "Content", '<svg viewBox="0 0 24 24"><path d="M6 7h12v2H6zm0 4h12v2H6zm0 4h8v2H6z" fill="currentColor"/></svg>', activePanel === "content")}
+      ${renderTabButton("colours", "Colours", '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg>', activePanel === "colours")}
     </div>
     <div class="ce-panels">
-      <div class="ce-panel ce-panel-active" data-panel="container">${renderContainerPanel()}</div>
-      <div class="ce-panel" data-panel="typography">${renderTypographyPanel()}</div>
-      <div class="ce-panel" data-panel="art">${renderArtPanel()}</div>
-      <div class="ce-panel" data-panel="content">${renderContentPanel()}</div>
-      <div class="ce-panel" data-panel="colours">${renderColoursPanel()}</div>
+      <div class="ce-panel ${activePanel === "container" ? "ce-panel-active" : ""}" data-panel="container">${renderContainerPanel()}</div>
+      <div class="ce-panel ${activePanel === "typography" ? "ce-panel-active" : ""}" data-panel="typography">${renderTypographyPanel()}</div>
+      <div class="ce-panel ${activePanel === "art" ? "ce-panel-active" : ""}" data-panel="art">${renderArtPanel()}</div>
+      <div class="ce-panel ${activePanel === "content" ? "ce-panel-active" : ""}" data-panel="content">${renderContentPanel()}</div>
+      <div class="ce-panel ${activePanel === "colours" ? "ce-panel-active" : ""}" data-panel="colours">${renderColoursPanel()}</div>
     </div>
   </div>`;
+  if (!activeColorKey) {
+    activeColorKey = pickDefaultActiveColorKey();
+  }
+  if (!containerEl.querySelector(`.ce-color-preview[data-color-key="${activeColorKey}"]`)) {
+    activeColorKey = pickDefaultActiveColorKey();
+  }
   attachListeners(containerEl);
+  updateActiveColorUi(containerEl);
 }
 
 /** Reads saved custom layout state from localStorage. */
@@ -260,6 +401,15 @@ export function loadCustomState() {
 
 function saveCustomState() {
   localStorage.setItem("nowify_custom_layout", JSON.stringify(customState));
+}
+
+function resetCustomState(containerEl) {
+  const seed = LAYOUT_SEEDS[activeSeedLayout] || {};
+  customState = { ...CUSTOM_DEFAULTS, ...seed, maxCardWidth: seed.cardWidth || CUSTOM_DEFAULTS.maxCardWidth };
+  activeColorKey = pickDefaultActiveColorKey();
+  saveCustomState();
+  renderEditor(containerEl, "container");
+  if (onChangeCallback) onChangeCallback(customState);
 }
 
 /** Builds overlay URL including c_ prefixed custom params. */
@@ -280,10 +430,16 @@ export function buildCustomUrl(baseState, providedCustomState) {
 
 /** Initializes custom editor with seed, saved state, and onChange callback. */
 export function initCustomEditor(containerEl, seedLayout, onChange) {
+  activeSeedLayout = seedLayout || "glasscard";
   const seed = LAYOUT_SEEDS[seedLayout] || {};
   customState = { ...CUSTOM_DEFAULTS, ...seed };
   const saved = loadCustomState();
   if (saved) customState = { ...customState, ...saved };
+  // Keep maxCardWidth aligned with the selected seed by default.
+  // (If the user already saved a custom value, we keep that.)
+  if (!saved || saved.maxCardWidth === undefined) {
+    customState.maxCardWidth = customState.cardWidth;
+  }
   onChangeCallback = onChange;
   renderEditor(containerEl);
   triggerChange();
@@ -297,6 +453,13 @@ export function initCustomEditor(containerEl, seedLayout, onChange) {
 }
 
 function attachListeners(containerEl) {
+  const resetBtn = containerEl.querySelector("#ce-reset-custom");
+  if (resetBtn) {
+    resetBtn.addEventListener("click", () => {
+      resetCustomState(containerEl);
+    });
+  }
+
   containerEl.querySelectorAll(".ce-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       const target = tab.dataset.tab;
@@ -304,6 +467,27 @@ function attachListeners(containerEl) {
       containerEl
         .querySelectorAll(".ce-panel")
         .forEach((p) => p.classList.toggle("ce-panel-active", p.dataset.panel === target));
+    });
+  });
+
+  containerEl.querySelectorAll(".ce-order-btn[data-order-dir]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.orderKey;
+      const dir = btn.dataset.orderDir;
+      const order = Array.isArray(customState.contentOrder) ? customState.contentOrder : [];
+      const idx = order.indexOf(key);
+      if (idx === -1) return;
+      const nextIdx = dir === "up" ? idx - 1 : idx + 1;
+      if (nextIdx < 0 || nextIdx >= order.length) return;
+
+      const nextOrder = order.slice();
+      nextOrder.splice(idx, 1);
+      nextOrder.splice(nextIdx, 0, key);
+      customState.contentOrder = nextOrder;
+
+      const activePanel = containerEl.querySelector(".ce-tab-active")?.dataset.tab || "content";
+      renderEditor(containerEl, activePanel);
+      triggerChange();
     });
   });
 
@@ -330,9 +514,20 @@ function attachListeners(containerEl) {
       const key = btn.dataset.customKey;
       const value = btn.dataset.customValue;
       customState[key] = value;
+      // Gradients rely on custom colours being enabled.
+      if (key === "borderStyle" && value === "gradient") {
+        customState.customColors = true;
+      }
+      if (key === "bgType" && value !== "solid") {
+        customState.customColors = true;
+      }
+      if (key === "bgType") {
+        activeColorKey = value === "solid" ? "colorBg" : "gradientColor1";
+      }
       const siblings = containerEl.querySelectorAll(`[data-custom-key="${key}"][data-custom-value]`);
       siblings.forEach((s) => s.classList.toggle("ce-btn-active", s === btn));
       updateConditionals(containerEl);
+      updateActiveColorUi(containerEl);
       triggerChange();
     });
   });
@@ -353,10 +548,7 @@ function attachListeners(containerEl) {
   containerEl.querySelectorAll(".ce-color-preview").forEach((swatch) => {
     swatch.addEventListener("click", () => {
       activeColorKey = swatch.dataset.colorKey;
-      containerEl.querySelectorAll(".ce-color-preview").forEach((s) => s.classList.remove("ce-color-active"));
-      swatch.classList.add("ce-color-active");
-      const label = containerEl.querySelector("#ce-wheel-label");
-      if (label) label.textContent = `Editing ${activeColorKey}`;
+      updateActiveColorUi(containerEl);
     });
   });
 

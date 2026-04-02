@@ -1,6 +1,7 @@
 let wizardStep = 1; // 1=source, 2=setup, 3=done
-let chosenSource = null; // 'spotify' | 'lastfm'
+let chosenSource = null; // 'spotify' | 'lastfm' | 'songify'
 let wizardOnComplete = null;
+let twitchStepComplete = false;
 
 const SETUP_COMPLETE_KEY = "nowify_setup_complete";
 
@@ -41,16 +42,20 @@ function getWizardOverlayRoot() {
 
 function renderShell() {
   const root = getWizardOverlayRoot();
+  const isStep2Active = wizardStep === 2 || wizardStep === 25;
+  const isStep3Active = wizardStep === 3;
   root.innerHTML = `
     <div class="wiz-panel">
       <div class="wiz-header">
-        <div class="wiz-logo">Nowify</div>
+        <div class="wiz-logo">
+          <img src="assets/logo/logo.png" alt="Nowify" class="wiz-logo-img" />
+        </div>
         <div class="wiz-step-indicator">
           <span class="wiz-step ${wizardStep >= 1 ? "wiz-step-active" : ""}">1</span>
           <span class="wiz-step-line"></span>
-          <span class="wiz-step ${wizardStep >= 2 ? "wiz-step-active" : ""}">2</span>
+          <span class="wiz-step ${isStep2Active || isStep3Active ? "wiz-step-active" : ""}">2</span>
           <span class="wiz-step-line"></span>
-          <span class="wiz-step ${wizardStep >= 3 ? "wiz-step-active" : ""}">3</span>
+          <span class="wiz-step ${isStep3Active ? "wiz-step-active" : ""}">3</span>
         </div>
       </div>
       <div class="wiz-body" id="wiz-body"></div>
@@ -72,7 +77,9 @@ function renderStep1() {
 
       <div class="wiz-source-grid">
         <button class="wiz-source-card" data-source="spotify" type="button">
-          <div class="wiz-source-icon wiz-source-spotify">S</div>
+          <div class="wiz-source-icon wiz-source-spotify">
+            <img src="assets/icons/spotify.png" alt="Spotify" class="wiz-source-logo" />
+          </div>
           <div class="wiz-source-name">Spotify</div>
           <div class="wiz-source-desc">
             Best experience. Real-time BPM, mood sync, beat animations.
@@ -85,7 +92,9 @@ function renderStep1() {
         </button>
 
         <button class="wiz-source-card" data-source="lastfm" type="button">
-          <div class="wiz-source-icon wiz-source-lastfm">lfm</div>
+          <div class="wiz-source-icon wiz-source-lastfm">
+            <img src="assets/icons/lastfm.png" alt="Last.fm" class="wiz-source-logo" />
+          </div>
           <div class="wiz-source-name">Last.fm</div>
           <div class="wiz-source-desc">
             Works with free Spotify, Tidal, Apple Music, YouTube Music
@@ -95,6 +104,24 @@ function renderStep1() {
             <span class="wiz-tag wiz-tag-green">Free Spotify works</span>
             <span class="wiz-tag wiz-tag-green">Tidal + Apple Music</span>
             <span class="wiz-tag">No BPM or mood sync</span>
+          </div>
+        </button>
+
+        <button class="wiz-source-card wiz-source-card-wide" data-source="songify" type="button">
+          <div class="wiz-source-icon wiz-source-songify">
+            <img src="assets/icons/songify.png" alt="Songify" class="wiz-source-logo" />
+          </div>
+          <div class="wiz-source-name">Songify</div>
+          <div class="wiz-source-desc">
+            Use Nowify as a visual layer for Songify. Connects to
+            Songify's local WebSocket and needs no Spotify API key.
+            Works with Spotify, YouTube Music, Tidal and more.
+          </div>
+          <div class="wiz-source-tags">
+            <span class="wiz-tag wiz-tag-green">No API key needed</span>
+            <span class="wiz-tag wiz-tag-green">YouTube Music</span>
+            <span class="wiz-tag wiz-tag-green">Tidal</span>
+            <span class="wiz-tag">Windows only</span>
           </div>
         </button>
       </div>
@@ -216,11 +243,11 @@ function renderStep2() {
         if (!clientId) return;
 
         localStorage.setItem("nowify_client_id", clientId);
-        wizardStep = 3;
+        wizardStep = 25;
         renderWizard();
       });
     }
-  } else {
+  } else if (chosenSource === "lastfm") {
     body.innerHTML = `
       <div class="wiz-step-content">
         <h1 class="wiz-title">Set up Last.fm</h1>
@@ -373,6 +400,271 @@ function renderStep2() {
         renderWizard();
       });
     }
+  } else {
+    body.innerHTML = `
+      <div class="wiz-step-content">
+        <h1 class="wiz-title">Set up Songify</h1>
+        <p class="wiz-subtitle">
+          Songify is a free Windows app that connects to your music
+          player and broadcasts what you are listening to.
+          Nowify connects to it over a local WebSocket.
+        </p>
+
+        <div class="wiz-steps-list">
+          <div class="wiz-instruction-step">
+            <span class="wiz-instruction-num">1</span>
+            <div>
+              <div class="wiz-instruction-title">Download and install Songify</div>
+              <div class="wiz-instruction-body">
+                Download Songify from
+                <a href="https://github.com/songify-rocks/Songify/releases" target="_blank" class="wiz-link">
+                  github.com/songify-rocks/Songify/releases
+                </a>.
+                Download <strong>Songify.zip</strong>, extract it, and run
+                <strong>Songify.exe</strong>.
+              </div>
+            </div>
+          </div>
+
+          <div class="wiz-instruction-step">
+            <span class="wiz-instruction-num">2</span>
+            <div>
+              <div class="wiz-instruction-title">Connect your music service in Songify</div>
+              <div class="wiz-instruction-body">
+                On first launch, Songify will ask you to connect your music service:
+                <ul class="wiz-service-list">
+                  <li><strong>Spotify</strong> - Settings -> Spotify and link your account.</li>
+                  <li><strong>YouTube Music</strong> - Settings -> Players and enable YouTube Music Desktop.</li>
+                  <li><strong>Tidal</strong> - Songify reads from the Tidal desktop app automatically.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="wiz-instruction-step">
+            <span class="wiz-instruction-num">3</span>
+            <div>
+              <div class="wiz-instruction-title">Enable the Songify web server</div>
+              <div class="wiz-instruction-body">
+                In Songify go to <strong>File -> Settings -> Web Server</strong> and make
+                sure the web server is <strong>enabled</strong>. Note the WebSocket port
+                shown there (default is <strong>4002</strong>).
+              </div>
+            </div>
+          </div>
+
+          <div class="wiz-instruction-step">
+            <span class="wiz-instruction-num">4</span>
+            <div>
+              <div class="wiz-instruction-title">Enter your Songify WebSocket port</div>
+              <div class="wiz-instruction-body">
+                Enter the port from step 3 below. Leave as 4002 if you did not change it.
+              </div>
+              <input
+                type="number"
+                id="wiz-songify-port"
+                class="wiz-input"
+                value="4002"
+                min="1024"
+                max="65535"
+                placeholder="4002"
+              />
+              <div id="wiz-songify-error" class="wiz-input-error"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="wiz-notice wiz-notice-info">
+          <strong>How it works:</strong>
+          Nowify connects to Songify on your computer via a local WebSocket connection.
+          Songify handles music service authentication and Nowify reads now playing data.
+          <br><br>
+          <strong>Note:</strong> BPM display and mood sync are not available with Songify.
+        </div>
+
+        <div class="wiz-actions">
+          <button class="wiz-btn wiz-btn-ghost" id="wiz-back" type="button">Back</button>
+          <button class="wiz-btn wiz-btn-primary" id="wiz-songify-done" type="button">Continue</button>
+        </div>
+      </div>
+    `;
+
+    const backBtn = document.getElementById("wiz-back");
+    if (backBtn) {
+      backBtn.addEventListener("click", function () {
+        wizardStep = 1;
+        renderWizard();
+      });
+    }
+
+    const continueBtn = document.getElementById("wiz-songify-done");
+    if (continueBtn) {
+      continueBtn.addEventListener("click", function () {
+        const input = document.getElementById("wiz-songify-port");
+        const errorEl = document.getElementById("wiz-songify-error");
+        const parsedPort = Number((input?.value || "").trim());
+        if (!Number.isInteger(parsedPort) || parsedPort < 1024 || parsedPort > 65535) {
+          if (errorEl) {
+            errorEl.textContent = "Please enter a valid port between 1024 and 65535.";
+          }
+          return;
+        }
+
+        if (errorEl) errorEl.textContent = "";
+        localStorage.setItem("nowify_songify", JSON.stringify({ port: parsedPort }));
+        wizardStep = 25;
+        renderWizard();
+      });
+    }
+  }
+}
+
+function renderStepTwitch() {
+  const body = document.getElementById("wiz-body");
+  if (!body) return;
+
+  const savedTwitch = localStorage.getItem("nowify_twitch");
+  let seedChannel = "";
+  let seedToken = "";
+  if (savedTwitch) {
+    try {
+      const parsed = JSON.parse(savedTwitch);
+      seedChannel = parsed.channel || "";
+      seedToken = parsed.token || "";
+    } catch (_error) {}
+  }
+
+  body.innerHTML = `
+    <div class="wiz-step-content">
+      <h1 class="wiz-title">Twitch chat commands</h1>
+      <p class="wiz-subtitle">
+        Let your viewers control music from chat.
+        This is completely optional - your overlay works without it.
+      </p>
+
+      <div class="wiz-steps-list">
+        <div class="wiz-instruction-step">
+          <span class="wiz-instruction-num">1</span>
+          <div>
+            <div class="wiz-instruction-title">Enter your Twitch channel name</div>
+            <div class="wiz-instruction-body">
+              This is your channel name without the # symbol.
+            </div>
+            <input type="text"
+                   id="wiz-twitch-channel"
+                   class="wiz-input"
+                   placeholder="your_twitch_channel"
+                   value="${seedChannel}" />
+          </div>
+        </div>
+
+        <div class="wiz-instruction-step">
+          <span class="wiz-instruction-num">2</span>
+          <div>
+            <div class="wiz-instruction-title">Generate an OAuth token</div>
+            <div class="wiz-instruction-body">
+              Nowify needs a Twitch token to read and send messages in your chat.
+              Use the official Twitch token generator:
+              <br><br>
+              <a href="https://twitchapps.com/tmi/" target="_blank" class="wiz-link">
+                twitchapps.com/tmi/
+              </a>
+              <br><br>
+              Click <strong>Connect</strong>, log in with your Twitch account,
+              and copy the token shown. It starts with <code>oauth:</code>.
+            </div>
+          </div>
+        </div>
+
+        <div class="wiz-instruction-step">
+          <span class="wiz-instruction-num">3</span>
+          <div>
+            <div class="wiz-instruction-title">Paste your token</div>
+            <div class="wiz-instruction-body">
+              Paste the full token including the <code>oauth:</code> prefix.
+              Never share this token with anyone.
+            </div>
+            <input type="password"
+                   id="wiz-twitch-token"
+                   class="wiz-input"
+                   placeholder="oauth:your_token_here"
+                   value="${seedToken}" />
+            <div id="wiz-twitch-inline" class="wiz-input-error"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="wiz-twitch-commands">
+        <div class="wiz-commands-title">Commands your viewers can use</div>
+        <div class="wiz-commands-grid">
+          <div class="wiz-command-item"><code>!sr [song]</code><span>Request a song</span></div>
+          <div class="wiz-command-item"><code>!skip</code><span>Skip current track</span></div>
+          <div class="wiz-command-item"><code>!prev</code><span>Previous track</span></div>
+          <div class="wiz-command-item"><code>!queue</code><span>Show queue in chat</span></div>
+        </div>
+      </div>
+
+      <div class="wiz-notice wiz-notice-info">
+        Song requests (<strong>!sr</strong>) require Spotify Premium
+        to actually queue tracks. Skip and queue commands work
+        with the Spotify source only. If you are using Last.fm
+        or Songify, only <strong>!skip</strong> is available
+        (routed through Songify if using Songify source).
+      </div>
+
+      <div class="wiz-actions">
+        <button class="wiz-btn wiz-btn-ghost" id="wiz-twitch-skip" type="button">Skip for now</button>
+        <button class="wiz-btn wiz-btn-primary" id="wiz-twitch-done" type="button">Save and continue</button>
+      </div>
+    </div>
+  `;
+
+  const skipBtn = document.getElementById("wiz-twitch-skip");
+  if (skipBtn) {
+    skipBtn.addEventListener("click", function () {
+      localStorage.removeItem("nowify_twitch");
+      twitchStepComplete = true;
+      wizardStep = 3;
+      renderWizard();
+    });
+  }
+
+  const doneBtn = document.getElementById("wiz-twitch-done");
+  if (doneBtn) {
+    doneBtn.addEventListener("click", function () {
+      const channelInput = document.getElementById("wiz-twitch-channel");
+      const tokenInput = document.getElementById("wiz-twitch-token");
+      const inlineEl = document.getElementById("wiz-twitch-inline");
+      const channel = (channelInput?.value || "").trim();
+      const token = (tokenInput?.value || "").trim();
+
+      if (token && !channel) {
+        if (inlineEl) inlineEl.textContent = "Please enter your channel name";
+        return;
+      }
+
+      if (channel || token) {
+        localStorage.setItem(
+          "nowify_twitch",
+          JSON.stringify({
+            channel,
+            token,
+          })
+        );
+        if (!token && inlineEl) {
+          inlineEl.textContent = "Commands will not work without a token";
+        }
+      } else {
+        localStorage.removeItem("nowify_twitch");
+        if (inlineEl) inlineEl.textContent = "";
+      }
+
+      twitchStepComplete = true;
+      wizardStep = 3;
+      window.setTimeout(function () {
+        renderWizard();
+      }, !token && channel ? 600 : 0);
+    });
   }
 }
 
@@ -383,7 +675,9 @@ function renderStep3() {
   const subtitle =
     chosenSource === "spotify"
       ? "Design your overlay in the Configurator, then copy the URL into OBS as a Browser Source."
-      : "Design your overlay in the Configurator. Start playing music on your connected service and it will appear in the overlay.";
+      : chosenSource === "lastfm"
+        ? "Design your overlay in the Configurator. Start playing music on your connected service and it will appear in the overlay."
+        : "Design your overlay in the Configurator. Start Songify and your live track data will appear automatically.";
 
   body.innerHTML = `
     <div class="wiz-step-content wiz-done">
@@ -415,6 +709,7 @@ function renderWizard() {
   renderShell();
   if (wizardStep === 1) renderStep1();
   if (wizardStep === 2) renderStep2();
+  if (wizardStep === 25) renderStepTwitch();
   if (wizardStep === 3) renderStep3();
 }
 
@@ -422,6 +717,7 @@ function initWizard(onComplete) {
   wizardOnComplete = onComplete;
   wizardStep = 1;
   chosenSource = null;
+  twitchStepComplete = false;
   renderWizard();
 }
 
@@ -429,6 +725,7 @@ function showWizard(onComplete) {
   wizardOnComplete = onComplete;
   wizardStep = 1;
   chosenSource = null;
+  twitchStepComplete = false;
   renderWizard();
 }
 

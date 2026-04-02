@@ -24,6 +24,30 @@
   gap: 2px;
   flex-shrink: 0;
 }
+
+.ce-topbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 10px 6px;
+  border-bottom: 0.5px solid var(--cfg-border2);
+}
+
+.ce-reset-btn {
+  background: transparent;
+  border: 0.5px solid rgba(255, 120, 120, 0.35);
+  color: rgba(255, 145, 145, 0.9);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ce-reset-btn:hover {
+  background: rgba(255, 90, 90, 0.08);
+  border-color: rgba(255, 120, 120, 0.5);
+  color: rgba(255, 165, 165, 0.95);
+}
 .ce-tab {
   flex: 1;
   display: flex;
@@ -49,10 +73,16 @@
 
 .ce-panels { flex: 1; overflow-y: auto; scrollbar-width: none; }
 .ce-panels::-webkit-scrollbar { display: none; }
-.ce-panel { display: none; padding: 16px; flex-direction: column; gap: 0; }
+.ce-panel { display: none; padding: 14px; flex-direction: column; gap: 0; }
 .ce-panel.ce-panel-active { display: flex; }
 
-.ce-section { margin-bottom: 20px; }
+.ce-section {
+  margin-bottom: 14px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.015);
+  border: 0.5px solid rgba(255,255,255,0.05);
+}
 .ce-section-label {
   font-size: 11px;
   font-weight: 600;
@@ -62,7 +92,7 @@
   text-transform: uppercase;
 }
 
-.ce-slider-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.ce-slider-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .ce-slider-label { font-size: 12px; color: var(--cfg-text); min-width: 100px; }
 .ce-slider-right { display: flex; align-items: center; gap: 8px; flex: 1; }
 .ce-slider-right input[type=range] { flex: 1; }
@@ -100,8 +130,8 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 0.5px solid var(--cfg-border);
+  padding: 9px 0;
+  border-bottom: 0.5px solid rgba(255,255,255,0.05);
 }
 .ce-toggle-row:last-child { border-bottom: none; }
 .ce-toggle-info { display: flex; flex-direction: column; gap: 2px; flex: 1; }
@@ -147,8 +177,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 0.5px solid var(--cfg-border);
+  padding: 9px 0;
+  border-bottom: 0.5px solid rgba(255,255,255,0.05);
   cursor: pointer;
 }
 .ce-color-row:last-of-type { border-bottom: none; }
@@ -262,3 +292,92 @@
 .ce-library-name { font-size: 12px; color: var(--cfg-text); }
 .ce-library-meta { font-size: 10px; color: var(--cfg-muted); }
 .ce-library-empty { font-size: 11px; color: var(--cfg-muted); padding: 8px 2px; }
+
+.ce-gradient-saved {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ce-gradient-saved-label {
+  font-size: 11px;
+  color: var(--cfg-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ce-save-gradient-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--cfg-bg);
+  border: 0.5px solid var(--cfg-border2);
+  color: var(--cfg-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ce-save-gradient-btn:hover {
+  border-color: var(--cfg-accent);
+  color: var(--cfg-accent);
+}
+
+.ce-gradient-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ce-gradient-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 0.5px solid var(--cfg-border2);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.ce-gradient-swatch:hover {
+  transform: scale(1.1);
+  border-color: var(--cfg-accent);
+}
+
+.ce-order-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 0.5px solid var(--cfg-border);
+  font-size: 12px;
+  color: var(--cfg-text);
+}
+
+.ce-order-item:last-child { border-bottom: none; }
+
+.ce-order-btns {
+  display: flex;
+  gap: 4px;
+}
+
+.ce-order-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: var(--cfg-bg);
+  border: 0.5px solid var(--cfg-border2);
+  color: var(--cfg-muted);
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.ce-order-btn:hover {
+  border-color: var(--cfg-accent);
+  color: var(--cfg-accent);
+}

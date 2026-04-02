@@ -23,11 +23,14 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   backdrop-filter: blur(20px);
   border-bottom: 0.5px solid var(--cfg-border2);
   position: sticky; top: 0; z-index: 10;
+  overflow: visible;
 }
 .cfg-logo {
-  height: 56px;
+  height: 52px;
   width: auto;
   display: block;
+  position: relative;
+  top: 0;
 }
 .cfg-header-actions { margin-left: auto; display: flex; gap: 8px; }
 
@@ -45,10 +48,14 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 #cfg-body { flex: 1; display: flex; overflow: hidden; }
 
 #cfg-sidebar {
-  width: 300px; flex-shrink: 0; overflow-y: auto;
+  width: 360px; flex-shrink: 0; overflow-y: auto;
   background: var(--cfg-surface);
   border-right: 0.5px solid var(--cfg-border2);
   scrollbar-width: none;
+  padding: 10px 0 16px;
+  position: relative;
+  z-index: 4;
+  contain: layout paint;
 }
 #cfg-sidebar::-webkit-scrollbar { display: none; }
 
@@ -107,9 +114,16 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   user-select: all;
 }
 
-.cfg-divider { height: 0.5px; background: var(--cfg-border2); margin: 0 16px; }
+.cfg-divider { height: 0.5px; background: rgba(255,255,255,0.05); margin: 10px 18px; }
 
-.cfg-section { padding: 16px; }
+.cfg-section {
+  padding: 14px 14px 12px;
+  margin: 0 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.02);
+  border: 0.5px solid rgba(255,255,255,0.06);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+}
 .cfg-section-label {
   font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
   color: var(--cfg-muted); margin-bottom: 12px; text-transform: uppercase;
@@ -126,19 +140,19 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 .cfg-input-sm { margin-bottom: 8px; }
 
 .cfg-layout-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
 }
 .cfg-layout-btn {
   display: flex; flex-direction: column; align-items: center;
   gap: 6px; padding: 10px 6px;
   background: var(--cfg-bg); border: 0.5px solid var(--cfg-border2);
-  border-radius: 10px; color: var(--cfg-muted); font-size: 11px;
-  cursor: pointer; transition: all 0.15s;
+  border-radius: 11px; color: var(--cfg-muted); font-size: 11px;
+  cursor: pointer; transition: border-color 0.12s, background 0.12s, color 0.12s, transform 0.12s;
 }
-.cfg-layout-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--cfg-text); }
+.cfg-layout-btn:hover { border-color: rgba(255,255,255,0.22); color: var(--cfg-text); transform: translateY(-1px); }
 .cfg-layout-btn.cfg-active {
   border-color: var(--cfg-accent); color: var(--cfg-accent);
-  background: rgba(210, 215, 224, 0.12);
+  background: rgba(210, 215, 224, 0.14);
 }
 .cfg-layout-icon {
   width: 40px; height: 24px; border-radius: 4px;
@@ -177,13 +191,13 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 }
 
 .cfg-theme-grid {
-  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
 }
 .cfg-theme-btn {
   display: flex; align-items: center; gap: 8px; padding: 9px 10px;
   background: var(--cfg-bg); border: 0.5px solid var(--cfg-border2);
-  border-radius: 10px; color: var(--cfg-muted); font-size: 12px;
-  cursor: pointer; transition: all 0.15s;
+  border-radius: 11px; color: var(--cfg-muted); font-size: 12px;
+  cursor: pointer; transition: border-color 0.12s, background 0.12s, color 0.12s;
 }
 .cfg-theme-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--cfg-text); }
 .cfg-theme-btn.cfg-active { border-color: var(--cfg-accent); color: var(--cfg-text); }
@@ -407,10 +421,18 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 }
 
 .wiz-logo {
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--cfg-text);
-  letter-spacing: -0.3px;
+  height: 25px;
+  display: flex;
+  align-items: center;
+  overflow: visible;
+}
+
+.wiz-logo-img {
+  height: 32px;
+  width: auto;
+  display: block;
+  transform: scale(1);
+  transform-origin: left center;
 }
 
 .wiz-step-indicator {
@@ -510,15 +532,32 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   justify-content: center;
   font-size: 14px;
   font-weight: 700;
+  overflow: hidden;
+  background: transparent;
+}
+
+.wiz-source-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
 }
 
 .wiz-source-spotify {
-  background: #1db954;
-  color: #000;
+  background: transparent;
+  color: inherit;
 }
 .wiz-source-lastfm {
-  background: #d51007;
-  color: #fff;
+  background: transparent;
+  color: inherit;
+}
+.wiz-source-songify {
+  background: transparent;
+  color: inherit;
+}
+.wiz-source-card-wide {
+  grid-column: 1 / -1;
 }
 
 .wiz-source-name {
@@ -643,6 +682,11 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 .wiz-input:focus {
   border-color: var(--cfg-accent);
 }
+.wiz-input-error {
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(255, 100, 80, 0.95);
+}
 
 .wiz-notice {
   padding: 12px 14px;
@@ -722,11 +766,29 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 }
 
 .cfg-source-bar {
-  padding: 12px 16px;
+  padding: 10px 14px;
+  margin: 0 12px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.02);
+  border: 0.5px solid rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cfg-source-bar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 0.5px solid var(--cfg-border2);
+  gap: 10px;
+}
+
+.cfg-source-bar-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  flex-wrap: wrap;
 }
 
 .cfg-source-label {
@@ -737,23 +799,25 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 .cfg-source-pills {
   display: flex;
   gap: 4px;
+  flex-wrap: wrap;
 }
 
 .cfg-source-pill {
-  padding: 4px 12px;
+  padding: 6px 11px;
   border-radius: 20px;
-  font-size: 12px;
+  font-size: 11px;
   background: var(--cfg-bg);
   border: 0.5px solid var(--cfg-border2);
   color: var(--cfg-muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color 0.12s, background 0.12s, color 0.12s, transform 0.12s;
 }
+.cfg-source-pill:hover { border-color: rgba(255,255,255,0.22); color: var(--cfg-text); transform: translateY(-1px); }
 
 .cfg-pill-active {
-  background: var(--cfg-accent);
-  border-color: var(--cfg-accent);
-  color: #000;
+  background: rgba(210, 215, 224, 0.12);
+  border-color: rgba(210, 215, 224, 0.24);
+  color: var(--cfg-text);
   font-weight: 500;
 }
 
@@ -767,6 +831,259 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   line-height: 1.5;
 }
 
+.cfg-songify-status {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--cfg-bg);
+  border: 0.5px solid var(--cfg-border2);
+  color: var(--cfg-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.cfg-songify-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cfg-muted);
+  flex-shrink: 0;
+}
+
+.cfg-songify-status.cfg-status-connected {
+  color: #30d158;
+  border-color: rgba(48, 209, 88, 0.2);
+}
+
+.cfg-songify-status.cfg-status-connected::before {
+  background: #30d158;
+}
+
+.cfg-songify-status.cfg-status-error {
+  color: rgba(255, 100, 80, 0.9);
+  border-color: rgba(255, 100, 80, 0.2);
+}
+
+.cfg-songify-status.cfg-status-error::before {
+  background: rgba(255, 100, 80, 0.9);
+}
+
+.cfg-beta-chip {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 170, 110, 0.95);
+  background: rgba(255, 130, 60, 0.08);
+  border: 0.5px solid rgba(255, 130, 60, 0.28);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.cfg-songify-beta-note {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(255, 170, 110, 0.95);
+  background: rgba(255, 130, 60, 0.06);
+  border: 0.5px solid rgba(255, 130, 60, 0.2);
+}
+
+.cfg-slider-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.cfg-slider-label {
+  font-size: 12px;
+  color: var(--cfg-text);
+}
+
+.cfg-twitch-explainer {
+  font-size: 12px;
+  color: var(--cfg-muted);
+  line-height: 1.6;
+  padding: 8px 10px;
+  background: var(--cfg-bg);
+  border: 0.5px solid var(--cfg-border2);
+  border-radius: 8px;
+}
+
+.cfg-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px 0;
+  border-bottom: 0.5px solid var(--cfg-border);
+}
+
+.cfg-field-group:last-of-type {
+  border-bottom: none;
+}
+
+.cfg-field-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--cfg-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cfg-field-optional {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--cfg-muted);
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--cfg-surface2);
+  border: 0.5px solid var(--cfg-border2);
+}
+
+.cfg-field-desc {
+  font-size: 11px;
+  color: var(--cfg-muted);
+  line-height: 1.5;
+}
+
+.cfg-twitch-token-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.cfg-btn-external {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  color: var(--cfg-text);
+  flex-shrink: 0;
+}
+
+.cfg-twitch-scopes {
+  font-size: 11px;
+  color: var(--cfg-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.cfg-twitch-scopes code {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--cfg-surface2);
+  border: 0.5px solid var(--cfg-border2);
+  border-radius: 4px;
+  color: var(--cfg-text);
+  font-family: monospace;
+}
+
+.cfg-twitch-commands-list {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  background: var(--cfg-bg);
+  border: 0.5px solid var(--cfg-border2);
+  border-radius: 8px;
+}
+
+.cfg-commands-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cfg-muted);
+  margin-bottom: 4px;
+}
+
+.cfg-command-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.cfg-command-row code {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--cfg-accent);
+  background: rgba(29,185,84,0.08);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+.cfg-command-row span {
+  color: var(--cfg-muted);
+  font-size: 11px;
+}
+
+.cfg-connected-badge {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: rgba(48, 209, 88, 0.92);
+  border: 0.5px solid rgba(48, 209, 88, 0.2);
+  background: rgba(48, 209, 88, 0.08);
+}
+
+.wiz-twitch-commands {
+  background: var(--cfg-bg);
+  border: 0.5px solid var(--cfg-border2);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wiz-commands-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cfg-muted);
+}
+
+.wiz-commands-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.wiz-command-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.wiz-command-item code {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--cfg-accent);
+  font-weight: 500;
+}
+
+.wiz-command-item span {
+  font-size: 11px;
+  color: var(--cfg-muted);
+}
+
 .cfg-gear-btn {
   background: transparent;
   border: 0.5px solid var(--cfg-border2);
@@ -778,10 +1095,28 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s;
+  transition: border-color 0.12s, background 0.12s, color 0.12s, transform 0.12s;
 }
 
 .cfg-gear-btn:hover {
   background: rgba(255, 255, 255, 0.04);
   color: var(--cfg-text);
+  transform: translateY(-1px);
+}
+
+.cfg-btn-group {
+  display: flex;
+  gap: 6px;
+}
+
+.cfg-sm-btn {
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+.cfg-sm-btn.cfg-active {
+  background: var(--cfg-accent);
+  border-color: var(--cfg-accent);
+  color: #000;
+  font-weight: 600;
 }

@@ -132,6 +132,8 @@ export async function applyMood(rootEl, extras, track = null) {
     return;
   }
 
+  const lockCustomColours = rootEl.dataset?.nwCustomColors === "1";
+
   const mood = getMood(extras);
   const moodBase = MOODS[mood];
   const artPalette = await extractPaletteFromArt(track?.albumArt || "");
@@ -145,13 +147,17 @@ export async function applyMood(rootEl, extras, track = null) {
     .filter((name) => name.startsWith("nw-mood-"))
     .forEach((name) => rootEl.classList.remove(name));
 
-  rootEl.style.setProperty("--nw-bg", bg);
-  rootEl.style.setProperty("--nw-accent", accent);
-  rootEl.style.setProperty("--nw-glass-border", glassBorder);
-  rootEl.style.setProperty("--nw-text-muted", textMuted);
-  rootEl.style.setProperty("--nw-progress-bg", progressBg);
+  if (!lockCustomColours) {
+    rootEl.style.setProperty("--nw-bg", bg);
+    rootEl.style.setProperty("--nw-accent", accent);
+    rootEl.style.setProperty("--nw-glass-border", glassBorder);
+    rootEl.style.setProperty("--nw-text-muted", textMuted);
+    rootEl.style.setProperty("--nw-progress-bg", progressBg);
+  }
   rootEl.classList.add(`nw-mood-${mood}`);
   rootEl.style.transition = "background-color 1.2s ease, color 1.2s ease, border-color 1.2s ease";
+
+  // If the user enabled custom colours, don't override the core CSS variables they picked.
 }
 
 /** Clears mood classes and inline mood overrides from the overlay root. */
@@ -160,14 +166,18 @@ export function clearMood(rootEl) {
     return;
   }
 
+  const lockCustomColours = rootEl.dataset?.nwCustomColors === "1";
+
   [...rootEl.classList]
     .filter((name) => name.startsWith("nw-mood-"))
     .forEach((name) => rootEl.classList.remove(name));
 
-  rootEl.style.removeProperty("--nw-bg");
-  rootEl.style.removeProperty("--nw-accent");
-  rootEl.style.removeProperty("--nw-glass-border");
-  rootEl.style.removeProperty("--nw-text-muted");
-  rootEl.style.removeProperty("--nw-progress-bg");
+  if (!lockCustomColours) {
+    rootEl.style.removeProperty("--nw-bg");
+    rootEl.style.removeProperty("--nw-accent");
+    rootEl.style.removeProperty("--nw-glass-border");
+    rootEl.style.removeProperty("--nw-text-muted");
+    rootEl.style.removeProperty("--nw-progress-bg");
+  }
   rootEl.style.transition = "";
 }

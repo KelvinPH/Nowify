@@ -4,11 +4,19 @@ const DEFAULT_STATE = {
   layout: "glasscard",
   theme: "obsidian",
   source: "spotify",
+  songifyPort: 4002,
   clientId: "",
   showProgress: true,
+  showTimeLeft: false,
+  showNextTrack: false,
   showBpm: false,
+  showAlbum: false,
+  showPlayState: false,
   transparent: false,
   moodSync: true,
+  stackDir: "row",
+  artPosition: "left",
+  maxCardWidth: 900,
   twitchChannel: "",
   twitchToken: "",
   lastfmUsername: "",
@@ -25,13 +33,205 @@ const LAYOUT_OPTIONS = {
   custom: { showProgress: true, showBpm: true, transparent: true, moodSync: true },
 };
 
+const LAYOUT_CONTENT = {
+  glasscard: {
+    showProgress: true, showTimeLeft: true, showNextTrack: true,
+    showBpm: true, showAlbum: true, showPlayState: true,
+    stackDir: true, artPosition: true,
+  },
+  pill: {
+    showProgress: false, showTimeLeft: false, showNextTrack: false,
+    showBpm: false, showAlbum: false, showPlayState: true,
+    stackDir: false, artPosition: false,
+  },
+  island: {
+    showProgress: true, showTimeLeft: true, showNextTrack: false,
+    showBpm: true, showAlbum: true, showPlayState: true,
+    stackDir: false, artPosition: false,
+  },
+  strip: {
+    showProgress: false, showTimeLeft: true, showNextTrack: false,
+    showBpm: false, showAlbum: false, showPlayState: false,
+    stackDir: false, artPosition: true,
+  },
+  albumfocus: {
+    showProgress: true, showTimeLeft: true, showNextTrack: false,
+    showBpm: true, showAlbum: true, showPlayState: true,
+    stackDir: false, artPosition: false,
+  },
+  sidebar: {
+    showProgress: true, showTimeLeft: false, showNextTrack: false,
+    showBpm: false, showAlbum: false, showPlayState: false,
+    stackDir: false, artPosition: false,
+  },
+};
+
 let state = { ...DEFAULT_STATE };
 let inputDebounceTimer = null;
 let previousLayout = "glasscard";
 let sourceSettingsOpen = false;
+let twitchSectionOpen = false;
 const CUSTOM_PRESETS_KEY = "nowify_custom_presets";
 const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
 const OWNER_KEY_STORAGE = "nowify_owner_key";
+
+function renderTwitchSection() {
+  const toggleLabel = twitchSectionOpen ? "Hide" : "Show";
+  return `
+  <div class="cfg-section">
+    <div class="cfg-section-header">
+      <div class="cfg-section-label">Twitch chat commands</div>
+      <button class="cfg-disconnect-btn" id="btn-twitch-toggle" type="button">${toggleLabel}</button>
+    </div>
+
+    ${
+      !twitchSectionOpen
+        ? `<div class="cfg-field-desc">
+      Optional. Viewer commands are hidden by default. Click Show to configure.
+    </div>`
+        : `
+    <div class="cfg-twitch-explainer">
+      Optional. Connect Twitch so viewers can use
+      <strong>!sr</strong>, <strong>!skip</strong>,
+      <strong>!prev</strong> and <strong>!queue</strong>
+      in chat to control your music.
+      Your overlay works without this.
+    </div>
+
+    <div class="cfg-field-group">
+      <div class="cfg-field-label">Channel name</div>
+      <div class="cfg-field-desc">
+        Your Twitch channel name (without the # symbol).
+      </div>
+      <input id="ctrl-twitchChannel"
+             class="cfg-input"
+             type="text"
+             placeholder="your_twitch_channel"
+             value="${escCfg(state.twitchChannel || "")}" />
+    </div>
+
+    <div class="cfg-field-group">
+      <div class="cfg-field-label">
+        OAuth token
+        <span class="cfg-field-optional">optional</span>
+      </div>
+      <div class="cfg-field-desc">
+        Required for chat commands to work. Generate a token
+        with the correct scopes using the button below.
+        Never share this token with anyone.
+      </div>
+      <input id="ctrl-twitchToken"
+             class="cfg-input"
+             type="password"
+             placeholder="oauth:your_token_here"
+             value="${escCfg(state.twitchToken || "")}" />
+      <div class="cfg-twitch-token-actions">
+        <a href="https://twitchtokengenerator.com/"
+           target="_blank"
+           class="cfg-btn cfg-sm-btn cfg-btn-external">
+          Generate token ->
+        </a>
+        <div class="cfg-twitch-scopes">
+          Needs scopes:
+          <code>chat:read</code>
+          <code>chat:edit</code>
+        </div>
+      </div>
+    </div>
+
+    ${
+      state.twitchChannel && state.twitchToken
+        ? '<div class="cfg-connected-badge">Twitch configured</div>'
+        : state.twitchChannel
+          ? '<div class="cfg-field-desc" style="color:rgba(255,159,10,0.8)">Token missing - commands will not work</div>'
+          : ""
+    }
+
+    <div class="cfg-twitch-commands-list">
+      <div class="cfg-commands-label">Available commands</div>
+      <div class="cfg-command-row">
+        <code>!sr [song]</code>
+        <span>Add a song to the queue</span>
+      </div>
+      <div class="cfg-command-row">
+        <code>!skip</code>
+        <span>Skip to next track</span>
+      </div>
+      <div class="cfg-command-row">
+        <code>!prev</code>
+        <span>Go to previous track</span>
+      </div>
+      <div class="cfg-command-row">
+        <code>!queue</code>
+        <span>Show upcoming tracks in chat</span>
+      </div>
+    </div>
+    `
+    }
+  </div>
+  `;
+}
+
+function loadPlatformState() {
+  const savedTwitch = localStorage.getItem("nowify_twitch");
+  if (savedTwitch) {
+    try {
+      const tw = JSON.parse(savedTwitch || "{}");
+      state.twitchChannel = tw.channel || "";
+      state.twitchToken = tw.token || "";
+    } catch (_e) {}
+  }
+
+  state.clientId = localStorage.getItem("nowify_client_id") || "";
+
+  const savedLastfm = localStorage.getItem("nowify_lastfm");
+  if (savedLastfm) {
+    try {
+      const parsed = JSON.parse(savedLastfm);
+      state.lastfmUsername = parsed.username || "";
+      state.lastfmApiKey = parsed.apiKey || "";
+    } catch (_error) {}
+  }
+
+  const savedSongify = localStorage.getItem("nowify_songify");
+  if (savedSongify) {
+    try {
+      const parsed = JSON.parse(savedSongify);
+      state.songifyPort = Number(parsed.port) || 4002;
+    } catch (_error) {}
+  }
+}
+
+function savePlatformState(newState) {
+  if (newState.twitchChannel !== undefined || newState.twitchToken !== undefined) {
+    localStorage.setItem(
+      "nowify_twitch",
+      JSON.stringify({
+        channel: state.twitchChannel,
+        token: state.twitchToken,
+      })
+    );
+  }
+
+  if (newState.lastfmUsername !== undefined || newState.lastfmApiKey !== undefined) {
+    localStorage.setItem(
+      "nowify_lastfm",
+      JSON.stringify({
+        username: state.lastfmUsername,
+        apiKey: state.lastfmApiKey,
+      })
+    );
+  }
+
+  if (newState.songifyPort !== undefined) {
+    localStorage.setItem(
+      "nowify_songify",
+      JSON.stringify({
+        port: state.songifyPort,
+      })
+    );
+  }
+}
 
 /** Builds the full overlay URL from the current configurator state. */
 export function buildOverlayUrl(currentState) {
@@ -110,14 +310,20 @@ function renderSidebar() {
 
   sidebar.innerHTML = `
   <div class="cfg-source-bar">
-    <span class="cfg-source-label">Music source</span>
-    <div style="display:flex;align-items:center;gap:8px;">
+    <div class="cfg-source-bar-header">
+      <span class="cfg-source-label">Music source</span>
+      <span class="cfg-beta-chip">Songify BETA</span>
+    </div>
+    <div class="cfg-source-bar-controls">
       <div class="cfg-source-pills">
         <button class="cfg-source-pill ${state.source === "spotify" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="spotify" type="button">
           Spotify
         </button>
         <button class="cfg-source-pill ${state.source === "lastfm" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="lastfm" type="button">
           Last.fm
+        </button>
+        <button class="cfg-source-pill ${state.source === "songify" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="songify" type="button">
+          Songify (BETA)
         </button>
       </div>
       <button id="btn-source-settings" class="cfg-gear-btn" type="button" title="Settings">
@@ -140,7 +346,7 @@ function renderSidebar() {
           Uses your Client ID for the overlay. The redirect URI is:
           <div class="cfg-copy-box" id="cfg-redirect-uri">${getRedirectUri()}</div>
         </div>
-      ` : `
+      ` : state.source === "lastfm" ? `
         <div class="cfg-section-header" style="margin-bottom:8px;">
           <div class="cfg-section-label">Last.fm API keys</div>
           ${
@@ -171,25 +377,39 @@ function renderSidebar() {
             ? `<div class="cfg-source-active-badge">Last.fm active. Now playing enabled.</div>`
             : ""
         }
+      ` : `
+        <div class="cfg-section-label">Songify connection</div>
+        <div class="cfg-songify-status" id="cfg-songify-status">Not connected</div>
+        <div class="cfg-slider-row">
+          <span class="cfg-slider-label">Port</span>
+          <input
+            id="ctrl-songify-port"
+            class="cfg-input cfg-input-sm"
+            type="number"
+            style="max-width: 100px"
+            min="1024"
+            max="65535"
+            value="${escCfg(state.songifyPort)}"
+          />
+        </div>
+        <div class="cfg-source-info" style="margin-bottom:0;">
+          Nowify connects to Songify's local WebSocket on this port.
+          Enable Songify web server in File -> Settings -> Web Server.
+          Default port is 4002.
+        </div>
+        <div class="cfg-songify-beta-note">
+          Songify integration is in beta. Some players or Songify versions may report
+          slightly different metadata fields.
+        </div>
       `}
     </div>
   ` : ""}
 
-  <div class="cfg-divider"></div>
-
-  <div class="cfg-section">
-    <div class="cfg-section-header">
-      <div class="cfg-section-label">Twitch (optional)</div>
-      ${
-        state.twitchChannel
-          ? `<button class="cfg-disconnect-btn" id="btn-twitch-disconnect" type="button">Disconnect</button>`
-          : ""
-      }
-    </div>
-    <input id="ctrl-twitchChannel" class="cfg-input cfg-input-sm" placeholder="Channel name" value="${escCfg(state.twitchChannel)}" />
-    <input id="ctrl-twitchToken" class="cfg-input cfg-input-sm" type="password" placeholder="OAuth token from twitchtokengenerator.com" value="${escCfg(state.twitchToken)}" />
-    <div class="cfg-hint">Enables !sr, !skip, and !prev in chat</div>
-  </div>
+  ${
+    state.source !== "songify"
+      ? `<div class="cfg-divider"></div>${renderTwitchSection()}`
+      : ""
+  }
 
   <div class="cfg-divider"></div>
 
@@ -232,15 +452,70 @@ function renderSidebar() {
 
   <div class="cfg-section">
     <div class="cfg-section-label">Options</div>
-    ${toggleRow("Progress bar", "showProgress", "Track position indicator", LAYOUT_OPTIONS[state.layout]?.showProgress ?? true)}
-    ${state.source === "spotify" ? toggleRow("Show BPM", "showBpm", "Tempo, albumfocus layout only", LAYOUT_OPTIONS[state.layout]?.showBpm ?? false) : ""}
     ${toggleRow("Transparent background", "transparent", "Removes background for gameplay scenes", LAYOUT_OPTIONS[state.layout]?.transparent ?? true)}
-    ${state.source === "spotify" ? toggleRow("Mood sync", "moodSync", "Overrides theme background colour with song mood", LAYOUT_OPTIONS[state.layout]?.moodSync ?? true) : ""}
+  </div>
+
+  <div class="cfg-divider"></div>
+
+  <div class="cfg-section">
+    <div class="cfg-section-label">Now playing</div>
+
+    ${LAYOUT_CONTENT[state.layout]?.showProgress !== false
+      ? toggleRow("Progress bar", "showProgress", "Track position indicator")
+      : ""}
+
+    ${LAYOUT_CONTENT[state.layout]?.showTimeLeft
+      ? toggleRow("Time remaining", "showTimeLeft", "Shows time left instead of elapsed")
+      : ""}
+
+    ${LAYOUT_CONTENT[state.layout]?.showNextTrack
+      ? toggleRow("Next track", "showNextTrack", "Requires queue permission — see setup")
+      : ""}
+
+    ${state.source !== "lastfm" && state.source !== "songify" && LAYOUT_CONTENT[state.layout]?.showBpm
+      ? toggleRow("BPM badge", "showBpm", "Tempo from Spotify audio features")
+      : ""}
+
+    ${LAYOUT_CONTENT[state.layout]?.showAlbum
+      ? toggleRow("Album name", "showAlbum", "")
+      : ""}
+
+    ${LAYOUT_CONTENT[state.layout]?.showPlayState
+      ? toggleRow("Play state dot", "showPlayState", "Pulsing dot when track is playing")
+      : ""}
+
+    ${state.layout === "custom" && LAYOUT_CONTENT[state.layout]?.stackDir
+      ? `<div class="cfg-section-label" style="margin-top:8px">Layout direction</div>
+         <div class="cfg-btn-group">
+           <button class="cfg-btn cfg-sm-btn ${state.stackDir === "row" ? "cfg-active" : ""}" data-set-key="stackDir" data-set-value="row">Horizontal</button>
+           <button class="cfg-btn cfg-sm-btn ${state.stackDir === "column" ? "cfg-active" : ""}" data-set-key="stackDir" data-set-value="column">Vertical</button>
+         </div>`
+      : ""}
+
+    ${state.layout === "custom" && LAYOUT_CONTENT[state.layout]?.artPosition
+      ? `<div class="cfg-section-label" style="margin-top:8px">Art position</div>
+         <div class="cfg-btn-group">
+           <button class="cfg-btn cfg-sm-btn ${state.artPosition === "left" ? "cfg-active" : ""}" data-set-key="artPosition" data-set-value="left">Left</button>
+           <button class="cfg-btn cfg-sm-btn ${state.artPosition === "right" ? "cfg-active" : ""}" data-set-key="artPosition" data-set-value="right">Right</button>
+         </div>`
+      : ""}
+  </div>
+
+  <div class="cfg-divider"></div>
+
+  <div class="cfg-section">
+    <div class="cfg-section-label">Mood sync</div>
+    ${toggleRow("Mood sync", "moodSync", "Background shifts with song energy — works on all layouts", state.source === "spotify")}
     ${
       state.source === "lastfm"
         ? `<div class="cfg-lastfm-notice">
       Using Last.fm — BPM display and mood sync are not available.
       Switch to Spotify for full features.
+    </div>`
+        : state.source === "songify"
+          ? `<div class="cfg-lastfm-notice">
+      Using Songify — BPM display and mood sync are not available.
+      Nowify reads track data directly from Songify's web server.
     </div>`
         : ""
     }
@@ -272,18 +547,18 @@ function renderSidebar() {
     });
   }
 
-  const disconnectBtn = document.getElementById("btn-twitch-disconnect");
-  if (disconnectBtn) {
-    disconnectBtn.addEventListener("click", () => {
-      localStorage.removeItem("nowify_twitch");
-      update({ twitchChannel: "", twitchToken: "" });
-    });
-  }
   const lastfmDisconnect = document.getElementById("btn-lastfm-disconnect");
   if (lastfmDisconnect) {
     lastfmDisconnect.addEventListener("click", () => {
       localStorage.removeItem("nowify_lastfm");
       update({ lastfmUsername: "", lastfmApiKey: "" });
+    });
+  }
+  const twitchToggleBtn = document.getElementById("btn-twitch-toggle");
+  if (twitchToggleBtn) {
+    twitchToggleBtn.addEventListener("click", () => {
+      twitchSectionOpen = !twitchSectionOpen;
+      renderSidebar();
     });
   }
 
@@ -298,11 +573,64 @@ function renderSidebar() {
     });
   };
 
-  bindDebouncedInput("ctrl-clientId", "clientId");
-  bindDebouncedInput("ctrl-twitchChannel", "twitchChannel");
-  bindDebouncedInput("ctrl-twitchToken", "twitchToken");
-  bindDebouncedInput("ctrl-lastfmUsername", "lastfmUsername");
-  bindDebouncedInput("ctrl-lastfmApiKey", "lastfmApiKey");
+  const inputMap = {
+    "ctrl-clientId": "clientId",
+    "ctrl-lastfmUsername": "lastfmUsername",
+    "ctrl-lastfmApiKey": "lastfmApiKey",
+    "ctrl-twitchChannel": "twitchChannel",
+    "ctrl-twitchToken": "twitchToken",
+  };
+  Object.entries(inputMap).forEach(([id, key]) => {
+    bindDebouncedInput(id, key);
+  });
+
+  const songifyPortInput = sidebar.querySelector("#ctrl-songify-port");
+  if (songifyPortInput) {
+    songifyPortInput.addEventListener("change", () => {
+      const val = Number(songifyPortInput.value);
+      if (Number.isInteger(val) && val >= 1024 && val <= 65535) {
+        update({ songifyPort: val });
+      }
+    });
+  }
+
+  if (state.source === "songify") {
+    const statusEl = document.getElementById("cfg-songify-status");
+    if (statusEl) {
+      statusEl.textContent = "Checking...";
+      statusEl.classList.remove("cfg-status-connected", "cfg-status-error");
+      try {
+        const testWs = new WebSocket(`ws://localhost:${state.songifyPort}`);
+        let settled = false;
+        const finalize = (ok) => {
+          if (settled) return;
+          settled = true;
+          if (ok) {
+            statusEl.textContent = "Connected";
+            statusEl.classList.add("cfg-status-connected");
+            statusEl.classList.remove("cfg-status-error");
+          } else {
+            statusEl.textContent = "Not connected";
+            statusEl.classList.remove("cfg-status-connected");
+            statusEl.classList.add("cfg-status-error");
+          }
+          try {
+            testWs.close();
+          } catch (_error) {}
+        };
+        testWs.addEventListener("open", () => finalize(true));
+        testWs.addEventListener("error", () => finalize(false));
+        testWs.addEventListener("close", () => {
+          if (!settled) finalize(false);
+        });
+        window.setTimeout(() => finalize(false), 2000);
+      } catch (_error) {
+        statusEl.textContent = "Error";
+        statusEl.classList.remove("cfg-status-connected");
+        statusEl.classList.add("cfg-status-error");
+      }
+    }
+  }
   sidebar.scrollTop = scrollTop;
 }
 
@@ -448,6 +776,7 @@ function ensureSetupHeaderButton() {
     showWizard((chosenSource) => {
       state.source = chosenSource;
       const savedLastfm = localStorage.getItem("nowify_lastfm");
+      const savedSongify = localStorage.getItem("nowify_songify");
       if (savedLastfm) {
         try {
           const parsed = JSON.parse(savedLastfm);
@@ -457,6 +786,16 @@ function ensureSetupHeaderButton() {
       } else {
         state.lastfmUsername = "";
         state.lastfmApiKey = "";
+      }
+      if (savedSongify) {
+        try {
+          const parsed = JSON.parse(savedSongify);
+          state.songifyPort = Number(parsed.port) || 4002;
+        } catch (_error) {
+          state.songifyPort = 4002;
+        }
+      } else {
+        state.songifyPort = 4002;
       }
       update({ source: chosenSource });
     });
@@ -634,6 +973,11 @@ function update(newState) {
     state.showBpm = false;
     state.moodSync = false;
   }
+  if (state.source === "songify") {
+    state.clientId = "";
+    state.showBpm = false;
+    state.moodSync = false;
+  }
   if (newState.layout) {
     const relevant = LAYOUT_OPTIONS[newState.layout] || {};
     if (!relevant.showProgress) state.showProgress = false;
@@ -644,24 +988,11 @@ function update(newState) {
     state.showBpm = false;
     state.moodSync = false;
   }
-  if (newState.twitchChannel !== undefined || newState.twitchToken !== undefined) {
-    localStorage.setItem(
-      "nowify_twitch",
-      JSON.stringify({
-        channel: state.twitchChannel,
-        token: state.twitchToken,
-      })
-    );
+  if (state.source === "songify") {
+    state.showBpm = false;
+    state.moodSync = false;
   }
-  if (newState.lastfmUsername !== undefined || newState.lastfmApiKey !== undefined) {
-    localStorage.setItem(
-      "nowify_lastfm",
-      JSON.stringify({
-        username: state.lastfmUsername,
-        apiKey: state.lastfmApiKey,
-      })
-    );
-  }
+  savePlatformState(newState);
   const url = buildOverlayUrl(state);
   const iframe = document.getElementById("cfg-iframe");
   const urlDisplay = document.getElementById("cfg-url-display");
@@ -675,28 +1006,10 @@ function update(newState) {
 /** Initializes configurator controls, preview syncing, and header actions. */
 export function initConfig() {
   function finishInit() {
-    const savedTwitch = localStorage.getItem("nowify_twitch");
-    if (savedTwitch) {
-      try {
-        const parsed = JSON.parse(savedTwitch);
-        state.twitchChannel = parsed.channel || "";
-        state.twitchToken = parsed.token || "";
-      } catch (_error) {}
-    }
-
-    state.clientId = localStorage.getItem("nowify_client_id") || "";
-
-    const savedLastfm = localStorage.getItem("nowify_lastfm");
-    if (savedLastfm) {
-      try {
-        const parsed = JSON.parse(savedLastfm);
-        state.lastfmUsername = parsed.username || "";
-        state.lastfmApiKey = parsed.apiKey || "";
-      } catch (_error) {}
-    }
+    loadPlatformState();
 
     const savedSource = localStorage.getItem("nowify_source");
-    if (savedSource === "spotify" || savedSource === "lastfm") {
+    if (savedSource === "spotify" || savedSource === "lastfm" || savedSource === "songify") {
       state.source = savedSource;
     } else {
       const hasLastfm = Boolean(state.lastfmUsername && state.lastfmApiKey);
@@ -704,6 +1017,11 @@ export function initConfig() {
     }
 
     if (state.source === "lastfm") {
+      state.clientId = "";
+      state.showBpm = false;
+      state.moodSync = false;
+    }
+    if (state.source === "songify") {
       state.clientId = "";
       state.showBpm = false;
       state.moodSync = false;
@@ -752,11 +1070,18 @@ export function initConfig() {
     initWizard((chosenSource) => {
       state.source = chosenSource;
       const savedLastfm = localStorage.getItem("nowify_lastfm");
+      const savedSongify = localStorage.getItem("nowify_songify");
       if (savedLastfm) {
         try {
           const parsed = JSON.parse(savedLastfm);
           state.lastfmUsername = parsed.username || "";
           state.lastfmApiKey = parsed.apiKey || "";
+        } catch (_error) {}
+      }
+      if (savedSongify) {
+        try {
+          const parsed = JSON.parse(savedSongify);
+          state.songifyPort = Number(parsed.port) || 4002;
         } catch (_error) {}
       }
 
