@@ -511,6 +511,25 @@ export function parseConfig() {
   };
 }
 
+/** Loads Spotify audio features unless blocked or using Last.fm. */
+async function fetchTrackAudioExtras(trackId, useLastfm) {
+  if (useLastfm || blockedAudioFeaturesTrackIds.has(trackId)) {
+    return null;
+  }
+  try {
+    return await getAudioFeatures(trackId);
+  } catch (error) {
+    const message = String(error?.message || "");
+    if (message.includes("Spotify API error 403")) {
+      blockedAudioFeaturesTrackIds.add(trackId);
+      console.warn(
+        "[Nowify] Spotify blocked audio-features for this track or app (403). BPM / energy stats need that endpoint."
+      );
+    }
+    return null;
+  }
+}
+
 /** Polls Spotify and updates overlay content based on track changes. */
 async function poll() {
   try {
@@ -538,22 +557,17 @@ async function poll() {
     if (track.trackId !== currentTrackId) {
       audioFeaturesBackfillAttempted.clear();
       currentTrackId = track.trackId;
-      let extras = null;
-      if (!useLastfm && !blockedAudioFeaturesTrackIds.has(track.trackId)) {
-        try {
-          extras = await getAudioFeatures(track.trackId);
-        } catch (error) {
-          const message = String(error?.message || "");
-          if (message.includes("Spotify API error 403")) {
-            blockedAudioFeaturesTrackIds.add(track.trackId);
-            console.warn(
-              "[Nowify] Spotify blocked audio-features for this track or app (403). BPM / energy stats need that endpoint."
-            );
-          }
-          extras = null;
-        }
-      }
+      const extras = await fetchTrackAudioExtras(track.trackId, useLastfm);
       render(track, extras, nextTrack);
+      updateProgress(track);
+      return;
+    }
+
+    const appEl = document.getElementById("app");
+    const needsInitialRender = Boolean(appEl && !appEl.querySelector(".nw-overlay"));
+    if (needsInitialRender) {
+      const extras = await fetchTrackAudioExtras(track.trackId, useLastfm);
+      render(track, extras, nextTrack, { skipSession: true });
       updateProgress(track);
       return;
     }
@@ -639,13 +653,16 @@ function startDemo() {
 }
 
 /** Renders a track using the selected layout and transition class. */
-function render(track, extras, nextTrack = null) {
+function render(track, extras, nextTrack = null, options = {}) {
+  const { skipSession = false } = options;
   const app = document.getElementById("app");
   if (!app) {
     return;
   }
 
-  startTrack(track, extras);
+  if (!skipSession) {
+    startTrack(track, extras);
+  }
   const layoutFn = LAYOUTS[config.layout] || LAYOUTS.glasscard;
   app.innerHTML = layoutFn(track, extras, config);
 
