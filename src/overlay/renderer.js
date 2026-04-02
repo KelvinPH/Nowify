@@ -1,6 +1,11 @@
 import { getAudioFeatures, getNextTrack, getNowPlaying } from "../api/spotify.js";
 import { getLastfmNowPlaying } from "../api/lastfm.js";
-import { init as initAuth, login, NoTokenError } from "../auth/spotify.js";
+import {
+  handleAuthCallback,
+  getValidToken,
+  login,
+  NoTokenError,
+} from "../auth/spotify.js";
 import { LAYOUTS, escHtml, fmtTime } from "./layouts.js";
 import { initVinyl, setVinylPlaying } from "../visuals/vinyl.js";
 import { applyBeatSync, clearBeatSync } from "../visuals/beatsync.js";
@@ -461,6 +466,7 @@ export function parseConfig() {
     layout: params.get("layout") || "glasscard",
     theme: params.get("theme") || "spotify",
     clientId: params.get("clientId") || "",
+    demo: toBool(params.get("demo"), false),
     showBpm: toBool(params.get("showBpm"), false),
     showTimeLeft: toBool(params.get("showTimeLeft"), false),
     showNextTrack: toBool(params.get("showNextTrack"), false),
@@ -537,12 +543,9 @@ async function poll() {
   } catch (error) {
     if (error?.name === "NoTokenError" || error instanceof NoTokenError) {
       stopPolling();
-      showLoginPrompt();
+      initiateAuth();
       return;
     }
-    const message = String(error?.message || "").trim();
-    sourceErrorMessage = message;
-    showIdle();
     console.warn("Overlay poll failed:", error);
   }
 }
@@ -574,27 +577,9 @@ function initiateAuth() {
   login(config.clientId);
 }
 
-function showLoginPrompt() {
-  const app = document.getElementById("app");
-  if (!app) return;
-  if (document.getElementById("nw-login-prompt")) return;
-
-  app.innerHTML = `
-    <div id="nw-login-prompt" class="nw-login-prompt" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;height:100%;padding:24px;text-align:center;color:var(--nw-text,#fff);font-family:inherit;">
-      <div class="nw-login-icon" style="font-size:32px;opacity:0.4;">♫</div>
-      <div class="nw-login-title" style="font-size:15px;font-weight:500;color:var(--nw-text,#fff);opacity:0.8;">Connect to Spotify</div>
-      <div class="nw-login-body" style="font-size:12px;color:var(--nw-text,#fff);opacity:0.5;line-height:1.6;max-width:260px;">
-        Right-click this source in OBS and click <strong>Interact</strong>, then log in to Spotify.
-      </div>
-      <button class="nw-login-btn" id="nw-login-btn" style="margin-top:8px;padding:8px 20px;background:#1DB954;border:none;border-radius:20px;color:#000;font-size:13px;font-weight:600;cursor:pointer;">
-        Log in to Spotify
-      </button>
-    </div>
-  `;
-
-  document.getElementById("nw-login-btn")?.addEventListener("click", () => {
-    initiateAuth();
-  });
+function startDemo() {
+  sourceErrorMessage = "Demo mode";
+  showIdle();
 }
 
 /** Renders a track using the selected layout and transition class. */
@@ -735,11 +720,14 @@ async function resolveTwitchUserId(channelName, token) {
 export async function init() {
   config = parseConfig();
   document.documentElement.setAttribute("data-theme", config.theme);
-  const hasCode = new URL(window.location.href).searchParams.has("code");
   const useLastfm = !config.clientId && config.lastfmUsername && config.lastfmApiKey;
-  const isEmbeddedPreview = window.self !== window.top;
   const hasSpotifySource = Boolean(config.clientId);
   const hasLastfmSource = Boolean(config.lastfmUsername && config.lastfmApiKey);
+
+  if (config.demo) {
+    startDemo();
+    return;
+  }
 
   // Direct overlay URL without source config should not poll endlessly.
   if (!hasSpotifySource && !hasLastfmSource) {
@@ -749,15 +737,17 @@ export async function init() {
   }
 
   if (!useLastfm) {
-    await initAuth();
-    if (hasCode) {
-      const prompt = document.getElementById("nw-login-prompt");
-      if (prompt) prompt.remove();
-    }
-    const hasToken = Boolean(localStorage.getItem("nowify_access_token"));
-    if (config.clientId && !hasToken && !isEmbeddedPreview) {
-      await login(config.clientId);
-      return;
+    const callbackHandled = await handleAuthCallback();
+    if (!callbackHandled) {
+      try {
+        await getValidToken();
+      } catch (error) {
+        if (error?.name === "NoTokenError" || error instanceof NoTokenError) {
+          initiateAuth();
+          return;
+        }
+        console.warn("[Spotify] Token check failed:", error);
+      }
     }
   }
 

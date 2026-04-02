@@ -19,10 +19,7 @@ const SCOPES = [
 ];
 const PKCE_VERIFIER_KEY = "nowify_pkce_verifier";
 const PKCE_STATE_KEY = "nowify_pkce_state";
-const APP_BASE_PATH = window.location.pathname.endsWith("/")
-  ? window.location.pathname
-  : window.location.pathname.slice(0, window.location.pathname.lastIndexOf("/") + 1);
-const REDIRECT_URI = `${window.location.origin}${APP_BASE_PATH}overlay.html`;
+const REDIRECT_URI = `${window.location.origin}${window.location.pathname}`;
 const PKCE_CHARS =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
 
@@ -122,11 +119,18 @@ async function handleCallback() {
   history.replaceState({}, document.title, REDIRECT_URI);
 }
 
+/** Handles OAuth callback if code is present, returning whether it was handled. */
+export async function handleAuthCallback() {
+  const hasCode = new URL(window.location.href).searchParams.has("code");
+  if (!hasCode) return false;
+  await handleCallback();
+  return true;
+}
+
 /** Initializes Spotify auth by handling callback or starting refresh polling. */
 export async function init() {
-  const hasCode = new URL(window.location.href).searchParams.has("code");
-  if (hasCode) {
-    await handleCallback();
+  const handled = await handleAuthCallback();
+  if (handled) {
     return;
   }
 
