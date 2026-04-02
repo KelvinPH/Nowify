@@ -8,16 +8,24 @@
 ![Hosting: GitHub Pages](https://img.shields.io/badge/Hosting-GitHub%20Pages-222222?logo=githubpages&logoColor=white)
 ![Cloudflare Workers](https://img.shields.io/badge/Backend-Cloudflare%20Workers-F38020?logo=cloudflareworkers&logoColor=white)
 
-## What is nowify?
+## What is Nowify?
 
-Nowify is a real-time music overlay for OBS, Streamlabs, and StreamElements powered by Spotify playback data. You can run the core overlay directly in the browser with no server required. It is open source, free to use, and designed for streamers who want polished music visuals fast.
+Nowify is a real-time music overlay for OBS, Streamlabs, and StreamElements.
+It supports multiple music sources:
+- Spotify (direct API)
+- Last.fm (scrobble-based)
+- Songify (local WebSocket bridge)
+
+You can run the core overlay directly in the browser with no server required for the base overlay.
+Nowify is open source, free to use, and designed for streamers who want polished music visuals quickly.
 
 ## Project history
 
-Nowify is the next generation of the original SpotiStream project.  
+Nowify is the next generation of the original SpotiStream project.
 SpotiStream is the first version, and Nowify is the improved version with a cleaner structure, better maintainability, and a more modern configurator experience.
 
-Original project: [SpotiStream](https://github.com/KelvinPH/SpotiStream)
+- Original project: [SpotiStream](https://github.com/KelvinPH/SpotiStream)
+- More projects by KelvinPH: [GitHub repositories](https://github.com/KelvinPH?tab=repositories)
 
 ## Features
 
@@ -36,13 +44,14 @@ Original project: [SpotiStream](https://github.com/KelvinPH/SpotiStream)
 - **Optional integrations**
   - Twitch chat commands: `!sr`, `!skip`, `!prev`
   - Last.fm fallback credentials in Configurator
+  - Songify source integration ([songify-rocks/Songify](https://github.com/songify-rocks/Songify))
 - **Stats**
   - Session history, mood/activity insights, and exportable recap data
 
 ## Quick start
 
-1. **Set up Spotify app credentials**  
-   Create an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
+1. **Choose your music source**  
+   Use the setup wizard in the Configurator to choose Spotify, Last.fm, or Songify.
 2. **Open the Configurator**  
    Go to [https://kelvinph.github.io/Nowify/config.html](https://kelvinph.github.io/Nowify/config.html).
 3. **Paste URL into OBS Browser Source**  
@@ -51,15 +60,11 @@ Original project: [SpotiStream](https://github.com/KelvinPH/SpotiStream)
 ## Screenshots
 
 <p align="center">
-  <img src="./assets/screenshots/nowify_01.png" alt="Nowify Screenshot 1" width="440" />
-  <img src="./assets/screenshots/nowify_02.png" alt="Nowify Screenshot 2" width="440" />
+  <img src="./assets/screenshots/nowify_ss_01.png" alt="Nowify Screenshot 1" width="440" />
+  <img src="./assets/screenshots/nowify_ss_02.png" alt="Nowify Screenshot 2" width="440" />
 </p>
 <p align="center">
-  <img src="./assets/screenshots/nowify_03.png" alt="Nowify Screenshot 3" width="440" />
-  <img src="./assets/screenshots/nowify_04.png" alt="Nowify Screenshot 4" width="440" />
-</p>
-<p align="center">
-  <img src="./assets/screenshots/nowify_05.png" alt="Nowify Screenshot 5" width="440" />
+  <img src="./assets/screenshots/nowify_ss_03.png" alt="Nowify Screenshot 3" width="440" />
 </p>
 
 ## Configurator
@@ -110,6 +115,7 @@ Fork this repository and enable GitHub Pages from `main` to self-host quickly. P
 ## Acknowledgements
 
 - Spotify Web API
+- Songify ([songify-rocks/Songify](https://github.com/songify-rocks/Songify))
 - Three.js
 - Chart.js
 - OBS Studio

@@ -94,11 +94,12 @@ export const LAYOUTS = {
     </div>
   </div>`
       : `<div class="nw-strip-text">${text}</div>`;
+    const stripTime = config?.showTimeLeft ? `<div class="nw-strip-time">${fmtTime(track?.progressMs)}</div>` : "";
     return `<section class="nw-overlay nw-strip">
     ${artEl(track, "nw-strip-art")}
     <div class="nw-accent-bar"></div>
     ${textMarkup}
-    <div class="nw-strip-time">${fmtTime(track?.progressMs)}</div>
+    ${stripTime}
   </section>`;
   },
 

@@ -149,6 +149,15 @@ body { background: transparent; overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.nw-playing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--nw-accent);
+  flex-shrink: 0;
+  animation: nw-beat-pulse 1.8s ease-in-out infinite;
+}
+
 .nw-custom-sep {
   font-size: 11px;
   color: var(--nw-text-muted);

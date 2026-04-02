@@ -614,14 +614,16 @@ function updateProgress(track) {
 function updateStripTime(track) {
   const timeEl = document.querySelector(".nw-strip-time");
   if (!timeEl) return;
-  if (config.showTimeLeft && track?.durationMs) {
+  if (!config.showTimeLeft) {
+    timeEl.textContent = "";
+    return;
+  }
+  if (track?.durationMs) {
     const remainingMs = Math.max(0, (track.durationMs || 0) - (track.progressMs || 0));
     timeEl.textContent = `-${fmtTime(remainingMs)}`;
     return;
   }
-  if (track?.progressMs) {
-    timeEl.textContent = fmtTime(track.progressMs);
-  }
+  timeEl.textContent = "";
 }
 
 function startProgressTimer() {
