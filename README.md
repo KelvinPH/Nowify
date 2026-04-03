@@ -2,7 +2,7 @@
 
 **A real-time music overlay for streamers**
 
-![Nowify Logo](./assets/logo/logo_black.png)
+![Nowify Logo](./assets/logo/logo_black.png?v=2)
 
 ![OBS Browser Source](https://img.shields.io/badge/OBS-Browser%20Source-302E31?logo=obsstudio&logoColor=white)
 ![Hosting: GitHub Pages](https://img.shields.io/badge/Hosting-GitHub%20Pages-222222?logo=githubpages&logoColor=white)
