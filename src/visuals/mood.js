@@ -8,6 +8,36 @@ const MOODS = {
 
 const artPaletteCache = new Map();
 
+let currentColor1 = "";
+let currentColor2 = "";
+let customColor1 = "";
+let customColor2 = "";
+let onColorsUpdated = null;
+
+/** Subscribe to mood palette updates (hex strings for animated background, etc.). */
+export function onMoodColorsUpdated(callback) {
+  onColorsUpdated = callback;
+}
+
+/** Last extracted mood / art pair as hex (or defaults). */
+export function getMoodColors() {
+  return [currentColor1 || "#1a1a2e", currentColor2 || "#0f0f1a"];
+}
+
+/** Override mood-derived colors (e.g. custom animated background). */
+export function setCustomColors(color1, color2) {
+  customColor1 = String(color1 || "").trim();
+  customColor2 = String(color2 || "").trim();
+}
+
+function notifyPaletteColors(bg, accent) {
+  currentColor1 = bg;
+  currentColor2 = accent;
+  if (typeof onColorsUpdated === "function") {
+    onColorsUpdated(bg, accent);
+  }
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -160,17 +190,28 @@ export async function applyMood(rootEl, extras, track = null) {
   rootEl.classList.add(`nw-mood-${mood}`);
 
   if (lockCustomColours) {
+    // Do not apply palette vars to the card (user custom colours stay), but still
+    // derive the same art-based pair used for mood sync elsewhere so animated
+    // background "mood" mode matches album art instead of preset accent (#1DB954).
     rootEl.style.transition = "";
+    const artPalette = await extractPaletteFromArt(track?.albumArt || "");
+    if (artPalette) {
+      notifyPaletteColors(artPalette.bg, artPalette.accent);
+    } else {
+      notifyPaletteColors(moodBase.bg, moodBase.accent);
+    }
     return;
   }
 
   rootEl.style.transition = "none";
   applyPaletteVars(rootEl, moodBase.bg, moodBase.accent);
+  notifyPaletteColors(moodBase.bg, moodBase.accent);
 
   const artPalette = await extractPaletteFromArt(track?.albumArt || "");
   if (artPalette) {
     rootEl.style.transition = MOOD_COLOR_TRANSITION;
     applyPaletteVars(rootEl, artPalette.bg, artPalette.accent);
+    notifyPaletteColors(artPalette.bg, artPalette.accent);
   } else {
     rootEl.style.transition = "";
   }

@@ -9,7 +9,7 @@ import {
 import { LAYOUTS, escHtml, fmtTime } from "./layouts.js";
 import { initVinyl, setVinylPlaying } from "../visuals/vinyl.js";
 import { applyBeatSync, clearBeatSync } from "../visuals/beatsync.js";
-import { applyMood, clearMood } from "../visuals/mood.js";
+import { applyMood, clearMood, onMoodColorsUpdated } from "../visuals/mood.js";
 import { connectIRC, connectEventSub } from "../platforms/twitch.js";
 import {
   backfillCurrentTrackFeatures,
@@ -114,6 +114,18 @@ function parseCustomConfig(params) {
     colorArtist: params.get("c_colorArtist") || "rgba(255,255,255,0.5)",
     colorProgress: params.get("c_colorProgress") || "#ffffff",
     colorBorder: params.get("c_colorBorder") || "rgba(255,255,255,0.12)",
+    animBgEnabled: params.has("c_animBgEnabled")
+      ? toCustomBool(params.get("c_animBgEnabled"), false)
+      : undefined,
+    animBgStyle: params.has("c_animBgStyle") ? params.get("c_animBgStyle") || "aurora" : undefined,
+    animBgSpeed: params.has("c_animBgSpeed")
+      ? toCustomNumber(params.get("c_animBgSpeed"), 12)
+      : undefined,
+    animBgColorMode: params.has("c_animBgColorMode")
+      ? params.get("c_animBgColorMode") || "mood"
+      : undefined,
+    animBgColor1: params.get("c_animBgColor1") || "",
+    animBgColor2: params.get("c_animBgColor2") || "",
   };
 }
 
@@ -489,11 +501,50 @@ export function parseConfig() {
     return value === "1" || value.toLowerCase() === "true";
   };
 
+  const layout = params.get("layout") || "glasscard";
+  const isCustomLayout = layout === "custom";
+  const custom = parseCustomConfig(params);
+
+  const animBgEnabled = isCustomLayout
+    ? custom.animBgEnabled !== undefined
+      ? custom.animBgEnabled
+      : toBool(params.get("animBgEnabled"), false)
+    : toBool(params.get("animBgEnabled"), false);
+  let animBgStyle = isCustomLayout
+    ? custom.animBgStyle || params.get("animBgStyle") || "aurora"
+    : params.get("animBgStyle") || "aurora";
+  if (animBgStyle === "conic") {
+    animBgStyle = "aurora";
+  }
+  const animBgSpeed = isCustomLayout
+    ? custom.animBgSpeed !== undefined
+      ? custom.animBgSpeed
+      : Number(params.get("animBgSpeed")) || 12
+    : Number(params.get("animBgSpeed")) || 12;
+  const animBgColorMode = isCustomLayout
+    ? custom.animBgColorMode || params.get("animBgColorMode") || "mood"
+    : "mood";
+  const animBgColor1 = isCustomLayout
+    ? params.get("c_animBgColor1") || params.get("animBgColor1") || custom.animBgColor1 || ""
+    : params.get("animBgColor1") || "";
+  const animBgColor2 = isCustomLayout
+    ? params.get("c_animBgColor2") || params.get("animBgColor2") || custom.animBgColor2 || ""
+    : params.get("animBgColor2") || "";
+
   return {
-    layout: params.get("layout") || "glasscard",
+    layout,
     theme: params.get("theme") || "spotify",
+    source: params.get("source") || "spotify",
+    songifyPort: Number(params.get("songifyPort")) || 4002,
     clientId: params.get("clientId") || "",
     demo: toBool(params.get("demo"), false),
+    canvasEnabled: params.get("canvasEnabled") === "1",
+    animBgEnabled,
+    animBgStyle,
+    animBgSpeed,
+    animBgColorMode,
+    animBgColor1,
+    animBgColor2,
     showBpm: toBool(params.get("showBpm"), false),
     showTimeLeft: toBool(params.get("showTimeLeft"), false),
     showNextTrack: toBool(params.get("showNextTrack"), false),
@@ -508,8 +559,65 @@ export function parseConfig() {
     twitchToken: params.get("twitchToken") || "",
     lastfmUsername: params.get("lastfmUsername") || "",
     lastfmApiKey: params.get("lastfmApiKey") || "",
-    custom: parseCustomConfig(params),
+    custom,
   };
+}
+
+function removeAnimatedBackground() {
+  document.querySelector(".nw-animated-bg")?.remove();
+  document.documentElement.style.removeProperty("--nw-anim-color1");
+  document.documentElement.style.removeProperty("--nw-anim-color2");
+  document.documentElement.style.removeProperty("--nw-anim-speed");
+}
+
+function ensureAnimatedBackgroundLayer(rootEl) {
+  if (!rootEl) {
+    return null;
+  }
+  let bg = rootEl.querySelector(".nw-animated-bg");
+  if (!bg) {
+    bg = document.createElement("div");
+    bg.className = "nw-animated-bg";
+    rootEl.prepend(bg);
+  }
+  bg.dataset.style = config.animBgStyle;
+  document.documentElement.style.setProperty("--nw-anim-speed", `${config.animBgSpeed}s`);
+  return bg;
+}
+
+async function updateAnimatedBgColors() {
+  const bg = document.querySelector(".nw-animated-bg");
+  if (!bg) {
+    return;
+  }
+
+  let c1;
+  let c2;
+  if (config.animBgColorMode === "custom" && config.animBgColor1 && config.animBgColor2) {
+    c1 = config.animBgColor1;
+    c2 = config.animBgColor2;
+  } else {
+    const { getMoodColors: getPalette } = await import("../visuals/mood.js");
+    const [mc1, mc2] = getPalette();
+    c1 = mc1 || "rgba(145,70,255,0.6)";
+    c2 = mc2 || "rgba(30,30,80,0.8)";
+  }
+
+  document.documentElement.style.setProperty("--nw-anim-color1", c1);
+  document.documentElement.style.setProperty("--nw-anim-color2", c2);
+}
+
+function registerAnimatedBackgroundMoodHook() {
+  if (!config.animBgEnabled || config.animBgColorMode !== "mood") {
+    return;
+  }
+  onMoodColorsUpdated((c1, c2) => {
+    if (!config.animBgEnabled || config.animBgColorMode !== "mood") {
+      return;
+    }
+    document.documentElement.style.setProperty("--nw-anim-color1", c1);
+    document.documentElement.style.setProperty("--nw-anim-color2", c2);
+  });
 }
 
 /** Loads Spotify audio features unless blocked or using Last.fm. */
@@ -559,7 +667,7 @@ async function poll() {
       audioFeaturesBackfillAttempted.clear();
       currentTrackId = track.trackId;
       const extras = await fetchTrackAudioExtras(track.trackId, useLastfm);
-      render(track, extras, nextTrack);
+      await render(track, extras, nextTrack);
       updateProgress(track);
       return;
     }
@@ -568,7 +676,7 @@ async function poll() {
     const needsInitialRender = Boolean(appEl && !appEl.querySelector(".nw-overlay"));
     if (needsInitialRender) {
       const extras = await fetchTrackAudioExtras(track.trackId, useLastfm);
-      render(track, extras, nextTrack, { skipSession: true });
+      await render(track, extras, nextTrack, { skipSession: true });
       updateProgress(track);
       return;
     }
@@ -609,6 +717,30 @@ async function poll() {
       const rootEl = document.querySelector(".nw-overlay");
       if (rootEl) {
         applyDefaultDynamicFields(rootEl, track, nextTrack);
+      }
+    }
+
+    const syncRoot = document.querySelector(".nw-overlay");
+    if (syncRoot) {
+      if (config.animBgEnabled) {
+        const bg = ensureAnimatedBackgroundLayer(syncRoot);
+        if (track?.isPlaying) {
+          bg?.classList.add("nw-bg-active");
+        } else {
+          bg?.classList.remove("nw-bg-active");
+        }
+      } else {
+        removeAnimatedBackground();
+      }
+
+      if (config.source === "songify" && config.canvasEnabled) {
+        void import("../visuals/canvas.js").then(({ initCanvas, updateCanvas }) => {
+          const artEl = syncRoot.querySelector(".nw-art img, .nw-art");
+          if (artEl) {
+            initCanvas(artEl);
+          }
+          updateCanvas(track?.canvasUrl || "", true);
+        });
       }
     }
   } catch (error) {
@@ -654,7 +786,7 @@ function startDemo() {
 }
 
 /** Renders a track using the selected layout and transition class. */
-function render(track, extras, nextTrack = null, options = {}) {
+async function render(track, extras, nextTrack = null, options = {}) {
   const { skipSession = false } = options;
   const app = document.getElementById("app");
   if (!app) {
@@ -685,9 +817,30 @@ function render(track, extras, nextTrack = null, options = {}) {
 
   applyBeatSync(rootEl, extras);
   if (config.moodSync) {
-    applyMood(rootEl, extras, track);
+    await applyMood(rootEl, extras, track);
   } else {
     clearMood(rootEl);
+  }
+
+  if (config.animBgEnabled) {
+    const bg = ensureAnimatedBackgroundLayer(rootEl);
+    if (track?.isPlaying) {
+      bg?.classList.add("nw-bg-active");
+      await updateAnimatedBgColors();
+    } else {
+      bg?.classList.remove("nw-bg-active");
+    }
+  } else {
+    removeAnimatedBackground();
+  }
+
+  if (config.source === "songify" && config.canvasEnabled) {
+    const { initCanvas, updateCanvas } = await import("../visuals/canvas.js");
+    const artEl = rootEl.querySelector(".nw-art img, .nw-art");
+    if (artEl) {
+      initCanvas(artEl);
+    }
+    updateCanvas(track?.canvasUrl || "", true);
   }
 
   rootEl.classList.add("nw-animate-in");
@@ -751,6 +904,10 @@ function showIdle() {
     return;
   }
 
+  import("../visuals/canvas.js")
+    .then(({ clearCanvas }) => clearCanvas())
+    .catch(() => {});
+
   const fallbackMessage = activeSource === "lastfm" ? "No recent Last.fm track" : "Nothing playing";
   const text = sourceErrorMessage || (config.showIdleMessage ? fallbackMessage : "");
   if (!text) {
@@ -758,6 +915,7 @@ function showIdle() {
   } else {
     app.innerHTML = `<div class="nw-idle">${escHtml(text)}</div>`;
   }
+  removeAnimatedBackground();
   clearBeatSync(app.querySelector(".nw-overlay"));
   clearMood(app.querySelector(".nw-overlay"));
 }
@@ -850,6 +1008,12 @@ export async function init() {
 
   if (config.transparent) {
     document.body.style.background = "transparent";
+  }
+
+  if (!config.animBgEnabled) {
+    removeAnimatedBackground();
+  } else {
+    registerAnimatedBackgroundMoodHook();
   }
 
   await startPolling();

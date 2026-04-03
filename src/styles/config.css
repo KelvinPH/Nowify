@@ -1356,3 +1356,24 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   color: #000;
   font-weight: 600;
 }
+
+.cfg-sub-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--cfg-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.cfg-anim-hint {
+  font-size: 11px;
+  color: var(--cfg-muted);
+  line-height: 1.5;
+  padding: 6px 10px;
+  background: var(--cfg-bg);
+  border: 0.5px solid var(--cfg-border2);
+  border-radius: 8px;
+  margin-top: 4px;
+  font-style: italic;
+}

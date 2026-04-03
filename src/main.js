@@ -36,6 +36,11 @@ function parseSongifyConfig() {
     showTimeLeft: toBool(params.get("showTimeLeft"), false),
     showNextTrack: toBool(params.get("showNextTrack"), false),
     showPlayState: toBool(params.get("showPlayState"), false),
+    canvasEnabled: (() => {
+      const top = params.get("canvasEnabled");
+      if (top !== null && top !== "") return toBool(top, false);
+      return toBool(params.get("c_canvasEnabled"), false);
+    })(),
   };
 }
 
@@ -66,6 +71,27 @@ async function initSongifyOverlay() {
   let currentTrackTs = 0;
   let hasRenderedTrack = false;
 
+  function clearSongifyCanvas() {
+    import("./visuals/canvas.js")
+      .then(({ clearCanvas }) => clearCanvas())
+      .catch(() => {});
+  }
+
+  function syncSongifyCanvas(track) {
+    if (!config.canvasEnabled) {
+      clearSongifyCanvas();
+      return;
+    }
+    void import("./visuals/canvas.js").then(({ initCanvas, updateCanvas }) => {
+      const root = app.querySelector(".nw-overlay");
+      const artEl = root?.querySelector(".nw-art img, .nw-art");
+      if (artEl) {
+        initCanvas(artEl);
+      }
+      updateCanvas(track?.canvasUrl || "", true);
+    });
+  }
+
   function renderSongifyTrack(track) {
     hasRenderedTrack = true;
     currentTrack = track;
@@ -81,10 +107,12 @@ async function initSongifyOverlay() {
     if (nextEl) nextEl.textContent = config.showNextTrack ? "Next track unavailable on Songify feed" : "";
     if (playEl) playEl.innerHTML = config.showPlayState && track?.isPlaying ? '<div class="nw-playing-dot"></div>' : "";
     updateProgress();
+    syncSongifyCanvas(track);
   }
 
   function showIdle() {
     hasRenderedTrack = false;
+    clearSongifyCanvas();
     app.innerHTML =
       '<div class="nw-idle">Cannot reach Songify — start the web server and check the port.</div>';
   }
@@ -93,6 +121,7 @@ async function initSongifyOverlay() {
     if (hasRenderedTrack) {
       return;
     }
+    clearSongifyCanvas();
     app.innerHTML =
       '<div class="nw-idle">Songify connected — waiting for track (HTTP + WebSocket)</div>';
   }

@@ -1,3 +1,5 @@
+import { readAnimBgForEditor, readSongifyArtFlags } from "./controls.js";
+
 export const CUSTOM_DEFAULTS = {
   direction: "row",
   cardWidth: 400,
@@ -56,6 +58,20 @@ export const CUSTOM_DEFAULTS = {
   colorArtist: "rgba(255,255,255,0.5)",
   colorProgress: "#ffffff",
   colorBorder: "rgba(255,255,255,0.12)",
+  animBgEnabled: false,
+  animBgStyle: "aurora",
+  animBgSpeed: 12,
+  animBgColorMode: "mood",
+  animBgColor1: "rgba(145,70,255,0.6)",
+  animBgColor2: "rgba(30,30,80,0.8)",
+  canvasEnabled: false,
+};
+
+const EFFECTS_STYLE_HINTS = {
+  aurora: "Organic blobs shift and breathe. macOS Sonoma feel.",
+  flow: "Gradient slowly flows across the card.",
+  pulse: "Colors expand and contract from the center.",
+  breathe: "Colors gently fade in and out.",
 };
 
 function escAttr(str) {
@@ -114,7 +130,7 @@ function buttonGroup(key, options) {
     ${options
       .map(
         (opt) =>
-          `<button class="ce-btn ${String(customState[key]) === String(opt.value) ? "ce-btn-active" : ""}" data-custom-key="${key}" data-custom-value="${opt.value}">${opt.label}</button>`
+          `<button type="button" class="ce-btn ${String(customState[key]) === String(opt.value) ? "ce-btn-active" : ""}" data-custom-key="${key}" data-custom-value="${opt.value}">${opt.label}</button>`
       )
       .join("")}
   </div>`;
@@ -178,6 +194,19 @@ function renderTypographyPanel() {
 }
 
 function renderArtPanel() {
+  const songify = readSongifyArtFlags();
+  const songifyCanvasSection =
+    songify.source === "songify"
+      ? `<div class="ce-art-songify-block">
+          <div class="ce-subregion-title ce-subregion-title--songify">Songify</div>
+          ${toggleRow(
+            "Canvas videos",
+            "canvasEnabled",
+            "Spotify Canvas loop instead of album art when Songify sends a URL"
+          )}
+        </div>`
+      : "";
+
   return `<div class="ce-section">
     <div class="ce-section-label">Art</div>
     ${buttonGroup("artShape", [
@@ -189,6 +218,54 @@ function renderArtPanel() {
     ${sliderRow("Corner radius", "artRadius", 0, 40, customState.artRadius, "px", "1", "artShape:rounded")}
     ${sliderRow("Shadow", "artShadow", 0, 3, customState.artShadow)}
     ${toggleRow("Art border", "artBorder")}
+    ${songifyCanvasSection}
+  </div>`;
+}
+
+function renderAnimatedBackgroundBlock() {
+  const animColorRows =
+    customState.animBgEnabled && customState.animBgColorMode === "custom"
+      ? `<div class="ce-anim-custom-colors">
+          <div class="ce-subregion-title ce-subregion-title--nested">Gradient colors</div>
+          ${renderColorPicker("Color 1", "animBgColor1")}
+          ${renderColorPicker("Color 2", "animBgColor2")}
+        </div>`
+      : "";
+
+  return `<div class="ce-colours-region ce-colours-region--motion">
+    <div class="ce-region-title">Animated background</div>
+    <p class="ce-region-lead">Optional moving gradient behind the card while a track is playing.</p>
+    ${toggleRow("Enable", "animBgEnabled", "")}
+    <div class="ce-effects-detail" data-condition="animBgEnabled:true">
+      <div class="ce-subregion-title">Style</div>
+      <div class="ce-btn-group ce-btn-group--wrap">
+        ${[
+          ["aurora", "Aurora"],
+          ["flow", "Flow"],
+          ["pulse", "Pulse"],
+          ["breathe", "Breathe"],
+        ]
+          .map(
+            ([v, l]) =>
+              `<button type="button" class="ce-btn ce-btn-compact ${String(customState.animBgStyle) === v ? "ce-btn-active" : ""}" data-custom-key="animBgStyle" data-custom-value="${v}">${l}</button>`
+          )
+          .join("")}
+      </div>
+      <div class="ce-anim-hint">${EFFECTS_STYLE_HINTS[customState.animBgStyle] || ""}</div>
+      ${sliderRow("Speed", "animBgSpeed", 3, 30, customState.animBgSpeed, "s")}
+      <p class="ce-mini-info ce-mini-info--tight">3s = fast · 30s = slow</p>
+      <div class="ce-subregion-title" style="margin-top:10px">Color source</div>
+      ${buttonGroup("animBgColorMode", [
+        { label: "Mood sync", value: "mood" },
+        { label: "Custom", value: "custom" },
+      ])}
+      <p class="ce-mini-info ce-mini-info--tight">${
+        customState.animBgColorMode === "custom"
+          ? "Set both colors below."
+          : "Follows album art each track."
+      }</p>
+      ${animColorRows}
+    </div>
   </div>`;
 }
 
@@ -310,58 +387,66 @@ function renderColoursPanel() {
     ? sliderRow("Radius", "gradientRadius", 10, 100, customState.gradientRadius, "%", "1")
     : "";
 
-  return `<div class="ce-section">
-    <div class="ce-section-label">Custom colours</div>
-    ${toggleRow("Enable custom colours", "customColors", "When off, colours come from your selected theme")}
-    <div class="ce-colours-section" style="${customState.customColors ? "" : "display:none;"}">
-      <div class="ce-colour-block">
-        <div class="ce-section-label">Card fill</div>
-        <p class="ce-colour-hint">Solid fill: use Container &gt; Opacity to blend the card background. Card edge colour is &quot;Card border&quot; below.</p>
-        ${buttonGroup("bgType", [
-          { label: "Solid", value: "solid" },
-          { label: "Linear", value: "linear" },
-          { label: "Radial", value: "radial" },
-          { label: "Conic", value: "conic" },
-          { label: "Multi-stop", value: "multistop" },
-        ])}
-        ${showSolidFill ? renderColorPicker("Card background", "colorBg") : ""}
-        <div class="ce-gradient-panel" style="${showGradientBlock ? "" : "display:none;"}">
-          <div class="ce-colour-subhead">Gradient</div>
-          ${angleSliders}
-          ${radialRadiusBlock}
-          ${posRows}
-          ${pos34}
-          ${colors12}
-          ${colorsMulti}
+  return `<div class="ce-section ce-section--colours">
+    <div class="ce-colours-shell">
+      <div class="ce-colours-region">
+        <div class="ce-region-title">Card & interface</div>
+        <p class="ce-region-lead">Replace the theme with custom fills and text colors for this layout.</p>
+        ${toggleRow("Custom colors", "customColors", "When off, the Configurator theme applies")}
+        <div class="ce-colours-section" style="${customState.customColors ? "" : "display:none;"}">
+          <div class="ce-colour-block ce-colour-block--tight">
+            <div class="ce-subregion-title">Background</div>
+            <p class="ce-region-lead ce-region-lead--inline">Solid blends with Container → Opacity. Gradients replace the fill.</p>
+            ${buttonGroup("bgType", [
+              { label: "Solid", value: "solid" },
+              { label: "Linear", value: "linear" },
+              { label: "Radial", value: "radial" },
+              { label: "Conic", value: "conic" },
+              { label: "Multi", value: "multistop" },
+            ])}
+            ${showSolidFill ? renderColorPicker("Fill", "colorBg") : ""}
+            <div class="ce-gradient-panel" style="${showGradientBlock ? "" : "display:none;"}">
+              ${angleSliders}
+              ${radialRadiusBlock}
+              ${posRows}
+              ${pos34}
+              ${colors12}
+              ${colorsMulti}
+            </div>
+          </div>
+
+          <div class="ce-colour-block ce-colour-block--tight">
+            <div class="ce-subregion-title">Chrome</div>
+            ${renderColorPicker("Border", "colorBorder")}
+            ${renderColorPicker("Accent", "colorAccent")}
+          </div>
+
+          <div class="ce-colour-block ce-colour-block--tight">
+            <div class="ce-subregion-title">Text & progress</div>
+            ${renderColorPicker("Title", "colorTitle")}
+            ${renderColorPicker("Artist", "colorArtist")}
+            ${renderColorPicker("Progress", "colorProgress")}
+          </div>
+
+          <div class="ce-colour-block ce-colour-block--wheel">
+            <div class="ce-subregion-title">Color picker</div>
+            <p class="ce-region-lead ce-region-lead--inline">Tap a row above, then the wheel — or sample from art.</p>
+            <div class="ce-wheel-wrap" id="ce-color-wheel">
+              <canvas id="ce-wheel-canvas" width="200" height="200"></canvas>
+              <div class="ce-wheel-lightness"><input type="range" id="ce-lightness-slider" min="0" max="100" value="50" /></div>
+              <div class="ce-wheel-active-label" id="ce-wheel-label">Select a swatch to edit</div>
+            </div>
+            <div class="ce-art-extract ce-art-extract--inline">
+              <span class="ce-art-extract-label">From album art</span>
+              <div class="ce-art-swatches" id="ce-art-swatches"></div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="ce-colour-block">
-        <div class="ce-section-label">Border and accent</div>
-        ${renderColorPicker("Card border", "colorBorder")}
-        ${renderColorPicker("Accent", "colorAccent")}
-      </div>
+      <div class="ce-region-divider" role="presentation"></div>
 
-      <div class="ce-colour-block">
-        <div class="ce-section-label">Text and progress</div>
-        ${renderColorPicker("Title", "colorTitle")}
-        ${renderColorPicker("Artist", "colorArtist")}
-        ${renderColorPicker("Progress bar", "colorProgress")}
-      </div>
-
-      <div class="ce-colour-block">
-        <div class="ce-section-label">Colour wheel</div>
-        <p class="ce-colour-hint">Click a swatch, then pick on the wheel.</p>
-        <div class="ce-wheel-wrap" id="ce-color-wheel">
-          <canvas id="ce-wheel-canvas" width="200" height="200"></canvas>
-          <div class="ce-wheel-lightness"><input type="range" id="ce-lightness-slider" min="0" max="100" value="50" /></div>
-          <div class="ce-wheel-active-label" id="ce-wheel-label">Select a color above to edit</div>
-        </div>
-        <div class="ce-art-extract">
-          <span class="ce-art-extract-label">Sample from album art</span>
-          <div class="ce-art-swatches" id="ce-art-swatches"></div>
-        </div>
-      </div>
+      ${renderAnimatedBackgroundBlock()}
     </div>
   </div>`;
 }
@@ -394,6 +479,8 @@ const COLOR_KEY_LABELS = {
   colorTitle: "title",
   colorArtist: "artist",
   colorProgress: "progress bar",
+  animBgColor1: "animated background 1",
+  animBgColor2: "animated background 2",
 };
 
 function updateActiveColorUi(containerEl) {
@@ -487,6 +574,32 @@ export function initCustomEditor(containerEl, seedLayout, onChange) {
   customState = { ...CUSTOM_DEFAULTS, ...seed };
   const saved = loadCustomState();
   if (saved) customState = { ...customState, ...saved };
+  if (customState.animBgStyle === "conic") {
+    customState.animBgStyle = "aurora";
+  }
+  const animEd = readAnimBgForEditor();
+  if (!saved || saved.animBgColor1 === undefined) {
+    customState.animBgColor1 = animEd.animBgColor1 || CUSTOM_DEFAULTS.animBgColor1;
+  }
+  if (!saved || saved.animBgColor2 === undefined) {
+    customState.animBgColor2 = animEd.animBgColor2 || CUSTOM_DEFAULTS.animBgColor2;
+  }
+  if (!saved || saved.animBgEnabled === undefined) {
+    customState.animBgEnabled = animEd.animBgEnabled;
+  }
+  if (!saved || saved.animBgStyle === undefined) {
+    customState.animBgStyle = animEd.animBgStyle || CUSTOM_DEFAULTS.animBgStyle;
+  }
+  if (!saved || saved.animBgSpeed === undefined) {
+    customState.animBgSpeed = animEd.animBgSpeed;
+  }
+  if (!saved || saved.animBgColorMode === undefined) {
+    customState.animBgColorMode = animEd.animBgColorMode || CUSTOM_DEFAULTS.animBgColorMode;
+  }
+  const songifyFlags = readSongifyArtFlags();
+  if (!saved || saved.canvasEnabled === undefined) {
+    customState.canvasEnabled = songifyFlags.canvasEnabled;
+  }
   // Keep maxCardWidth aligned with the selected seed by default.
   // (If the user already saved a custom value, we keep that.)
   if (!saved || saved.maxCardWidth === undefined) {
@@ -564,6 +677,12 @@ function attachListeners(containerEl) {
         setupColorWheel(containerEl);
         updateActiveColorUi(containerEl);
       }
+      if (key === "animBgEnabled") {
+        const activePanel = containerEl.querySelector(".ce-tab-active")?.dataset.tab || "colours";
+        renderEditor(containerEl, activePanel);
+        triggerChange();
+        return;
+      }
       triggerChange();
     });
   });
@@ -587,6 +706,13 @@ function attachListeners(containerEl) {
       // bgType/borderStyle drive conditional UI fragments rendered with inline styles.
       // Re-render active panel so gradient controls and color rows appear immediately.
       if (key === "bgType" || key === "borderStyle") {
+        const activePanel = containerEl.querySelector(".ce-tab-active")?.dataset.tab || "colours";
+        renderEditor(containerEl, activePanel);
+        triggerChange();
+        return;
+      }
+
+      if (key === "animBgStyle" || key === "animBgColorMode") {
         const activePanel = containerEl.querySelector(".ce-tab-active")?.dataset.tab || "colours";
         renderEditor(containerEl, activePanel);
         triggerChange();
@@ -649,6 +775,7 @@ function triggerChange() {
 function formatSliderValue(key, value, unit) {
   if (key === "letterSpacing") return `${(Number(value) / 100).toFixed(2)}em`;
   if (key === "artShadow") return ["None", "Soft", "Medium", "Strong"][Number(value)] || "None";
+  if (key === "animBgSpeed") return `${value}${unit || "s"}`;
   return `${value}${unit || ""}`;
 }
 

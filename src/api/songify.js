@@ -145,6 +145,13 @@ export function mapSongifyPayload(raw) {
   const durationMs = computeDurationMs(data);
   const progressMs = computeProgressMs(data, durationMs);
   const trackUrl = pickStr(data, ["Url", "spotifyUrl", "url"]);
+  const canvasUrl = pickStr(data, [
+    "CanvasUrl",
+    "canvasUrl",
+    "canvasURL",
+    "SpotifyCanvasUrl",
+    "spotifyCanvasUrl",
+  ]);
 
   return {
     isPlaying,
@@ -156,6 +163,7 @@ export function mapSongifyPayload(raw) {
     durationMs,
     progressMs,
     trackUrl,
+    canvasUrl: String(canvasUrl || "").trim(),
     source: "songify",
     requester: pickStr(data, ["requester", "Requester"]),
   };
@@ -165,7 +173,7 @@ function emitTrack(track) {
   if (!track || !track.title || typeof onTrackCallback !== "function") {
     return;
   }
-  const sig = `${track.trackId}\0${track.title}\0${track.artist}\0${track.progressMs}\0${track.durationMs}\0${track.isPlaying}`;
+  const sig = `${track.trackId}\0${track.title}\0${track.artist}\0${track.progressMs}\0${track.durationMs}\0${track.isPlaying}\0${track.canvasUrl || ""}`;
   if (sig === lastEmitSig) {
     return;
   }

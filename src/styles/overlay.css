@@ -70,6 +70,8 @@ body { background: transparent; overflow: hidden;
 }
 
 .nw-overlay {
+  position: relative;
+  overflow: hidden;
   -webkit-backdrop-filter: var(--nw-blur);
   backdrop-filter: var(--nw-blur);
   background: var(--nw-card-bg, var(--nw-bg));
@@ -466,4 +468,123 @@ body { background: transparent; overflow: hidden;
   white-space: nowrap;
   will-change: transform;
   animation: nw-marquee 14s linear infinite;
+}
+
+/* Spotify Canvas video (Songify) */
+.nw-canvas-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  object-fit: cover;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.nw-art {
+  position: relative;
+  overflow: hidden;
+}
+
+.nw-art img {
+  position: relative;
+  z-index: 1;
+  transition: opacity 400ms ease;
+}
+
+/* Animated card background */
+@keyframes nw-aurora {
+  0% {
+    background-position: 0% 50%;
+    filter: blur(40px) saturate(150%);
+  }
+  25% { background-position: 50% 100%; }
+  50% {
+    background-position: 100% 50%;
+    filter: blur(48px) saturate(180%);
+  }
+  75% { background-position: 50% 0%; }
+  100% {
+    background-position: 0% 50%;
+    filter: blur(40px) saturate(150%);
+  }
+}
+
+@keyframes nw-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes nw-pulse {
+  0% { background-size: 200% 200%; background-position: 0% 50%; }
+  50% { background-size: 300% 300%; background-position: 100% 50%; }
+  100% { background-size: 200% 200%; background-position: 0% 50%; }
+}
+
+@keyframes nw-breathe {
+  0%, 100% { opacity: 0.7; background-position: 0% 50%; }
+  50% { opacity: 1; background-position: 100% 50%; }
+}
+
+.nw-animated-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.5s ease;
+}
+
+.nw-animated-bg.nw-bg-active {
+  opacity: 1;
+}
+
+.nw-animated-bg[data-style="aurora"] {
+  background: linear-gradient(
+    -45deg,
+    var(--nw-anim-color1),
+    var(--nw-anim-color2),
+    var(--nw-anim-color1),
+    var(--nw-anim-color2)
+  );
+  background-size: 400% 400%;
+  animation: nw-aurora var(--nw-anim-speed, 12s) ease infinite;
+  filter: blur(40px) saturate(150%);
+}
+
+.nw-animated-bg[data-style="flow"] {
+  background: linear-gradient(
+    135deg,
+    var(--nw-anim-color1),
+    var(--nw-anim-color2)
+  );
+  background-size: 300% 300%;
+  animation: nw-flow var(--nw-anim-speed, 8s) ease infinite;
+}
+
+.nw-animated-bg[data-style="pulse"] {
+  background: radial-gradient(
+    circle at center,
+    var(--nw-anim-color1),
+    var(--nw-anim-color2)
+  );
+  background-size: 200% 200%;
+  animation: nw-pulse var(--nw-anim-speed, 6s) ease-in-out infinite;
+}
+
+.nw-animated-bg[data-style="breathe"] {
+  background: linear-gradient(
+    135deg,
+    var(--nw-anim-color1),
+    var(--nw-anim-color2)
+  );
+  background-size: 300% 300%;
+  animation: nw-breathe var(--nw-anim-speed, 4s) ease-in-out infinite;
+}
+
+.nw-overlay > *:not(.nw-animated-bg) {
+  position: relative;
+  z-index: 1;
 }

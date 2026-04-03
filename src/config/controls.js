@@ -23,6 +23,40 @@ const DEFAULT_STATE = {
   twitchToken: "",
   lastfmUsername: "",
   lastfmApiKey: "",
+  canvasEnabled: false,
+  animBgEnabled: false,
+  animBgStyle: "aurora",
+  animBgSpeed: 12,
+  animBgColorMode: "mood",
+  animBgColor1: "rgba(145,70,255,0.6)",
+  animBgColor2: "rgba(30,30,80,0.8)",
+};
+
+/** Seeds custom editor from sidebar state (custom layout). */
+export function readAnimBgForEditor() {
+  return {
+    animBgEnabled: Boolean(state.animBgEnabled),
+    animBgColorMode: state.animBgColorMode || "mood",
+    animBgColor1: state.animBgColor1,
+    animBgColor2: state.animBgColor2,
+    animBgStyle: state.animBgStyle || "aurora",
+    animBgSpeed: Number(state.animBgSpeed) || 12,
+  };
+}
+
+/** Songify-only controls mirrored in the custom editor Art tab. */
+export function readSongifyArtFlags() {
+  return {
+    source: state.source,
+    canvasEnabled: Boolean(state.canvasEnabled),
+  };
+}
+
+const STYLE_HINTS = {
+  aurora: "Organic blobs shift and breathe. macOS Sonoma feel.",
+  flow: "Gradient slowly flows across the card.",
+  pulse: "Colors expand and contract from the center.",
+  breathe: "Colors gently fade in and out.",
 };
 
 const LAYOUT_OPTIONS = {
@@ -86,6 +120,7 @@ let inputDebounceTimer = null;
 let previousLayout = "glasscard";
 let sourceSettingsOpen = false;
 let twitchSectionOpen = false;
+let animBgSpeedDebounceTimer = null;
 const CUSTOM_PRESETS_KEY = "nowify_custom_presets";
 const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
 const OWNER_KEY_STORAGE = "nowify_owner_key";
@@ -559,7 +594,79 @@ function renderSidebar() {
     </div>`
         : ""
     }
+    ${
+      state.source === "songify"
+        ? toggleRow(
+            "Canvas videos",
+            "canvasEnabled",
+            "Replaces album art with Spotify Canvas video when available. Songify only."
+          )
+        : ""
+    }
   </div>
+
+  ${
+    state.layout !== "custom"
+      ? `
+  <div class="cfg-divider"></div>
+
+  <div class="cfg-section">
+    <div class="cfg-section-label">Animated background</div>
+    ${toggleRow(
+      "Animated background",
+      "animBgEnabled",
+      "Living gradient behind the card. Custom layout: full controls in the custom editor."
+    )}
+
+    ${
+      state.animBgEnabled
+        ? `
+      <div class="cfg-sub-label">Style</div>
+      <div class="cfg-btn-group">
+        ${[
+          ["aurora", "Aurora"],
+          ["flow", "Flow"],
+          ["pulse", "Pulse"],
+          ["breathe", "Breathe"],
+        ]
+          .map(
+            ([v, l]) => `
+          <button class="cfg-btn cfg-sm-btn ${state.animBgStyle === v ? "cfg-active" : ""}"
+                  data-set-key="animBgStyle"
+                  data-set-value="${v}"
+                  type="button">
+            ${l}
+          </button>
+        `
+          )
+          .join("")}
+      </div>
+      <div class="cfg-anim-hint">${STYLE_HINTS[state.animBgStyle] || ""}</div>
+
+      <div class="cfg-slider-row" style="margin-top:10px">
+        <span class="cfg-slider-label">Speed (${state.animBgSpeed}s)</span>
+        <input
+          id="ctrl-anim-bg-speed"
+          type="range"
+          min="3"
+          max="30"
+          step="1"
+          value="${state.animBgSpeed}"
+        />
+      </div>
+      <div class="cfg-platform-info" style="margin-top:4px">
+        3s = fast, 30s = slow (lower number = faster animation).
+      </div>
+      <div class="cfg-platform-info" style="margin-top:8px">
+        Colors follow mood sync from album art. Custom animated colors are in the custom layout editor (Colours tab, below the divider).
+      </div>
+    `
+        : ""
+    }
+  </div>
+  `
+      : ""
+  }
 
   <div class="cfg-divider"></div>
 `;
@@ -631,6 +738,24 @@ function renderSidebar() {
       if (Number.isInteger(val) && val >= 1024 && val <= 65535) {
         update({ songifyPort: val });
       }
+    });
+  }
+
+  const animSpeedInput = document.getElementById("ctrl-anim-bg-speed");
+  if (animSpeedInput) {
+    animSpeedInput.addEventListener("input", () => {
+      const val = Number(animSpeedInput.value);
+      const row = animSpeedInput.closest(".cfg-slider-row");
+      const label = row?.querySelector(".cfg-slider-label");
+      if (label && Number.isFinite(val)) {
+        label.textContent = `Speed (${val}s)`;
+      }
+      window.clearTimeout(animBgSpeedDebounceTimer);
+      animBgSpeedDebounceTimer = window.setTimeout(() => {
+        if (Number.isFinite(val)) {
+          update({ animBgSpeed: val });
+        }
+      }, 250);
     });
   }
 
@@ -1062,6 +1187,13 @@ async function openPresetsModal() {
 }
 
 function updateCustomPreview(customState) {
+  state.animBgColor1 = customState.animBgColor1;
+  state.animBgColor2 = customState.animBgColor2;
+  state.animBgEnabled = customState.animBgEnabled;
+  state.animBgStyle = customState.animBgStyle;
+  state.animBgSpeed = customState.animBgSpeed;
+  state.animBgColorMode = customState.animBgColorMode;
+  state.canvasEnabled = customState.canvasEnabled;
   import("./custom-editor.js").then(({ buildCustomUrl }) => {
     const url = buildCustomUrl(state, customState);
     const iframe = document.getElementById("cfg-iframe");
@@ -1073,6 +1205,7 @@ function updateCustomPreview(customState) {
 
 /** Merges state updates and refreshes preview URL and sidebar UI. */
 function update(newState) {
+  const prevLayout = state.layout;
   Object.assign(state, newState);
   if (newState.source !== undefined) {
     localStorage.setItem("nowify_source", state.source);
@@ -1101,6 +1234,9 @@ function update(newState) {
     if (!relevant.showProgress) state.showProgress = false;
     if (!relevant.showBpm) state.showBpm = false;
     if (!relevant.moodSync) state.moodSync = false;
+    if (newState.layout !== "custom") {
+      state.animBgColorMode = "mood";
+    }
   }
   applyLayoutOverlayConstraints(state.layout);
   if (state.source === "lastfm") {
@@ -1111,6 +1247,22 @@ function update(newState) {
     state.showBpm = false;
     state.moodSync = false;
   }
+
+  // Animated background (non-custom) uses mood-derived colors; turn mood sync on with Spotify.
+  const animBgJustEnabled = newState.animBgEnabled === true;
+  const leftCustomLayout =
+    typeof newState.layout === "string" &&
+    newState.layout !== "custom" &&
+    prevLayout === "custom";
+  if (
+    state.source === "spotify" &&
+    state.layout !== "custom" &&
+    state.animBgEnabled &&
+    (animBgJustEnabled || leftCustomLayout)
+  ) {
+    state.moodSync = true;
+  }
+
   savePlatformState(newState);
   const url = buildOverlayUrl(state);
   const iframe = document.getElementById("cfg-iframe");
@@ -1126,6 +1278,10 @@ function update(newState) {
 export function initConfig() {
   function finishInit() {
     loadPlatformState();
+
+    if (state.animBgStyle === "conic") {
+      state.animBgStyle = "aurora";
+    }
 
     const savedSource = localStorage.getItem("nowify_source");
     if (savedSource === "spotify" || savedSource === "lastfm" || savedSource === "songify") {
