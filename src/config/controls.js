@@ -24,6 +24,73 @@ const DEFAULT_STATE = {
   lastfmUsername: "",
   lastfmApiKey: "",
   canvasEnabled: false,
+  commands: {
+    sr: {
+      enabled: true,
+      minRole: "everyone",
+      sessionLimit: 0,
+      roleLimits: {
+        everyone: 3,
+        subscriber: 5,
+        vip: 10,
+        moderator: 0,
+        broadcaster: 0,
+      },
+      cooldown: 30,
+    },
+    skip: {
+      enabled: true,
+      minRole: "moderator",
+      sessionLimit: 0,
+      roleLimits: {
+        everyone: 0,
+        subscriber: 0,
+        vip: 0,
+        moderator: 0,
+        broadcaster: 0,
+      },
+      cooldown: 0,
+    },
+    prev: {
+      enabled: true,
+      minRole: "moderator",
+      sessionLimit: 0,
+      roleLimits: {
+        everyone: 0,
+        subscriber: 0,
+        vip: 0,
+        moderator: 0,
+        broadcaster: 0,
+      },
+      cooldown: 0,
+    },
+    queue: {
+      enabled: true,
+      minRole: "everyone",
+      sessionLimit: 0,
+      roleLimits: {
+        everyone: 0,
+        subscriber: 0,
+        vip: 0,
+        moderator: 0,
+        broadcaster: 0,
+      },
+      cooldown: 10,
+    },
+    vol: {
+      enabled: false,
+      minRole: "moderator",
+      sessionLimit: 0,
+      roleLimits: {
+        everyone: 0,
+        subscriber: 0,
+        vip: 0,
+        moderator: 0,
+        broadcaster: 0,
+      },
+      cooldown: 5,
+    },
+  },
   animBgEnabled: false,
   animBgStyle: "aurora",
   animBgSpeed: 12,
@@ -179,7 +246,14 @@ function applyLayoutOverlayConstraints(layout) {
 const DEFAULT_OPEN = new Set(["source", "layout"]);
 let openSections = new Set(DEFAULT_OPEN);
 
-let state = { ...DEFAULT_STATE };
+const TWITCH_COMMAND_ORDER = ["sr", "skip", "prev", "queue", "vol"];
+let expandedCommands = new Set();
+let twitchCmdSliderDebounceTimer = null;
+
+let state = {
+  ...DEFAULT_STATE,
+  commands: JSON.parse(JSON.stringify(DEFAULT_STATE.commands)),
+};
 let inputDebounceTimer = null;
 let previousLayout = "glasscard";
 let animBgSpeedDebounceTimer = null;
@@ -193,6 +267,21 @@ const CUSTOM_PRESETS_KEY = "nowify_custom_presets";
 const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
 const OWNER_KEY_STORAGE = "nowify_owner_key";
 
+function mergeCommandsIntoDefaults(saved) {
+  const base = JSON.parse(JSON.stringify(DEFAULT_STATE.commands));
+  for (const name of Object.keys(base)) {
+    const sc = saved[name];
+    if (sc && typeof sc === "object") {
+      base[name] = {
+        ...base[name],
+        ...sc,
+        roleLimits: { ...base[name].roleLimits, ...(sc.roleLimits || {}) },
+      };
+    }
+  }
+  return base;
+}
+
 function loadPlatformState() {
   const savedTwitch = localStorage.getItem("nowify_twitch");
   if (savedTwitch) {
@@ -202,6 +291,13 @@ function loadPlatformState() {
       state.twitchToken = tw.token || "";
     } catch (_e) {}
   }
+
+  try {
+    const saved = JSON.parse(localStorage.getItem("nowify_commands") || "null");
+    if (saved && typeof saved === "object") {
+      state.commands = mergeCommandsIntoDefaults(saved);
+    }
+  } catch (_e) {}
 
   state.clientId = localStorage.getItem("nowify_client_id") || "";
 
@@ -252,6 +348,10 @@ function savePlatformState(newState) {
       })
     );
   }
+
+  try {
+    localStorage.setItem("nowify_commands", JSON.stringify(state.commands));
+  } catch (_e) {}
 }
 
 /** Builds the full overlay URL from the current configurator state. */
@@ -260,6 +360,12 @@ export function buildOverlayUrl(currentState) {
   const params = new URLSearchParams();
 
   Object.entries(currentState).forEach(([key, value]) => {
+    if (key === "commands") {
+      return;
+    }
+    if (value !== null && typeof value === "object") {
+      return;
+    }
     if (typeof value === "boolean") {
       params.set(key, value ? "1" : "0");
       return;
@@ -572,21 +678,266 @@ function renderStyleContent() {
   return `<button type="button" class="cfg-btn cfg-sm-btn cfg-btn-secondary cfg-open-custom-editor" id="btn-open-custom-editor" data-cfg-tip="${escAttr("Switch to custom layout with the full visual editor.")}">Open custom editor</button>`;
 }
 
+function getRoleLabel(role) {
+  const labels = {
+    everyone: "Everyone",
+    subscriber: "Subs+",
+    vip: "VIPs+",
+    moderator: "Mods+",
+    broadcaster: "Me only",
+  };
+  return labels[role] || role;
+}
+
+function renderMiniToggle(id, checked) {
+  return `<label class="cfg-mini-toggle" onclick="event.stopPropagation()">
+    <input type="checkbox"
+           data-cmd-enabled="${escCfg(id)}"
+           ${checked ? "checked" : ""} />
+    <span class="cfg-mini-track"></span>
+    <span class="cfg-mini-thumb"></span>
+  </label>`;
+}
+
+function cmdSliderRow(cmd, key, min, max, step, value, unit, note) {
+  const noteHtml =
+    note && value === 0 ? `<span class="cfg-val-note">${escCfg(note)}</span>` : "";
+  return `<div class="cfg-slider-row cfg-cmd-slider-row">
+    <div class="cfg-slider-right">
+      <input type="range"
+             min="${min}" max="${max}" step="${step}"
+             value="${value}"
+             data-cmd-slider="${escAttr(cmd)}"
+             data-cmd-key="${escAttr(key)}" />
+      <span class="cfg-slider-val"
+            id="val-cmd-${cmd}-${key}">
+        ${escCfg(String(value))}${escCfg(unit)}${noteHtml}
+      </span>
+    </div>
+  </div>`;
+}
+
+function renderCommandRow(cmd) {
+  const cfg = state.commands[cmd];
+  const minRole = cfg.minRole || "everyone";
+  const roleLimitRoles = [
+    ["everyone", "Everyone"],
+    ["subscriber", "Subs"],
+    ["vip", "VIPs"],
+    ["moderator", "Mods"],
+  ];
+  const roleLimitRows =
+    cmd === "sr"
+      ? `
+        <div class="cfg-cmd-field-label">
+          Requests per viewer
+        </div>
+        ${roleLimitRoles
+          .map(([role, label]) => {
+            const lim = cfg.roleLimits[role] ?? 0;
+            const limDisplay =
+              lim === 0
+                ? `0<span class="cfg-val-note">∞</span>`
+                : String(lim);
+            return `
+          <div class="cfg-cmd-role-limit-row">
+            <span class="cfg-cmd-role-label">${label}</span>
+            <div class="cfg-slider-right">
+              <input type="range"
+                     min="0" max="20" step="1"
+                     value="${lim}"
+                     data-cmd-role-limit="${escAttr(cmd)}"
+                     data-role="${escAttr(role)}" />
+              <span class="cfg-slider-val"
+                    id="val-cmd-${cmd}-${role}">
+                ${limDisplay}
+              </span>
+            </div>
+          </div>`;
+          })
+          .join("")}
+      `
+      : "";
+  const expanded = expandedCommands.has(cmd);
+  return `<div class="cfg-cmd-block${expanded ? " cfg-cmd-expanded" : ""}"
+       data-cmd="${escAttr(cmd)}">
+
+    <div class="cfg-cmd-header"
+         data-toggle-cmd="${escAttr(cmd)}">
+      <div class="cfg-cmd-header-left">
+        <span class="cfg-cmd-name">!${escAttr(cmd)}</span>
+        <span class="cfg-cmd-role-badge cfg-role-${escAttr(minRole)}">
+          ${escCfg(getRoleLabel(minRole))}
+        </span>
+      </div>
+      <div class="cfg-cmd-header-right">
+        ${renderMiniToggle(`cmd_${cmd}_enabled`, cfg.enabled)}
+        <span class="cfg-cmd-chevron">›</span>
+      </div>
+    </div>
+
+    <div class="cfg-cmd-body">
+
+      <div class="cfg-cmd-field-label">Who can use it</div>
+      <div class="cfg-btn-group cfg-btn-group-wrap">
+        ${[
+          ["everyone", "Everyone"],
+          ["subscriber", "Subs"],
+          ["vip", "VIPs"],
+          ["moderator", "Mods"],
+          ["broadcaster", "Me only"],
+        ]
+          .map(
+            ([v, l]) => `
+          <button type="button" class="cfg-btn cfg-sm-btn
+                  ${minRole === v ? "cfg-active" : ""}"
+                  data-cmd-set="${escAttr(cmd)}"
+                  data-cmd-key="minRole"
+                  data-cmd-value="${escAttr(v)}">
+            ${l}
+          </button>
+        `
+          )
+          .join("")}
+      </div>
+
+      <div class="cfg-cmd-field-label">
+        Cooldown per viewer
+      </div>
+      ${cmdSliderRow(cmd, "cooldown", 0, 300, 5, cfg.cooldown, "s", "none")}
+
+      <div class="cfg-cmd-field-label">
+        Session limit
+      </div>
+      ${cmdSliderRow(cmd, "sessionLimit", 0, 100, 1, cfg.sessionLimit, "", "unlimited")}
+
+      ${roleLimitRows}
+
+    </div>
+  </div>`;
+}
+
 function renderTwitchContent() {
   const badge =
     state.twitchChannel && state.twitchToken
       ? `<span class="cfg-badge-green">Configured</span>`
       : "";
+  const cmdBlocks = TWITCH_COMMAND_ORDER.map((cmd) => renderCommandRow(cmd)).join("");
   return `<input id="ctrl-twitchChannel" class="cfg-input" type="text" placeholder="Channel" value="${escCfg(state.twitchChannel || "")}" data-cfg-tip="${escAttr("Your Twitch channel login (no #).")}" />
     <input id="ctrl-twitchToken" class="cfg-input cfg-input-sm" type="password" placeholder="OAuth token" value="${escCfg(state.twitchToken || "")}" data-cfg-tip="${escAttr("OAuth token with chat scopes for viewer commands.")}" />
     <a href="https://twitchapps.com/tmi/" target="_blank" rel="noopener noreferrer" class="cfg-link-small" data-cfg-tip="${escAttr("Opens TwitchApps to generate a chat token.")}">Get token →</a>
-    <div class="cfg-cmd-list" data-cfg-tip="${escAttr("Commands viewers can type in chat when Twitch is connected.")}">
-      <span class="cfg-cmd">!sr</span> Request
-      <span class="cfg-cmd">!skip</span> Skip
-      <span class="cfg-cmd">!prev</span> Previous
-      <span class="cfg-cmd">!queue</span> Queue
+    <div class="cfg-cmd-section-head">
+      <span class="cfg-cmd-section-label cfg-cmd-section-label-text" data-cfg-tip="${escAttr("Commands viewers can type in chat when Twitch is connected.")}">Commands</span>
+      <span class="cfg-beta-chip" data-cfg-tip="${escAttr("Chat commands are still being tested; behavior may change or be incomplete.")}">Beta</span>
     </div>
+    <p class="cfg-cmd-beta-note" data-cfg-tip="${escAttr("Live testing in progress — permissions, limits, and cooldowns may not cover every case yet.")}">Live testing in progress — some options may not work completely yet.</p>
+    ${cmdBlocks}
     ${badge}`;
+}
+
+function attachSidebarListeners(sidebar) {
+  if (!sidebar) {
+    return;
+  }
+
+  sidebar.querySelectorAll("[data-toggle-cmd]").forEach((el) => {
+    el.addEventListener("click", () => {
+      const cmd = el.dataset.toggleCmd;
+      if (!cmd) {
+        return;
+      }
+      if (expandedCommands.has(cmd)) {
+        expandedCommands.delete(cmd);
+      } else {
+        expandedCommands.add(cmd);
+      }
+      const block = el.closest(".cfg-cmd-block");
+      block?.classList.toggle("cfg-cmd-expanded", expandedCommands.has(cmd));
+    });
+  });
+
+  sidebar.querySelectorAll("[data-cmd-set]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const cmd = btn.dataset.cmdSet;
+      const key = btn.dataset.cmdKey;
+      const val = btn.dataset.cmdValue;
+      if (!cmd || !key || val === undefined || !state.commands[cmd]) {
+        return;
+      }
+      state.commands[cmd][key] = val;
+      savePlatformState({});
+      sidebar.querySelectorAll(`[data-cmd-set="${cmd}"][data-cmd-key="${key}"]`).forEach((b) => {
+        b.classList.toggle("cfg-active", b.dataset.cmdValue === val);
+      });
+      const badge = sidebar.querySelector(`[data-cmd="${cmd}"] .cfg-cmd-role-badge`);
+      if (badge) {
+        badge.textContent = getRoleLabel(val);
+        badge.className = `cfg-cmd-role-badge cfg-role-${val}`;
+      }
+    });
+  });
+
+  sidebar.querySelectorAll("[data-cmd-enabled]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const id = input.dataset.cmdEnabled;
+      if (!id) {
+        return;
+      }
+      const cmd = id.replace(/^cmd_/, "").replace(/_enabled$/, "");
+      if (state.commands[cmd]) {
+        state.commands[cmd].enabled = input.checked;
+        savePlatformState({});
+      }
+    });
+  });
+
+  sidebar.querySelectorAll("[data-cmd-slider]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const cmd = input.dataset.cmdSlider;
+      const key = input.dataset.cmdKey;
+      if (!cmd || !key || !state.commands[cmd]) {
+        return;
+      }
+      const val = Number(input.value);
+      const label = document.getElementById(`val-cmd-${cmd}-${key}`);
+      if (label) {
+        const unit = key === "cooldown" ? "s" : "";
+        let note = "";
+        if (key === "cooldown" && val === 0) {
+          note = ' <span class="cfg-val-note">none</span>';
+        } else if (key === "sessionLimit" && val === 0) {
+          note = ' <span class="cfg-val-note">unlimited</span>';
+        }
+        label.innerHTML = `${val}${unit}${note}`;
+      }
+      window.clearTimeout(twitchCmdSliderDebounceTimer);
+      twitchCmdSliderDebounceTimer = window.setTimeout(() => {
+        state.commands[cmd][key] = val;
+        savePlatformState({});
+      }, 300);
+    });
+  });
+
+  sidebar.querySelectorAll("[data-cmd-role-limit]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const cmd = input.dataset.cmdRoleLimit;
+      const role = input.dataset.role;
+      if (!cmd || !role || !state.commands[cmd]) {
+        return;
+      }
+      const val = Number(input.value);
+      const label = document.getElementById(`val-cmd-${cmd}-${role}`);
+      if (label) {
+        label.innerHTML =
+          val === 0 ? `0 <span class="cfg-val-note">∞</span>` : String(val);
+      }
+      window.clearTimeout(twitchCmdSliderDebounceTimer);
+      twitchCmdSliderDebounceTimer = window.setTimeout(() => {
+        state.commands[cmd].roleLimits[role] = val;
+        savePlatformState({});
+      }, 300);
+    });
+  });
 }
 
 /** Renders all sidebar controls and re-attaches listeners. */
@@ -742,6 +1093,7 @@ function renderSidebar() {
       }
     }
   }
+  attachSidebarListeners(sidebar);
   attachCfgTooltips(sidebar);
   sidebar.scrollTop = scrollTop;
 }
@@ -1317,7 +1669,10 @@ export function initConfig() {
 
     if (resetButton) {
       resetButton.addEventListener("click", () => {
-        state = { ...DEFAULT_STATE };
+        state = {
+          ...DEFAULT_STATE,
+          commands: JSON.parse(JSON.stringify(DEFAULT_STATE.commands)),
+        };
         update({});
       });
     }

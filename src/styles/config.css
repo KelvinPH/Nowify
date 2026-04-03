@@ -1505,3 +1505,213 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   margin-top: 4px;
   font-style: italic;
 }
+
+/* Twitch command permissions (sidebar) */
+.cfg-cmd-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0 4px;
+}
+
+.cfg-cmd-section-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cfg-muted);
+  padding: 8px 0 4px;
+}
+
+.cfg-cmd-section-label-text {
+  padding: 0;
+}
+
+.cfg-cmd-beta-note {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--cfg-muted);
+  margin: 0 0 10px;
+  padding: 0;
+}
+
+.cfg-cmd-block {
+  border: 0.5px solid var(--cfg-border2);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.cfg-cmd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  cursor: pointer;
+  background: var(--cfg-bg);
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.cfg-cmd-header:hover {
+  background: var(--cfg-surface2);
+}
+
+.cfg-cmd-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cfg-cmd-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cfg-cmd-name {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: monospace;
+  color: var(--cfg-text);
+}
+
+.cfg-cmd-chevron {
+  font-size: 12px;
+  color: var(--cfg-muted);
+  transition: transform 0.2s;
+}
+
+.cfg-cmd-expanded .cfg-cmd-chevron {
+  transform: rotate(90deg);
+}
+
+.cfg-cmd-role-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.cfg-role-everyone {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--cfg-muted);
+}
+
+.cfg-role-subscriber {
+  background: rgba(145, 70, 255, 0.12);
+  color: #bf5af2;
+}
+
+.cfg-role-vip {
+  background: rgba(255, 159, 10, 0.12);
+  color: #ff9f0a;
+}
+
+.cfg-role-moderator {
+  background: rgba(0, 173, 3, 0.12);
+  color: #30d158;
+}
+
+.cfg-role-broadcaster {
+  background: rgba(255, 45, 85, 0.12);
+  color: #ff2d55;
+}
+
+.cfg-cmd-body {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 0.5px solid var(--cfg-border2);
+  background: var(--cfg-surface);
+}
+
+.cfg-cmd-expanded .cfg-cmd-body {
+  display: flex;
+}
+
+.cfg-cmd-field-label {
+  font-size: 11px;
+  color: var(--cfg-muted);
+  margin-top: 4px;
+}
+
+.cfg-cmd-role-limit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.cfg-cmd-role-label {
+  font-size: 11px;
+  color: var(--cfg-muted);
+  min-width: 52px;
+  flex-shrink: 0;
+}
+
+.cfg-cmd-body .cfg-slider-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.cfg-cmd-slider-row {
+  margin-bottom: 0;
+}
+
+.cfg-val-note {
+  font-size: 10px;
+  color: var(--cfg-muted);
+  margin-left: 3px;
+  opacity: 0.7;
+}
+
+.cfg-mini-toggle {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.cfg-mini-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.cfg-mini-track {
+  display: block;
+  width: 28px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.cfg-mini-toggle input:checked + .cfg-mini-track {
+  background: var(--cfg-accent);
+}
+
+.cfg-mini-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+  pointer-events: none;
+}
+
+.cfg-mini-toggle input:checked ~ .cfg-mini-thumb {
+  transform: translateX(12px);
+}
