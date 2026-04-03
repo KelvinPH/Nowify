@@ -52,11 +52,72 @@ export function readSongifyArtFlags() {
   };
 }
 
-const STYLE_HINTS = {
-  aurora: "Organic blobs shift and breathe. macOS Sonoma feel.",
-  flow: "Gradient slowly flows across the card.",
+const LAYOUT_LABELS = {
+  glasscard: "Glass",
+  pill: "Pill",
+  island: "Island",
+  strip: "Strip",
+  albumfocus: "Album",
+  sidebar: "Side",
+  custom: "Custom",
+};
+
+const LAYOUT_HINTS_SHORT = {
+  glasscard: "Art, title, and progress",
+  pill: "Compact corner chip",
+  island: "Larger square widget",
+  strip: "Thin bottom bar",
+  albumfocus: "Art-first layout",
+  sidebar: "Fixed column",
+  custom: "Full custom editor",
+};
+
+const CFG_TIP_SHOW_MS = 550;
+
+const LAYOUT_TOOLTIPS = {
+  glasscard: "Album art with title, artist, and optional progress and extras.",
+  pill: "Compact pill for corners and minimal footprint.",
+  island: "Square card with emphasis on album art.",
+  strip: "Very thin horizontal bar.",
+  albumfocus: "Large art-first layout for music-focused scenes.",
+  sidebar: "Vertical strip for side-mounted scenes.",
+  custom: "Full visual editor for colors, sizing, and advanced layout.",
+};
+
+const THEME_TOOLTIPS = {
+  obsidian: "Neutral light-on-dark base.",
+  midnight: "Cool blue highlights.",
+  aurora: "Purple and magenta accents.",
+  forest: "Green accent palette.",
+  amber: "Warm orange highlights.",
+  glass: "Soft translucent look.",
+};
+
+const SOURCE_TOOLTIPS = {
+  spotify: "Spotify login and Web API for live playback and rich metadata.",
+  lastfm: "Uses your Last.fm recent tracks API.",
+  songify: "Reads playback from Songify over localhost WebSocket.",
+};
+
+const TOGGLE_KEY_TIPS = {
+  showProgress: "Track position when the layout supports a progress bar.",
+  showTimeLeft: "Show remaining time instead of elapsed.",
+  showNextTrack: "Next in queue when Spotify queue data is available.",
+  showBpm: "Tempo from Spotify audio features (Spotify source only).",
+  showAlbum: "Album name alongside track and artist.",
+  showPlayState: "Small indicator when playback is active.",
+  showIdleMessage: "Message when nothing is playing or when setup needs attention.",
+  moodSync: "Background reacts to track energy using colors from album art.",
+  animBgEnabled: "Animated gradient behind the card.",
+  canvasEnabled: "Uses Spotify Canvas video for art when Songify supplies it.",
+  transparent: "Transparent background for layering in OBS or over gameplay.",
+};
+
+const ANIM_BG_STYLE_TIPS = {
+  aurora: "Organic blobs that drift and blend.",
+  flow: "Gradient slowly moves across the background.",
   pulse: "Colors expand and contract from the center.",
-  breathe: "Colors gently fade in and out.",
+  breathe: "Gentle fade between tones.",
 };
 
 const LAYOUT_OPTIONS = {
@@ -115,112 +176,22 @@ function applyLayoutOverlayConstraints(layout) {
   if (lc.showPlayState === false) state.showPlayState = false;
 }
 
+const DEFAULT_OPEN = new Set(["source", "layout"]);
+let openSections = new Set(DEFAULT_OPEN);
+
 let state = { ...DEFAULT_STATE };
 let inputDebounceTimer = null;
 let previousLayout = "glasscard";
-let sourceSettingsOpen = false;
-let twitchSectionOpen = false;
 let animBgSpeedDebounceTimer = null;
+let cfgTipEl = null;
+let cfgTipShowTimer = null;
+let cfgTipHideTimer = null;
+let cfgSidebarScrollBound = false;
+let cfgTipEscapeBound = false;
+let cfgToastTimer = null;
 const CUSTOM_PRESETS_KEY = "nowify_custom_presets";
 const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
 const OWNER_KEY_STORAGE = "nowify_owner_key";
-
-function renderTwitchSection() {
-  const toggleLabel = twitchSectionOpen ? "Hide" : "Show";
-  return `
-  <div class="cfg-section">
-    <div class="cfg-section-header">
-      <div class="cfg-section-label">Twitch chat commands</div>
-      <button class="cfg-disconnect-btn" id="btn-twitch-toggle" type="button">${toggleLabel}</button>
-    </div>
-
-    ${
-      !twitchSectionOpen
-        ? `<div class="cfg-field-desc">
-      Optional. Viewer commands are hidden by default. Click Show to configure.
-    </div>`
-        : `
-    <div class="cfg-twitch-explainer">
-      Optional. Connect Twitch so viewers can use
-      <strong>!sr</strong>, <strong>!skip</strong>,
-      <strong>!prev</strong> and <strong>!queue</strong>
-      in chat to control your music.
-      Your overlay works without this.
-    </div>
-
-    <div class="cfg-field-group">
-      <div class="cfg-field-label">Channel name</div>
-      <div class="cfg-field-desc">
-        Your Twitch channel name (without the # symbol).
-      </div>
-      <input id="ctrl-twitchChannel"
-             class="cfg-input"
-             type="text"
-             placeholder="your_twitch_channel"
-             value="${escCfg(state.twitchChannel || "")}" />
-    </div>
-
-    <div class="cfg-field-group">
-      <div class="cfg-field-label">
-        OAuth token
-        <span class="cfg-field-optional">optional</span>
-      </div>
-      <div class="cfg-field-desc">
-        Required for chat commands to work. Generate a token
-        with the correct scopes using the button below.
-        Never share this token with anyone.
-      </div>
-      <input id="ctrl-twitchToken"
-             class="cfg-input"
-             type="password"
-             placeholder="oauth:your_token_here"
-             value="${escCfg(state.twitchToken || "")}" />
-      <div class="cfg-twitch-token-actions">
-        <a href="https://twitchtokengenerator.com/"
-           target="_blank"
-           class="cfg-btn cfg-sm-btn cfg-btn-external">
-          Generate token ->
-        </a>
-        <div class="cfg-twitch-scopes">
-          Needs scopes:
-          <code>chat:read</code>
-          <code>chat:edit</code>
-        </div>
-      </div>
-    </div>
-
-    ${
-      state.twitchChannel && state.twitchToken
-        ? '<div class="cfg-connected-badge">Twitch configured</div>'
-        : state.twitchChannel
-          ? '<div class="cfg-field-desc" style="color:rgba(255,159,10,0.8)">Token missing - commands will not work</div>'
-          : ""
-    }
-
-    <div class="cfg-twitch-commands-list">
-      <div class="cfg-commands-label">Available commands</div>
-      <div class="cfg-command-row">
-        <code>!sr [song]</code>
-        <span>Add a song to the queue</span>
-      </div>
-      <div class="cfg-command-row">
-        <code>!skip</code>
-        <span>Skip to next track</span>
-      </div>
-      <div class="cfg-command-row">
-        <code>!prev</code>
-        <span>Go to previous track</span>
-      </div>
-      <div class="cfg-command-row">
-        <code>!queue</code>
-        <span>Show upcoming tracks in chat</span>
-      </div>
-    </div>
-    `
-    }
-  </div>
-  `;
-}
 
 function loadPlatformState() {
   const savedTwitch = localStorage.getItem("nowify_twitch");
@@ -303,34 +274,319 @@ function getRedirectUri() {
   return `${window.location.origin}${window.location.pathname.replace("config.html", "")}overlay.html`;
 }
 
-function getLayoutHint(layout) {
-  const hints = {
-    glasscard: "Album art with title and artist, plus progress. Great for most streams.",
-    pill: "Compact pill layout. Great for corners and gameplay streams.",
-    island: "Square widget with larger album art. Great for music focused scenes.",
-    strip: "Thin 40px bar with a minimal footprint.",
-    albumfocus: "Centered art first layout for music focused scenes.",
-    sidebar: "Vertical 72px column that sits neatly on the side.",
-    custom: "Full visual editor with color tools and advanced controls.",
-  };
-  return hints[layout] || "";
+function escCfg(str) {
+  return String(str || "").replace(/"/g, "&quot;");
 }
 
-function getLayoutFeatureBadges(layout) {
-  const opts = LAYOUT_OPTIONS[layout] || {};
-  const badges = [];
-  if (opts.showProgress) badges.push("progress bar");
-  if (opts.showBpm) badges.push("BPM display");
-  if (opts.moodSync) badges.push("mood sync");
-  if (opts.transparent) badges.push("transparent mode");
-  if (!badges.length) return "";
-  return `<div class="cfg-feature-badges">
-    ${badges.map((b) => `<span class="cfg-feature-badge">${b}</span>`).join("")}
+function escAttr(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;");
+}
+
+function ensureCfgTipElement() {
+  if (cfgTipEl && document.body.contains(cfgTipEl)) {
+    return cfgTipEl;
+  }
+  cfgTipEl = document.createElement("div");
+  cfgTipEl.id = "cfg-tip-floater";
+  cfgTipEl.className = "cfg-tip-floater";
+  cfgTipEl.setAttribute("role", "tooltip");
+  document.body.appendChild(cfgTipEl);
+  if (!cfgTipEscapeBound) {
+    cfgTipEscapeBound = true;
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        hideCfgTip();
+      }
+    });
+  }
+  return cfgTipEl;
+}
+
+function hideCfgTip() {
+  window.clearTimeout(cfgTipShowTimer);
+  cfgTipShowTimer = null;
+  if (cfgTipEl) {
+    cfgTipEl.classList.remove("cfg-tip-visible");
+    cfgTipEl.textContent = "";
+    cfgTipEl.style.left = "";
+    cfgTipEl.style.top = "";
+  }
+}
+
+function positionCfgTip(anchor, tip) {
+  tip.classList.add("cfg-tip-visible");
+  window.requestAnimationFrame(() => {
+    const tr = tip.getBoundingClientRect();
+    const ar = anchor.getBoundingClientRect();
+    const pad = 8;
+    let top = ar.bottom + pad;
+    let left = ar.left + ar.width / 2 - tr.width / 2;
+    left = Math.max(pad, Math.min(left, window.innerWidth - tr.width - pad));
+    if (top + tr.height > window.innerHeight - pad) {
+      top = ar.top - tr.height - pad;
+    }
+    top = Math.max(pad, top);
+    tip.style.left = `${Math.round(left)}px`;
+    tip.style.top = `${Math.round(top)}px`;
+  });
+}
+
+function scheduleShowCfgTip(anchor, text) {
+  window.clearTimeout(cfgTipHideTimer);
+  cfgTipHideTimer = null;
+  window.clearTimeout(cfgTipShowTimer);
+  const tip = ensureCfgTipElement();
+  cfgTipShowTimer = window.setTimeout(() => {
+    cfgTipShowTimer = null;
+    tip.textContent = text;
+    positionCfgTip(anchor, tip);
+  }, CFG_TIP_SHOW_MS);
+}
+
+function bindCfgSidebarScrollOnce() {
+  const sb = document.getElementById("cfg-sidebar");
+  if (!sb || cfgSidebarScrollBound) {
+    return;
+  }
+  cfgSidebarScrollBound = true;
+  sb.addEventListener("scroll", hideCfgTip);
+}
+
+function attachCfgTooltips(container) {
+  if (!container) {
+    return;
+  }
+  ensureCfgTipElement();
+  bindCfgSidebarScrollOnce();
+  container.querySelectorAll("[data-cfg-tip]").forEach((el) => {
+    const raw = el.getAttribute("data-cfg-tip");
+    if (!raw) {
+      return;
+    }
+    const onEnter = () => scheduleShowCfgTip(el, raw);
+    const onLeave = () => {
+      window.clearTimeout(cfgTipShowTimer);
+      cfgTipShowTimer = null;
+      cfgTipHideTimer = window.setTimeout(hideCfgTip, 80);
+    };
+    el.addEventListener("mouseenter", onEnter);
+    el.addEventListener("mouseleave", onLeave);
+  });
+}
+
+function renderSection(id, label, content) {
+  const open = openSections.has(id);
+  return `<div class="cfg-section-block${open ? " cfg-section-open" : ""}" data-section-id="${id}">
+    <button type="button" class="cfg-section-header" data-toggle-section="${id}">
+      <span class="cfg-section-header-label">${label}</span>
+      <span class="cfg-section-header-chevron" aria-hidden="true">›</span>
+    </button>
+    <div class="cfg-section-body">
+      ${content}
+    </div>
   </div>`;
 }
 
-function escCfg(str) {
-  return String(str || "").replace(/"/g, "&quot;");
+function compactToggle(label, key, visible = true, desc = "", tooltip = "") {
+  if (!visible) return "";
+  const descHtml = desc
+    ? `<span class="cfg-toggle-desc">${desc}</span>`
+    : "";
+  const tipAttr = tooltip ? ` data-cfg-tip="${escAttr(tooltip)}"` : "";
+  return `<label class="cfg-toggle-row cfg-toggle-row-compact"${tipAttr}>
+    <span class="cfg-toggle-label-wrap">
+      <span class="cfg-toggle-label">${label}</span>
+      ${descHtml}
+    </span>
+    <span class="cfg-toggle">
+      <input type="checkbox" data-toggle-key="${key}" ${state[key] ? "checked" : ""} />
+      <span class="cfg-toggle-track"></span>
+      <span class="cfg-toggle-thumb"></span>
+    </span>
+  </label>`;
+}
+
+function themeLabel(id) {
+  return id.charAt(0).toUpperCase() + id.slice(1);
+}
+
+function renderSongifyStatus() {
+  return `<div class="cfg-songify-status" id="cfg-songify-status">Not connected</div>`;
+}
+
+function renderSourceContent() {
+  const pills = `<div class="cfg-source-pills">
+    <button class="cfg-source-pill ${state.source === "spotify" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="spotify" type="button" data-cfg-tip="${escAttr(SOURCE_TOOLTIPS.spotify)}">Spotify</button>
+    <button class="cfg-source-pill ${state.source === "lastfm" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="lastfm" type="button" data-cfg-tip="${escAttr(SOURCE_TOOLTIPS.lastfm)}">Last.fm</button>
+    <button class="cfg-source-pill ${state.source === "songify" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="songify" type="button" data-cfg-tip="${escAttr(SOURCE_TOOLTIPS.songify)}">Songify</button>
+  </div>`;
+
+  if (state.source === "spotify") {
+    return `${pills}
+      <input id="ctrl-clientId" class="cfg-input" placeholder="Client ID" value="${escCfg(state.clientId)}" data-cfg-tip="${escAttr("From the Spotify Developer Dashboard. Used for the overlay login flow.")}" />
+      <div class="cfg-copy-box" id="cfg-redirect-uri" data-cfg-tip="${escAttr("Add this redirect URI to your Spotify app settings.")}">${getRedirectUri()}</div>`;
+  }
+
+  if (state.source === "lastfm") {
+    const disconnect =
+      state.lastfmUsername || state.lastfmApiKey
+        ? `<div class="cfg-disconnect-row"><button class="cfg-disconnect-btn" id="btn-lastfm-disconnect" type="button" data-cfg-tip="${escAttr("Clear saved Last.fm credentials.")}">Disconnect</button></div>`
+        : "";
+    return `${pills}
+      ${disconnect}
+      <input id="ctrl-lastfmUsername" class="cfg-input cfg-input-sm" type="text" placeholder="Username" value="${escCfg(state.lastfmUsername)}" data-cfg-tip="${escAttr("Your public Last.fm profile name.")}" />
+      <input id="ctrl-lastfmApiKey" class="cfg-input cfg-input-sm" type="text" placeholder="API key" value="${escCfg(state.lastfmApiKey)}" data-cfg-tip="${escAttr("Create an API account on Last.fm to get a key.")}" />`;
+  }
+
+  return `${pills}
+    ${renderSongifyStatus()}
+    <div class="cfg-row" data-cfg-tip="${escAttr("WebSocket port from Songify → Settings → Web Server (default 4002).")}">
+      <span class="cfg-row-label">Port</span>
+      <input type="number" id="ctrl-songifyPort" class="cfg-input-inline" value="${escCfg(String(state.songifyPort))}" min="1024" max="65535" />
+    </div>`;
+}
+
+function renderLayoutContent(layoutOptions) {
+  const grid = layoutOptions
+    .map((opt) =>
+      opt === "custom"
+        ? `<button class="cfg-layout-btn cfg-layout-btn-custom ${state.layout === "custom" ? "cfg-active" : ""}" data-set-key="layout" data-set-value="custom" type="button" data-cfg-tip="${escAttr(LAYOUT_TOOLTIPS.custom)}">
+            <div class="cfg-layout-icon cfg-layout-icon-custom"></div><span>${LAYOUT_LABELS.custom}</span>
+          </button>`
+        : `<button class="cfg-layout-btn ${state.layout === opt ? "cfg-active" : ""}" data-set-key="layout" data-set-value="${opt}" type="button" data-cfg-tip="${escAttr(LAYOUT_TOOLTIPS[opt] || "")}">
+            <div class="cfg-layout-icon cfg-layout-icon-${opt}"></div><span>${LAYOUT_LABELS[opt] || opt}</span>
+          </button>`
+    )
+    .join("");
+  const hint = LAYOUT_HINTS_SHORT[state.layout] || "";
+  return `<div class="cfg-layout-grid">${grid}</div>
+    <div class="cfg-layout-hint cfg-layout-hint-short">${hint}</div>`;
+}
+
+function renderThemeContent(themeOptions) {
+  const grid = themeOptions
+    .map(
+      (opt) =>
+        `<button class="cfg-theme-btn ${state.theme === opt ? "cfg-active" : ""}" data-set-key="theme" data-set-value="${opt}" type="button" data-cfg-tip="${escAttr(THEME_TOOLTIPS[opt] || "")}">
+          <div class="cfg-theme-dot cfg-theme-dot-${opt}"></div><span>${themeLabel(opt)}</span>
+        </button>`
+    )
+    .join("");
+  return `<div class="cfg-theme-grid">${grid}</div>`;
+}
+
+function renderContentContent() {
+  const lc = LAYOUT_CONTENT[state.layout];
+  const isCustom = state.layout === "custom";
+  const rows = [];
+
+  if (lc?.showProgress !== false) {
+    rows.push(compactToggle("Progress bar", "showProgress", true, "", TOGGLE_KEY_TIPS.showProgress));
+  }
+  if (lc?.showTimeLeft) {
+    rows.push(compactToggle("Time remaining", "showTimeLeft", true, "", TOGGLE_KEY_TIPS.showTimeLeft));
+  }
+  if (lc?.showNextTrack) {
+    rows.push(compactToggle("Next track", "showNextTrack", true, "", TOGGLE_KEY_TIPS.showNextTrack));
+  }
+  if (state.source !== "lastfm" && state.source !== "songify" && lc?.showBpm) {
+    rows.push(compactToggle("BPM", "showBpm", true, "", TOGGLE_KEY_TIPS.showBpm));
+  }
+  if (lc?.showAlbum) {
+    rows.push(compactToggle("Album name", "showAlbum", true, "", TOGGLE_KEY_TIPS.showAlbum));
+  }
+  if (lc?.showPlayState) {
+    rows.push(compactToggle("Play state", "showPlayState", true, "", TOGGLE_KEY_TIPS.showPlayState));
+  }
+  rows.push(compactToggle("Idle message", "showIdleMessage", true, "", TOGGLE_KEY_TIPS.showIdleMessage));
+
+  const showBlock = rows.join("");
+  const stackOk = isCustom;
+  const artOk = isCustom;
+  let layoutBlock = "";
+  if (stackOk || artOk) {
+    let inner = "";
+    if (stackOk) {
+      inner += `<div class="cfg-btn-group">
+        <button class="cfg-btn cfg-sm-btn ${state.stackDir === "row" ? "cfg-active" : ""}" data-set-key="stackDir" data-set-value="row" type="button" data-cfg-tip="${escAttr("Art and text side by side.")}">Horizontal</button>
+        <button class="cfg-btn cfg-sm-btn ${state.stackDir === "column" ? "cfg-active" : ""}" data-set-key="stackDir" data-set-value="column" type="button" data-cfg-tip="${escAttr("Art above or below the text stack.")}">Vertical</button>
+      </div>`;
+    }
+    if (artOk) {
+      inner += `<div class="cfg-btn-group">
+        <button class="cfg-btn cfg-sm-btn ${state.artPosition === "left" ? "cfg-active" : ""}" data-set-key="artPosition" data-set-value="left" type="button" data-cfg-tip="${escAttr("Cover art on the leading side.")}">Left</button>
+        <button class="cfg-btn cfg-sm-btn ${state.artPosition === "right" ? "cfg-active" : ""}" data-set-key="artPosition" data-set-value="right" type="button" data-cfg-tip="${escAttr("Cover art on the opposite side.")}">Right</button>
+      </div>`;
+    }
+    layoutBlock = `<div class="cfg-section-sep"></div>${inner}`;
+  }
+
+  return showBlock + layoutBlock;
+}
+
+function renderVisualsContent() {
+  const parts = [];
+  if (state.source === "spotify") {
+    parts.push(compactToggle("Mood sync", "moodSync", true, "", TOGGLE_KEY_TIPS.moodSync));
+  }
+
+  if (state.layout !== "custom") {
+    parts.push(compactToggle("Animated background", "animBgEnabled", true, "", TOGGLE_KEY_TIPS.animBgEnabled));
+    if (state.animBgEnabled) {
+      const styles = ["aurora", "flow", "pulse", "breathe"]
+        .map(
+          (v) =>
+            `<button class="cfg-btn cfg-sm-btn ${state.animBgStyle === v ? "cfg-active" : ""}" data-set-key="animBgStyle" data-set-value="${v}" type="button" data-cfg-tip="${escAttr(ANIM_BG_STYLE_TIPS[v] || "")}">${themeLabel(v)}</button>`
+        )
+        .join("");
+      parts.push(`<div class="cfg-visual-sub">
+        <div class="cfg-btn-group cfg-btn-group-wrap">${styles}</div>
+        <div class="cfg-slider-row cfg-slider-row-tight" data-cfg-tip="${escAttr("Animation loop length. Lower is faster.")}">
+          <span class="cfg-slider-label" id="ctrl-anim-bg-speed-label">Speed (${state.animBgSpeed}s)</span>
+          <input id="ctrl-anim-bg-speed" type="range" min="3" max="30" step="1" value="${state.animBgSpeed}" />
+        </div>
+      </div>`);
+    }
+  }
+
+  if (state.source === "songify") {
+    parts.push(compactToggle("Canvas video", "canvasEnabled", true, "", TOGGLE_KEY_TIPS.canvasEnabled));
+  }
+
+  parts.push(
+    compactToggle(
+      "Transparent background",
+      "transparent",
+      LAYOUT_OPTIONS[state.layout]?.transparent ?? true,
+      "",
+      TOGGLE_KEY_TIPS.transparent
+    )
+  );
+
+  return parts.join("");
+}
+
+function renderStyleContent() {
+  return `<button type="button" class="cfg-btn cfg-sm-btn cfg-btn-secondary cfg-open-custom-editor" id="btn-open-custom-editor" data-cfg-tip="${escAttr("Switch to custom layout with the full visual editor.")}">Open custom editor</button>`;
+}
+
+function renderTwitchContent() {
+  const badge =
+    state.twitchChannel && state.twitchToken
+      ? `<span class="cfg-badge-green">Configured</span>`
+      : "";
+  return `<input id="ctrl-twitchChannel" class="cfg-input" type="text" placeholder="Channel" value="${escCfg(state.twitchChannel || "")}" data-cfg-tip="${escAttr("Your Twitch channel login (no #).")}" />
+    <input id="ctrl-twitchToken" class="cfg-input cfg-input-sm" type="password" placeholder="OAuth token" value="${escCfg(state.twitchToken || "")}" data-cfg-tip="${escAttr("OAuth token with chat scopes for viewer commands.")}" />
+    <a href="https://twitchapps.com/tmi/" target="_blank" rel="noopener noreferrer" class="cfg-link-small" data-cfg-tip="${escAttr("Opens TwitchApps to generate a chat token.")}">Get token →</a>
+    <div class="cfg-cmd-list" data-cfg-tip="${escAttr("Commands viewers can type in chat when Twitch is connected.")}">
+      <span class="cfg-cmd">!sr</span> Request
+      <span class="cfg-cmd">!skip</span> Skip
+      <span class="cfg-cmd">!prev</span> Previous
+      <span class="cfg-cmd">!queue</span> Queue
+    </div>
+    ${badge}`;
 }
 
 /** Renders all sidebar controls and re-attaches listeners. */
@@ -341,335 +597,36 @@ function renderSidebar() {
   const layoutOptions = ["glasscard", "pill", "island", "strip", "albumfocus", "sidebar", "custom"];
   const themeOptions = ["obsidian", "midnight", "aurora", "forest", "amber", "glass"];
 
-  const toggleRow = (label, key, description = "", visible = true) => {
-    if (!visible) return "";
-    return `
-      <label class="cfg-toggle-row">
-        <span class="cfg-toggle-label-wrap">
-          <span class="cfg-toggle-label">${label}</span>
-          ${description ? `<span class="cfg-toggle-desc">${description}</span>` : ""}
-        </span>
-        <span class="cfg-toggle">
-          <input type="checkbox" data-toggle-key="${key}" ${state[key] ? "checked" : ""} />
-          <span class="cfg-toggle-track"></span>
-          <span class="cfg-toggle-thumb"></span>
-        </span>
-      </label>
-    `;
-  };
+  const twitchBlock =
+    state.source !== "songify"
+      ? renderSection("twitch", "Twitch", renderTwitchContent())
+      : "";
 
   sidebar.innerHTML = `
-  <div class="cfg-source-bar">
-    <div class="cfg-source-bar-header">
-      <span class="cfg-source-label">Music source</span>
-      <span class="cfg-beta-chip">Songify BETA</span>
-    </div>
-    <div class="cfg-source-bar-controls">
-      <div class="cfg-source-pills">
-        <button class="cfg-source-pill ${state.source === "spotify" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="spotify" type="button">
-          Spotify
-        </button>
-        <button class="cfg-source-pill ${state.source === "lastfm" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="lastfm" type="button">
-          Last.fm
-        </button>
-        <button class="cfg-source-pill ${state.source === "songify" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="songify" type="button">
-          Songify (BETA)
-        </button>
-      </div>
-      <button id="btn-source-settings" class="cfg-gear-btn" type="button" title="Settings">
-        &#9881;
-      </button>
-    </div>
-  </div>
+    ${renderSection("source", "Source", renderSourceContent())}
+    ${renderSection("layout", "Layout", renderLayoutContent(layoutOptions))}
+    ${renderSection("theme", "Theme", renderThemeContent(themeOptions))}
+    ${renderSection("content", "Content", renderContentContent())}
+    ${renderSection("visuals", "Visuals", renderVisualsContent())}
+    ${renderSection("style", "Style", renderStyleContent())}
+    ${twitchBlock}
+  `;
 
-  ${sourceSettingsOpen ? `
-    <div class="cfg-section" style="padding-top:14px;">
-      ${state.source === "spotify" ? `
-        <div class="cfg-section-label">Spotify API key</div>
-        <input
-          id="ctrl-clientId"
-          class="cfg-input"
-          placeholder="Paste your Spotify Client ID"
-          value="${escCfg(state.clientId)}"
-        />
-        <div class="cfg-hint">
-          Uses your Client ID for the overlay. The redirect URI is:
-          <div class="cfg-copy-box" id="cfg-redirect-uri">${getRedirectUri()}</div>
-        </div>
-      ` : state.source === "lastfm" ? `
-        <div class="cfg-section-header" style="margin-bottom:8px;">
-          <div class="cfg-section-label">Last.fm API keys</div>
-          ${
-            state.lastfmUsername || state.lastfmApiKey
-              ? `<button class="cfg-disconnect-btn" id="btn-lastfm-disconnect" type="button">Disconnect</button>`
-              : ""
-          }
-        </div>
-        <div class="cfg-source-info" style="margin-bottom:10px;">
-          Used to fetch your now playing track from Last.fm recent tracks.
-        </div>
-        <input
-          id="ctrl-lastfmUsername"
-          class="cfg-input cfg-input-sm"
-          type="text"
-          placeholder="Last.fm username"
-          value="${escCfg(state.lastfmUsername)}"
-        />
-        <input
-          id="ctrl-lastfmApiKey"
-          class="cfg-input cfg-input-sm"
-          type="text"
-          placeholder="API key"
-          value="${escCfg(state.lastfmApiKey)}"
-        />
-        ${
-          state.lastfmUsername && state.lastfmApiKey
-            ? `<div class="cfg-source-active-badge">Last.fm active. Now playing enabled.</div>`
-            : ""
-        }
-      ` : `
-        <div class="cfg-section-label">Songify connection</div>
-        <div class="cfg-songify-status" id="cfg-songify-status">Not connected</div>
-        <div class="cfg-slider-row">
-          <span class="cfg-slider-label">Port</span>
-          <input
-            id="ctrl-songify-port"
-            class="cfg-input cfg-input-sm"
-            type="number"
-            style="max-width: 100px"
-            min="1024"
-            max="65535"
-            value="${escCfg(state.songifyPort)}"
-          />
-        </div>
-        <div class="cfg-source-info" style="margin-bottom:0;">
-          Nowify uses <code>ws://localhost:PORT/ws/data</code> for track updates and
-          <code>ws://localhost:PORT/</code> for chat commands. Enable the web server in
-          File → Settings → Web Server.
-          Default port is 4002.
-        </div>
-        <div class="cfg-songify-preview-note ${
-          typeof window !== "undefined" && window.location.protocol === "https:"
-            ? "cfg-songify-preview-note-warn"
-            : ""
-        }">
-          <strong>Live preview</strong> uses
-          <code>ws://localhost:${escCfg(String(state.songifyPort))}/ws/data</code>
-          (and <code>GET http://127.0.0.1:${escCfg(String(state.songifyPort))}/</code>)
-          from this browser. Songify must run on the <strong>same PC</strong>, and this
-          page must be served over <strong>HTTP</strong> (for example
-          <code>http://localhost/…/config.html</code>). HTTPS pages may block those
-          local connections depending on the browser.
-          ${
-            typeof window !== "undefined" && window.location.protocol === "https:"
-              ? "<br /><br />You are on HTTPS, so the built-in preview will not receive Songify here. Run Nowify from a local HTTP server or paste the copied overlay URL into OBS Browser Source on the Songify PC."
-              : ""
-          }
-        </div>
-        <div class="cfg-songify-beta-note">
-          Songify integration is in beta. Some players or Songify versions may report
-          slightly different metadata fields.
-        </div>
-      `}
-    </div>
-  ` : ""}
-
-  ${
-    state.source !== "songify"
-      ? `<div class="cfg-divider"></div>${renderTwitchSection()}`
-      : ""
-  }
-
-  <div class="cfg-divider"></div>
-
-  <div class="cfg-section">
-    <div class="cfg-section-label">Layout</div>
-    <div class="cfg-layout-grid">
-      ${layoutOptions
-        .map((opt) =>
-          opt === "custom"
-            ? `<button class="cfg-layout-btn cfg-layout-btn-custom ${state.layout === "custom" ? "cfg-active" : ""}" data-set-key="layout" data-set-value="custom">
-                <div class="cfg-layout-icon cfg-layout-icon-custom"></div><span>Custom</span>
-              </button>`
-            : `<button class="cfg-layout-btn ${state.layout === opt ? "cfg-active" : ""}" data-set-key="layout" data-set-value="${opt}">
-                <div class="cfg-layout-icon cfg-layout-icon-${opt}"></div><span>${opt}</span>
-              </button>`
-        )
-        .join("")}
-    </div>
-    <div class="cfg-layout-hint">${getLayoutHint(state.layout)}</div>
-    <div class="cfg-layout-features">${getLayoutFeatureBadges(state.layout)}</div>
-  </div>
-
-  <div class="cfg-divider"></div>
-
-  <div class="cfg-section">
-    <div class="cfg-section-label">Theme</div>
-    <div class="cfg-theme-grid">
-      ${themeOptions
-        .map(
-          (opt) => `<button class="cfg-theme-btn ${state.theme === opt ? "cfg-active" : ""}" data-set-key="theme" data-set-value="${opt}">
-          <div class="cfg-theme-dot cfg-theme-dot-${opt}"></div><span>${opt}</span></button>`
-        )
-        .join("")}
-    </div>
-    ${state.moodSync ? `<div class="cfg-mood-warning">Mood sync is on. Theme background is based on song energy.
-      Turn off mood sync to see your selected theme colour.</div>` : ""}
-  </div>
-
-  <div class="cfg-divider"></div>
-
-  <div class="cfg-section">
-    <div class="cfg-section-label">Options</div>
-    ${toggleRow("Transparent background", "transparent", "Removes background for gameplay scenes", LAYOUT_OPTIONS[state.layout]?.transparent ?? true)}
-  </div>
-
-  <div class="cfg-divider"></div>
-
-  <div class="cfg-section">
-    <div class="cfg-section-label">Now playing</div>
-
-    ${LAYOUT_CONTENT[state.layout]?.showProgress !== false
-      ? toggleRow("Progress bar", "showProgress", "Track position indicator")
-      : ""}
-
-    ${LAYOUT_CONTENT[state.layout]?.showTimeLeft
-      ? toggleRow("Time remaining", "showTimeLeft", "Shows time left instead of elapsed")
-      : ""}
-
-    ${LAYOUT_CONTENT[state.layout]?.showNextTrack
-      ? toggleRow("Next track", "showNextTrack", "Requires queue permission — see setup")
-      : ""}
-
-    ${state.source !== "lastfm" && state.source !== "songify" && LAYOUT_CONTENT[state.layout]?.showBpm
-      ? toggleRow("BPM badge", "showBpm", "Tempo from Spotify audio features")
-      : ""}
-
-    ${LAYOUT_CONTENT[state.layout]?.showAlbum
-      ? toggleRow("Album name", "showAlbum", "")
-      : ""}
-
-    ${LAYOUT_CONTENT[state.layout]?.showPlayState
-      ? toggleRow("Play state dot", "showPlayState", "Pulsing dot when track is playing")
-      : ""}
-
-    ${toggleRow(
-      "Idle message",
-      "showIdleMessage",
-      "When no track: show “Nothing playing” (Spotify) or Last.fm equivalent. Setup errors always show."
-    )}
-
-    ${state.layout === "custom" && LAYOUT_CONTENT[state.layout]?.stackDir
-      ? `<div class="cfg-section-label" style="margin-top:8px">Layout direction</div>
-         <div class="cfg-btn-group">
-           <button class="cfg-btn cfg-sm-btn ${state.stackDir === "row" ? "cfg-active" : ""}" data-set-key="stackDir" data-set-value="row">Horizontal</button>
-           <button class="cfg-btn cfg-sm-btn ${state.stackDir === "column" ? "cfg-active" : ""}" data-set-key="stackDir" data-set-value="column">Vertical</button>
-         </div>`
-      : ""}
-
-    ${state.layout === "custom" && LAYOUT_CONTENT[state.layout]?.artPosition
-      ? `<div class="cfg-section-label" style="margin-top:8px">Art position</div>
-         <div class="cfg-btn-group">
-           <button class="cfg-btn cfg-sm-btn ${state.artPosition === "left" ? "cfg-active" : ""}" data-set-key="artPosition" data-set-value="left">Left</button>
-           <button class="cfg-btn cfg-sm-btn ${state.artPosition === "right" ? "cfg-active" : ""}" data-set-key="artPosition" data-set-value="right">Right</button>
-         </div>`
-      : ""}
-  </div>
-
-  <div class="cfg-divider"></div>
-
-  <div class="cfg-section">
-    <div class="cfg-section-label">Mood sync</div>
-    ${toggleRow("Mood sync", "moodSync", "Background shifts with song energy — works on all layouts", state.source === "spotify")}
-    ${
-      state.source === "lastfm"
-        ? `<div class="cfg-lastfm-notice">
-      Using Last.fm — BPM display and mood sync are not available.
-      Switch to Spotify for full features.
-    </div>`
-        : state.source === "songify"
-          ? `<div class="cfg-lastfm-notice">
-      Using Songify — BPM display and mood sync are not available.
-      Nowify reads track data directly from Songify's web server.
-    </div>`
-        : ""
-    }
-    ${
-      state.source === "songify"
-        ? toggleRow(
-            "Canvas videos",
-            "canvasEnabled",
-            "Replaces album art with Spotify Canvas video when available. Songify only."
-          )
-        : ""
-    }
-  </div>
-
-  ${
-    state.layout !== "custom"
-      ? `
-  <div class="cfg-divider"></div>
-
-  <div class="cfg-section">
-    <div class="cfg-section-label">Animated background</div>
-    ${toggleRow(
-      "Animated background",
-      "animBgEnabled",
-      "Living gradient behind the card. Custom layout: full controls in the custom editor."
-    )}
-
-    ${
-      state.animBgEnabled
-        ? `
-      <div class="cfg-sub-label">Style</div>
-      <div class="cfg-btn-group">
-        ${[
-          ["aurora", "Aurora"],
-          ["flow", "Flow"],
-          ["pulse", "Pulse"],
-          ["breathe", "Breathe"],
-        ]
-          .map(
-            ([v, l]) => `
-          <button class="cfg-btn cfg-sm-btn ${state.animBgStyle === v ? "cfg-active" : ""}"
-                  data-set-key="animBgStyle"
-                  data-set-value="${v}"
-                  type="button">
-            ${l}
-          </button>
-        `
-          )
-          .join("")}
-      </div>
-      <div class="cfg-anim-hint">${STYLE_HINTS[state.animBgStyle] || ""}</div>
-
-      <div class="cfg-slider-row" style="margin-top:10px">
-        <span class="cfg-slider-label">Speed (${state.animBgSpeed}s)</span>
-        <input
-          id="ctrl-anim-bg-speed"
-          type="range"
-          min="3"
-          max="30"
-          step="1"
-          value="${state.animBgSpeed}"
-        />
-      </div>
-      <div class="cfg-platform-info" style="margin-top:4px">
-        3s = fast, 30s = slow (lower number = faster animation).
-      </div>
-      <div class="cfg-platform-info" style="margin-top:8px">
-        Colors follow mood sync from album art. Custom animated colors are in the custom layout editor (Colours tab, below the divider).
-      </div>
-    `
-        : ""
-    }
-  </div>
-  `
-      : ""
-  }
-
-  <div class="cfg-divider"></div>
-`;
+  sidebar.querySelectorAll("[data-toggle-section]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.dataset.toggleSection;
+      if (!id) return;
+      if (openSections.has(id)) {
+        openSections.delete(id);
+      } else {
+        openSections.add(id);
+      }
+      const block = btn.closest(".cfg-section-block");
+      if (block) {
+        block.classList.toggle("cfg-section-open", openSections.has(id));
+      }
+    });
+  });
 
   sidebar.querySelectorAll("[data-set-key]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -686,26 +643,11 @@ function renderSidebar() {
     });
   });
 
-  const settingsBtn = document.getElementById("btn-source-settings");
-  if (settingsBtn) {
-    settingsBtn.addEventListener("click", () => {
-      sourceSettingsOpen = !sourceSettingsOpen;
-      renderSidebar();
-    });
-  }
-
   const lastfmDisconnect = document.getElementById("btn-lastfm-disconnect");
   if (lastfmDisconnect) {
     lastfmDisconnect.addEventListener("click", () => {
       localStorage.removeItem("nowify_lastfm");
       update({ lastfmUsername: "", lastfmApiKey: "" });
-    });
-  }
-  const twitchToggleBtn = document.getElementById("btn-twitch-toggle");
-  if (twitchToggleBtn) {
-    twitchToggleBtn.addEventListener("click", () => {
-      twitchSectionOpen = !twitchSectionOpen;
-      renderSidebar();
     });
   }
 
@@ -731,7 +673,7 @@ function renderSidebar() {
     bindDebouncedInput(id, key);
   });
 
-  const songifyPortInput = sidebar.querySelector("#ctrl-songify-port");
+  const songifyPortInput = document.getElementById("ctrl-songifyPort");
   if (songifyPortInput) {
     songifyPortInput.addEventListener("change", () => {
       const val = Number(songifyPortInput.value);
@@ -741,12 +683,16 @@ function renderSidebar() {
     });
   }
 
+  const openCustomEditor = document.getElementById("btn-open-custom-editor");
+  if (openCustomEditor) {
+    openCustomEditor.addEventListener("click", () => update({ layout: "custom" }));
+  }
+
   const animSpeedInput = document.getElementById("ctrl-anim-bg-speed");
   if (animSpeedInput) {
     animSpeedInput.addEventListener("input", () => {
       const val = Number(animSpeedInput.value);
-      const row = animSpeedInput.closest(".cfg-slider-row");
-      const label = row?.querySelector(".cfg-slider-label");
+      const label = document.getElementById("ctrl-anim-bg-speed-label");
       if (label && Number.isFinite(val)) {
         label.textContent = `Speed (${val}s)`;
       }
@@ -796,6 +742,7 @@ function renderSidebar() {
       }
     }
   }
+  attachCfgTooltips(sidebar);
   sidebar.scrollTop = scrollTop;
 }
 
@@ -928,16 +875,16 @@ function renderHeaderDynamic() {
   }
 
   if (isCustom) {
-    addButton("btn-exit-custom", "Exit custom", "cfg-btn cfg-btn-ghost", () => {
+    addButton("btn-exit-custom", "Exit custom", "cfg-nav-btn", () => {
       update({ layout: previousLayout || "glasscard" });
     });
-    addButton("btn-publish-custom-preset", "Publish preset", "cfg-btn cfg-btn-ghost", () => {
+    addButton("btn-publish-custom-preset", "Publish preset", "cfg-nav-btn", () => {
       publishCustomPresetWithPrompt();
     });
   }
 
-  addButton("btn-setup", "Setup", "cfg-btn cfg-btn-ghost", () => openSetupWizard());
-  addButton("btn-presets", "Presets", "cfg-btn cfg-btn-ghost", () => openPresetsModal());
+  addButton("btn-setup", "Setup", "cfg-nav-btn", () => openSetupWizard());
+  addButton("btn-presets", "Presets", "cfg-nav-btn", () => openPresetsModal());
 }
 
 let obsGuideEscCleanup = null;
@@ -1203,10 +1150,36 @@ function updateCustomPreview(customState) {
   });
 }
 
+function showCfgToast(message) {
+  const shell = document.getElementById("cfg-shell");
+  if (!shell) {
+    return;
+  }
+  let el = document.getElementById("cfg-toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "cfg-toast";
+    el.className = "cfg-toast";
+    el.setAttribute("role", "status");
+    el.setAttribute("aria-live", "polite");
+    shell.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.add("cfg-toast-visible");
+  window.clearTimeout(cfgToastTimer);
+  cfgToastTimer = window.setTimeout(() => {
+    el.classList.remove("cfg-toast-visible");
+  }, 3200);
+}
+
 /** Merges state updates and refreshes preview URL and sidebar UI. */
 function update(newState) {
   const prevLayout = state.layout;
+  const prevTheme = state.theme;
+  const moodWasOnForTheme = state.source === "spotify" && state.moodSync;
+
   Object.assign(state, newState);
+
   if (newState.source !== undefined) {
     localStorage.setItem("nowify_source", state.source);
   }
@@ -1261,6 +1234,15 @@ function update(newState) {
     (animBgJustEnabled || leftCustomLayout)
   ) {
     state.moodSync = true;
+  }
+
+  if (
+    newState.theme !== undefined &&
+    newState.theme !== prevTheme &&
+    moodWasOnForTheme
+  ) {
+    state.moodSync = false;
+    showCfgToast("Mood sync turned off so your theme can apply.");
   }
 
   savePlatformState(newState);

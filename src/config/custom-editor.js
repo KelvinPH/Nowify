@@ -498,8 +498,11 @@ function updateActiveColorUi(containerEl) {
 
 function renderEditor(containerEl, activePanel = "container") {
   containerEl.innerHTML = `<div class="ce-shell">
-    <div class="ce-topbar">
-      <button class="ce-reset-btn" id="ce-reset-custom" type="button">Reset custom</button>
+    <div class="ce-header">
+      <div class="ce-header-brand">
+        <span class="ce-header-title">Custom layout</span>
+      </div>
+      <button type="button" id="ce-reset-custom" class="cfg-nav-btn cfg-nav-btn--danger ce-header-reset">Reset</button>
     </div>
     <div class="ce-tabs">
       ${renderTabButton("container", "Container", '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="currentColor"/></svg>', activePanel === "container")}
