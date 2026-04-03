@@ -354,6 +354,11 @@ body { background: transparent; overflow: hidden;
 .nw-albumfocus .nw-artist {
   font-size: 11px; color: var(--nw-text-muted); text-align: center;
 }
+.nw-albumfocus .nw-progress {
+  width: 100%;
+  max-width: 160px;
+  margin-top: 2px;
+}
 .nw-albumfocus .nw-bpm {
   font-size: 11px; color: var(--nw-accent);
   letter-spacing: 0.04em;

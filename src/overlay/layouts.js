@@ -114,6 +114,7 @@ export const LAYOUTS = {
     ${artEl(track, "")}
     <div class="nw-title">${title}</div>
     <div class="nw-artist">${artist}</div>
+    ${progressEl(config)}
     ${bpm}
     ${metaEl(config)}
   </section>`;
