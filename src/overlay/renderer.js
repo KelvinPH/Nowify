@@ -500,6 +500,7 @@ export function parseConfig() {
     showAlbum: toBool(params.get("showAlbum"), false),
     showPlayState: toBool(params.get("showPlayState"), false),
     showProgress: toBool(params.get("showProgress"), true),
+    showIdleMessage: toBool(params.get("showIdleMessage"), false),
     transparent: toBool(params.get("transparent"), false),
     moodSync: toBool(params.get("moodSync"), true),
     twitchChannel: params.get("twitchChannel") || "",
@@ -751,8 +752,12 @@ function showIdle() {
   }
 
   const fallbackMessage = activeSource === "lastfm" ? "No recent Last.fm track" : "Nothing playing";
-  const message = escHtml(sourceErrorMessage || fallbackMessage);
-  app.innerHTML = `<div class="nw-idle">${message}</div>`;
+  const text = sourceErrorMessage || (config.showIdleMessage ? fallbackMessage : "");
+  if (!text) {
+    app.innerHTML = "";
+  } else {
+    app.innerHTML = `<div class="nw-idle">${escHtml(text)}</div>`;
+  }
   clearBeatSync(app.querySelector(".nw-overlay"));
   clearMood(app.querySelector(".nw-overlay"));
 }

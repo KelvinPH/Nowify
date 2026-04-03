@@ -12,6 +12,8 @@ const DEFAULT_STATE = {
   showBpm: false,
   showAlbum: false,
   showPlayState: false,
+  /** “Nothing playing” / Last.fm idle text (off by default) */
+  showIdleMessage: false,
   transparent: false,
   moodSync: true,
   stackDir: "row",
@@ -502,6 +504,12 @@ function renderSidebar() {
     ${LAYOUT_CONTENT[state.layout]?.showPlayState
       ? toggleRow("Play state dot", "showPlayState", "Pulsing dot when track is playing")
       : ""}
+
+    ${toggleRow(
+      "Idle message",
+      "showIdleMessage",
+      "When no track: show “Nothing playing” (Spotify) or Last.fm equivalent. Setup errors always show."
+    )}
 
     ${state.layout === "custom" && LAYOUT_CONTENT[state.layout]?.stackDir
       ? `<div class="cfg-section-label" style="margin-top:8px">Layout direction</div>
