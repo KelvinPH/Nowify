@@ -68,6 +68,19 @@ const LAYOUT_CONTENT = {
   },
 };
 
+/** Turn off overlay toggles the current layout does not support (sidebar UI hides them but URL/state could still be on). */
+function applyLayoutOverlayConstraints(layout) {
+  if (layout === "custom") return;
+  const lc = LAYOUT_CONTENT[layout];
+  if (!lc) return;
+  if (lc.showProgress === false) state.showProgress = false;
+  if (lc.showTimeLeft === false) state.showTimeLeft = false;
+  if (lc.showNextTrack === false) state.showNextTrack = false;
+  if (lc.showBpm === false) state.showBpm = false;
+  if (lc.showAlbum === false) state.showAlbum = false;
+  if (lc.showPlayState === false) state.showPlayState = false;
+}
+
 let state = { ...DEFAULT_STATE };
 let inputDebounceTimer = null;
 let previousLayout = "glasscard";
@@ -1089,6 +1102,7 @@ function update(newState) {
     if (!relevant.showBpm) state.showBpm = false;
     if (!relevant.moodSync) state.moodSync = false;
   }
+  applyLayoutOverlayConstraints(state.layout);
   if (state.source === "lastfm") {
     state.showBpm = false;
     state.moodSync = false;
