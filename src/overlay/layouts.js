@@ -35,19 +35,14 @@ function metaEl(config) {
   return `<div class="nw-meta">${album}${time}${next}${play}</div>`;
 }
 
-/** Fixed-width album focus: scroll long text with the same marquee pattern as strip. */
-function albumFocusTextRow(escapedHtml, rawLen, className, marqueeThreshold) {
-  if (rawLen > marqueeThreshold) {
-    return `<div class="nw-albumfocus-line">
-      <div class="nw-marquee-wrap nw-albumfocus-marquee">
-        <div class="nw-marquee-inner nw-albumfocus-marquee-inner">
-          <span class="${className}">${escapedHtml}</span>
-          <span class="${className}" aria-hidden="true">${escapedHtml}</span>
-        </div>
-      </div>
-    </div>`;
-  }
-  return `<div class="nw-albumfocus-line"><div class="${className}">${escapedHtml}</div></div>`;
+/**
+ * Wrapper for one-line title/artist/strip text. Overlay JS measures overflow and
+ * inserts a marquee only when the line is wider than the layout allows.
+ * @param {string} extraLineClasses e.g. "nw-albumfocus-line" or "nw-strip-text-host"
+ */
+function overflowMeasureLine(extraLineClasses, textClass, escapedHtml) {
+  const x = extraLineClasses.trim() ? ` ${extraLineClasses.trim()}` : "";
+  return `<div class="nw-marquee-line${x}" data-nw-overflow-measure><div class="${textClass}">${escapedHtml}</div></div>`;
 }
 
 export function fmtTime(ms) {
@@ -63,8 +58,8 @@ export const LAYOUTS = {
     return `<section class="nw-overlay nw-pill">
     ${artEl(track, "", "circle")}
     <div class="nw-info">
-      <div class="nw-title">${title}</div>
-      <div class="nw-artist">${artist}</div>
+      ${overflowMeasureLine("", "nw-title", title)}
+      ${overflowMeasureLine("", "nw-artist", artist)}
       ${metaEl(config)}
     </div>
   </section>`;
@@ -76,8 +71,8 @@ export const LAYOUTS = {
     return `<section class="nw-overlay nw-glasscard">
     ${artEl(track, "")}
     <div class="nw-info">
-      <div class="nw-title">${title}</div>
-      <div class="nw-artist">${artist}</div>
+      ${overflowMeasureLine("", "nw-title", title)}
+      ${overflowMeasureLine("", "nw-artist", artist)}
       ${progressEl(config)}
       ${metaEl(config)}
     </div>
@@ -89,8 +84,8 @@ export const LAYOUTS = {
     const artist = escHtml(track?.artist || "Unknown artist");
     return `<section class="nw-overlay nw-island">
     ${artEl(track, "")}
-    <div class="nw-title">${title}</div>
-    <div class="nw-artist">${artist}</div>
+    ${overflowMeasureLine("", "nw-title", title)}
+    ${overflowMeasureLine("", "nw-artist", artist)}
     ${progressEl(config)}
     ${metaEl(config)}
   </section>`;
@@ -100,39 +95,26 @@ export const LAYOUTS = {
     const title = escHtml(track?.title || "Unknown title");
     const artist = escHtml(track?.artist || "Unknown artist");
     const text = `${title} - ${artist}`;
-    const useMarquee = text.length > 40;
-    const textMarkup = useMarquee
-      ? `<div class="nw-marquee-wrap">
-    <div class="nw-marquee-inner">
-      <span>${text}</span>
-      <span>${text}</span>
-    </div>
-  </div>`
-      : `<div class="nw-strip-text">${text}</div>`;
     const stripTime = config?.showTimeLeft ? `<div class="nw-strip-time">${fmtTime(track?.progressMs)}</div>` : "";
     return `<section class="nw-overlay nw-strip">
     ${artEl(track, "nw-strip-art")}
     <div class="nw-accent-bar"></div>
-    ${textMarkup}
+    ${overflowMeasureLine("nw-strip-text-host", "nw-strip-text", text)}
     ${stripTime}
   </section>`;
   },
 
   albumfocus(track, extras, config) {
-    const titleRaw = String(track?.title || "Unknown title");
-    const artistRaw = String(track?.artist || "Unknown artist");
-    const title = escHtml(titleRaw);
-    const artist = escHtml(artistRaw);
-    const titleRow = albumFocusTextRow(title, titleRaw.length, "nw-title", 22);
-    const artistRow = albumFocusTextRow(artist, artistRaw.length, "nw-artist", 28);
+    const title = escHtml(track?.title || "Unknown title");
+    const artist = escHtml(track?.artist || "Unknown artist");
     const bpm =
       config?.showBpm === true && extras?.bpm
         ? `<div class="nw-bpm">${escHtml(extras.bpm)} BPM</div>`
         : "";
     return `<section class="nw-overlay nw-albumfocus">
     ${artEl(track, "")}
-    ${titleRow}
-    ${artistRow}
+    ${overflowMeasureLine("nw-albumfocus-line", "nw-title", title)}
+    ${overflowMeasureLine("nw-albumfocus-line", "nw-artist", artist)}
     ${progressEl(config)}
     ${bpm}
     ${metaEl(config)}
@@ -145,8 +127,8 @@ export const LAYOUTS = {
     return `<section class="nw-overlay nw-sidebar">
     ${artEl(track, "")}
     <div class="nw-sidebar-body">
-      <div class="nw-title">${title}</div>
-      <div class="nw-artist">${artist}</div>
+      ${overflowMeasureLine("", "nw-title", title)}
+      ${overflowMeasureLine("", "nw-artist", artist)}
       ${progressEl(config)}
       ${metaEl(config)}
     </div>
@@ -182,11 +164,11 @@ export const LAYOUTS = {
     const renderedParts = [];
     for (const key of order) {
       if (key === "title") {
-        renderedParts.push(`<div class="nw-title">${title}</div>`);
+        renderedParts.push(overflowMeasureLine("", "nw-title", title));
         continue;
       }
       if (key === "artist" && custom.showArtist) {
-        renderedParts.push(`<div class="nw-artist">${artist}</div>`);
+        renderedParts.push(overflowMeasureLine("", "nw-artist", artist));
         continue;
       }
       if (key === "album" && custom.showAlbum) {

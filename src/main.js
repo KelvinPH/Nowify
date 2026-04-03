@@ -62,10 +62,12 @@ async function initSongifyOverlay() {
     document.documentElement.removeAttribute("data-transparent");
   }
 
-  const [{ LAYOUTS }, { init: initSongify, sendCommand }] = await Promise.all([
-    import("./overlay/layouts.js"),
-    import("./api/songify.js"),
-  ]);
+  const [{ LAYOUTS }, { init: initSongify, sendCommand }, { bindOverflowMarquees, disconnectOverflowMarquees }] =
+    await Promise.all([
+      import("./overlay/layouts.js"),
+      import("./api/songify.js"),
+      import("./overlay/overflow-marquee.js"),
+    ]);
 
   let currentTrack = null;
   let currentTrackTs = 0;
@@ -108,10 +110,12 @@ async function initSongifyOverlay() {
     if (playEl) playEl.innerHTML = config.showPlayState && track?.isPlaying ? '<div class="nw-playing-dot"></div>' : "";
     updateProgress();
     syncSongifyCanvas(track);
+    bindOverflowMarquees(app.querySelector(".nw-overlay"));
   }
 
   function showIdle() {
     hasRenderedTrack = false;
+    disconnectOverflowMarquees();
     clearSongifyCanvas();
     app.innerHTML =
       '<div class="nw-idle">Cannot reach Songify — start the web server and check the port.</div>';
@@ -121,6 +125,7 @@ async function initSongifyOverlay() {
     if (hasRenderedTrack) {
       return;
     }
+    disconnectOverflowMarquees();
     clearSongifyCanvas();
     app.innerHTML =
       '<div class="nw-idle">Songify connected — waiting for track (HTTP + WebSocket)</div>';

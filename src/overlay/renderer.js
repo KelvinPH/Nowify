@@ -7,6 +7,7 @@ import {
   NoTokenError,
 } from "../auth/spotify.js";
 import { LAYOUTS, escHtml, fmtTime } from "./layouts.js";
+import { bindOverflowMarquees, disconnectOverflowMarquees } from "./overflow-marquee.js";
 import { initVinyl, setVinylPlaying } from "../visuals/vinyl.js";
 import { applyBeatSync, clearBeatSync } from "../visuals/beatsync.js";
 import { applyMood, clearMood, onMoodColorsUpdated } from "../visuals/mood.js";
@@ -269,8 +270,8 @@ function applyCustomStyles(rootEl, custom) {
   rootEl.style.height = "auto";
   rootEl.style.minHeight = `${Math.max(custom.cardHeight || 80, (custom.cardHeight || 80) + extra)}px`;
 
-  const titleEl = rootEl.querySelector(".nw-title");
-  const artistEl = rootEl.querySelector(".nw-artist");
+  const titleEls = rootEl.querySelectorAll(".nw-title");
+  const artistEls = rootEl.querySelectorAll(".nw-artist");
   const albumEl = rootEl.querySelector(".nw-custom-album");
   const nextEl = rootEl.querySelector(".nw-custom-next");
   const timeEl = rootEl.querySelector(".nw-custom-time");
@@ -281,16 +282,16 @@ function applyCustomStyles(rootEl, custom) {
   const bpmEl = rootEl.querySelector(".nw-bpm");
   const infoEl = rootEl.querySelector(".nw-info");
 
-  if (titleEl) {
+  titleEls.forEach((titleEl) => {
     titleEl.style.fontSize = `${custom.titleSize}px`;
     titleEl.style.fontWeight = custom.titleWeight;
     titleEl.style.letterSpacing = `${(custom.letterSpacing || 0) / 100}em`;
     titleEl.style.color = custom.customColors ? custom.colorTitle : "";
     titleEl.style.textShadow = custom.textShadow ? "0 1px 6px rgba(0,0,0,0.45)" : "none";
     titleEl.style.textAlign = custom.contentAlign;
-  }
+  });
 
-  if (artistEl) {
+  artistEls.forEach((artistEl) => {
     artistEl.style.display = custom.showArtist ? "" : "none";
     artistEl.style.fontSize = `${custom.artistSize}px`;
     artistEl.style.fontWeight = custom.artistWeight;
@@ -298,7 +299,7 @@ function applyCustomStyles(rootEl, custom) {
     artistEl.style.color = custom.customColors ? custom.colorArtist : "";
     artistEl.style.textShadow = custom.textShadow ? "0 1px 6px rgba(0,0,0,0.45)" : "none";
     artistEl.style.textAlign = custom.contentAlign;
-  }
+  });
 
   if (albumEl) {
     albumEl.style.display = custom.showAlbum ? "" : "none";
@@ -843,6 +844,8 @@ async function render(track, extras, nextTrack = null, options = {}) {
     updateCanvas(track?.canvasUrl || "", true);
   }
 
+  bindOverflowMarquees(rootEl);
+
   rootEl.classList.add("nw-animate-in");
   window.setTimeout(() => {
     rootEl.classList.remove("nw-animate-in");
@@ -903,6 +906,8 @@ function showIdle() {
   if (!app) {
     return;
   }
+
+  disconnectOverflowMarquees();
 
   import("../visuals/canvas.js")
     .then(({ clearCanvas }) => clearCanvas())
