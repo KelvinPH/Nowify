@@ -35,6 +35,21 @@ function metaEl(config) {
   return `<div class="nw-meta">${album}${time}${next}${play}</div>`;
 }
 
+/** Fixed-width album focus: scroll long text with the same marquee pattern as strip. */
+function albumFocusTextRow(escapedHtml, rawLen, className, marqueeThreshold) {
+  if (rawLen > marqueeThreshold) {
+    return `<div class="nw-albumfocus-line">
+      <div class="nw-marquee-wrap nw-albumfocus-marquee">
+        <div class="nw-marquee-inner nw-albumfocus-marquee-inner">
+          <span class="${className}">${escapedHtml}</span>
+          <span class="${className}" aria-hidden="true">${escapedHtml}</span>
+        </div>
+      </div>
+    </div>`;
+  }
+  return `<div class="nw-albumfocus-line"><div class="${className}">${escapedHtml}</div></div>`;
+}
+
 export function fmtTime(ms) {
   if (!ms) return "0:00";
   const s = Math.floor(ms / 1000);
@@ -104,16 +119,20 @@ export const LAYOUTS = {
   },
 
   albumfocus(track, extras, config) {
-    const title = escHtml(track?.title || "Unknown title");
-    const artist = escHtml(track?.artist || "Unknown artist");
+    const titleRaw = String(track?.title || "Unknown title");
+    const artistRaw = String(track?.artist || "Unknown artist");
+    const title = escHtml(titleRaw);
+    const artist = escHtml(artistRaw);
+    const titleRow = albumFocusTextRow(title, titleRaw.length, "nw-title", 22);
+    const artistRow = albumFocusTextRow(artist, artistRaw.length, "nw-artist", 28);
     const bpm =
       config?.showBpm === true && extras?.bpm
         ? `<div class="nw-bpm">${escHtml(extras.bpm)} BPM</div>`
         : "";
     return `<section class="nw-overlay nw-albumfocus">
     ${artEl(track, "")}
-    <div class="nw-title">${title}</div>
-    <div class="nw-artist">${artist}</div>
+    ${titleRow}
+    ${artistRow}
     ${progressEl(config)}
     ${bpm}
     ${metaEl(config)}

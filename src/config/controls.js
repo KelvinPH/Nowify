@@ -851,7 +851,7 @@ function openObsGuideModal() {
         <ul class="cfg-obs-bullets">
           <li><strong>Glass card / island</strong> — about <strong>520 × 200</strong> px; increase height if you show album, BPM, or extra rows.</li>
           <li><strong>Strip</strong> — wide and short, e.g. <strong>720 × 80</strong> px.</li>
-          <li><strong>Album focus</strong> — about <strong>220 × 280</strong> px.</li>
+          <li><strong>Album focus</strong> — fixed width (~168px content + padding); about <strong>210 × 280</strong> px in OBS.</li>
           <li>If the overlay looks clipped, raise width/height in OBS or reduce <strong>Max card width</strong> in the sidebar so it fits.</li>
         </ul>
       </div>

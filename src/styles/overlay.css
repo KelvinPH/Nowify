@@ -332,36 +332,97 @@ body { background: transparent; overflow: hidden;
 .nw-albumfocus {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 12px;
   border-radius: 20px;
   padding: 20px;
-  width: fit-content;
+  width: 168px;
+  min-width: 168px;
+  max-width: 168px;
+  box-sizing: border-box;
 }
 .nw-albumfocus .nw-art {
   width: 120px; height: 120px;
+  align-self: center;
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0,0,0,0.5);
 }
 .nw-albumfocus .nw-art img { width: 100%; height: 100%; object-fit: cover; }
 .nw-albumfocus .nw-art-placeholder { background: var(--nw-glass); }
-.nw-albumfocus .nw-title {
-  font-size: 13px; font-weight: 600; color: var(--nw-text);
-  text-align: center; max-width: 160px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+
+.nw-albumfocus-line {
+  width: 100%;
+  min-width: 0;
 }
-.nw-albumfocus .nw-artist {
-  font-size: 11px; color: var(--nw-text-muted); text-align: center;
+
+/* Short lines: centered, clipped if just under marquee threshold */
+.nw-albumfocus-line > .nw-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--nw-text);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.nw-albumfocus-line > .nw-artist {
+  font-size: 11px;
+  color: var(--nw-text-muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Marquee rows: horizontal scroll loop */
+.nw-albumfocus-marquee {
+  width: 100%;
+  flex: none;
+  min-width: 0;
+}
+.nw-albumfocus-marquee-inner {
+  animation: nw-marquee 16s linear infinite;
+}
+.nw-albumfocus-marquee .nw-title,
+.nw-albumfocus-marquee .nw-artist {
+  display: inline-block;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  white-space: nowrap;
+}
+.nw-albumfocus-marquee .nw-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--nw-text);
+}
+.nw-albumfocus-marquee .nw-artist {
+  font-size: 11px;
+  color: var(--nw-text-muted);
+}
+
 .nw-albumfocus .nw-progress {
   width: 100%;
-  max-width: 160px;
   margin-top: 2px;
 }
 .nw-albumfocus .nw-bpm {
-  font-size: 11px; color: var(--nw-accent);
+  font-size: 11px;
+  color: var(--nw-accent);
   letter-spacing: 0.04em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nw-albumfocus .nw-meta {
+  max-width: 100%;
+  justify-content: center;
+}
+.nw-albumfocus .nw-meta-next {
+  max-width: 100%;
 }
 
 .nw-sidebar {
