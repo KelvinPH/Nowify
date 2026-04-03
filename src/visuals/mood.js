@@ -126,38 +126,54 @@ export function getMood(extras) {
   return "neutral";
 }
 
-/** Applies mood class and theme variables to the overlay root element. */
+const MOOD_COLOR_TRANSITION =
+  "background-color 1.2s ease, color 1.2s ease, border-color 1.2s ease";
+
+function applyPaletteVars(rootEl, bg, accent) {
+  const glassBorder = mixHex(accent, "#ffffff", 0.55);
+  const textMuted = mixHex(accent, "#a8afba", 0.6);
+  const progressBg = mixHex(bg, "#ffffff", 0.25);
+  rootEl.style.setProperty("--nw-bg", bg);
+  rootEl.style.setProperty("--nw-accent", accent);
+  rootEl.style.setProperty("--nw-glass-border", glassBorder);
+  rootEl.style.setProperty("--nw-text-muted", textMuted);
+  rootEl.style.setProperty("--nw-progress-bg", progressBg);
+}
+
+/**
+ * Applies mood class and theme variables to the overlay root element.
+ * Mood colours are applied synchronously first so the selected CSS theme does not flash
+ * while album art is decoded; if art yields a palette, we then transition to it.
+ */
 export async function applyMood(rootEl, extras, track = null) {
   if (!rootEl) {
     return;
   }
 
   const lockCustomColours = rootEl.dataset?.nwCustomColors === "1";
-
   const mood = getMood(extras);
   const moodBase = MOODS[mood];
-  const artPalette = await extractPaletteFromArt(track?.albumArt || "");
-  const bg = artPalette?.bg || moodBase.bg;
-  const accent = artPalette?.accent || moodBase.accent;
-  const glassBorder = mixHex(accent, "#ffffff", 0.55);
-  const textMuted = mixHex(accent, "#a8afba", 0.6);
-  const progressBg = mixHex(bg, "#ffffff", 0.25);
 
   [...rootEl.classList]
     .filter((name) => name.startsWith("nw-mood-"))
     .forEach((name) => rootEl.classList.remove(name));
-
-  if (!lockCustomColours) {
-    rootEl.style.setProperty("--nw-bg", bg);
-    rootEl.style.setProperty("--nw-accent", accent);
-    rootEl.style.setProperty("--nw-glass-border", glassBorder);
-    rootEl.style.setProperty("--nw-text-muted", textMuted);
-    rootEl.style.setProperty("--nw-progress-bg", progressBg);
-  }
   rootEl.classList.add(`nw-mood-${mood}`);
-  rootEl.style.transition = "background-color 1.2s ease, color 1.2s ease, border-color 1.2s ease";
 
-  // If the user enabled custom colours, don't override the core CSS variables they picked.
+  if (lockCustomColours) {
+    rootEl.style.transition = "";
+    return;
+  }
+
+  rootEl.style.transition = "none";
+  applyPaletteVars(rootEl, moodBase.bg, moodBase.accent);
+
+  const artPalette = await extractPaletteFromArt(track?.albumArt || "");
+  if (artPalette) {
+    rootEl.style.transition = MOOD_COLOR_TRANSITION;
+    applyPaletteVars(rootEl, artPalette.bg, artPalette.accent);
+  } else {
+    rootEl.style.transition = "";
+  }
 }
 
 /** Clears mood classes and inline mood overrides from the overlay root. */

@@ -683,7 +683,7 @@ function checkCustomMode() {
         updateCustomPreview(customState);
       });
     });
-    ensureCustomHeaderButtons(true);
+    renderHeaderDynamic();
   } else {
     normalSidebar.style.display = "";
     if (customContainer) {
@@ -692,7 +692,7 @@ function checkCustomMode() {
       customContainer.style.width = "";
     }
     previousLayout = state.layout;
-    ensureCustomHeaderButtons(false);
+    renderHeaderDynamic();
   }
 }
 
@@ -743,91 +743,169 @@ async function publishCustomPresetWithPrompt() {
   }
 }
 
-function ensureCustomHeaderButtons(isCustom) {
-  const actions = document.querySelector(".cfg-header-actions");
-  if (!actions) return;
-  let exitBtn = document.getElementById("btn-exit-custom");
-  let publishBtn = document.getElementById("btn-publish-custom-preset");
-
-  if (isCustom) {
-    if (!publishBtn) {
-      publishBtn = document.createElement("button");
-      publishBtn.id = "btn-publish-custom-preset";
-      publishBtn.className = "cfg-btn";
-      publishBtn.textContent = "Publish preset";
-      publishBtn.addEventListener("click", () => {
-        publishCustomPresetWithPrompt();
-      });
-      actions.prepend(publishBtn);
+function openSetupWizard() {
+  showWizard((chosenSource) => {
+    state.source = chosenSource;
+    const savedLastfm = localStorage.getItem("nowify_lastfm");
+    const savedSongify = localStorage.getItem("nowify_songify");
+    if (savedLastfm) {
+      try {
+        const parsed = JSON.parse(savedLastfm);
+        state.lastfmUsername = parsed.username || "";
+        state.lastfmApiKey = parsed.apiKey || "";
+      } catch (_error) {}
+    } else {
+      state.lastfmUsername = "";
+      state.lastfmApiKey = "";
     }
-    if (!exitBtn) {
-      exitBtn = document.createElement("button");
-      exitBtn.id = "btn-exit-custom";
-      exitBtn.className = "cfg-btn";
-      exitBtn.textContent = "Exit custom";
-      exitBtn.addEventListener("click", () => {
-        update({ layout: previousLayout || "glasscard" });
-      });
-      actions.prepend(exitBtn);
-    }
-  } else {
-    if (publishBtn) publishBtn.remove();
-    if (exitBtn) exitBtn.remove();
-  }
-}
-
-function ensurePresetHeaderButton() {
-  const actions = document.querySelector(".cfg-header-actions");
-  if (!actions) return;
-  let presetsBtn = document.getElementById("btn-presets");
-  if (presetsBtn) return;
-  presetsBtn = document.createElement("button");
-  presetsBtn.id = "btn-presets";
-  presetsBtn.className = "cfg-btn";
-  presetsBtn.textContent = "Presets";
-  presetsBtn.addEventListener("click", () => openPresetsModal());
-  actions.prepend(presetsBtn);
-}
-
-function ensureSetupHeaderButton() {
-  const actions = document.querySelector(".cfg-header-actions");
-  if (!actions) return;
-  let setupBtn = document.getElementById("btn-setup");
-  if (setupBtn) return;
-
-  setupBtn = document.createElement("button");
-  setupBtn.id = "btn-setup";
-  setupBtn.className = "cfg-btn";
-  setupBtn.textContent = "Setup";
-  setupBtn.addEventListener("click", () => {
-    showWizard((chosenSource) => {
-      state.source = chosenSource;
-      const savedLastfm = localStorage.getItem("nowify_lastfm");
-      const savedSongify = localStorage.getItem("nowify_songify");
-      if (savedLastfm) {
-        try {
-          const parsed = JSON.parse(savedLastfm);
-          state.lastfmUsername = parsed.username || "";
-          state.lastfmApiKey = parsed.apiKey || "";
-        } catch (_error) {}
-      } else {
-        state.lastfmUsername = "";
-        state.lastfmApiKey = "";
-      }
-      if (savedSongify) {
-        try {
-          const parsed = JSON.parse(savedSongify);
-          state.songifyPort = Number(parsed.port) || 4002;
-        } catch (_error) {
-          state.songifyPort = 4002;
-        }
-      } else {
+    if (savedSongify) {
+      try {
+        const parsed = JSON.parse(savedSongify);
+        state.songifyPort = Number(parsed.port) || 4002;
+      } catch (_error) {
         state.songifyPort = 4002;
       }
-      update({ source: chosenSource });
-    });
+    } else {
+      state.songifyPort = 4002;
+    }
+    update({ source: chosenSource });
   });
-  actions.prepend(setupBtn);
+}
+
+/** Setup, Presets, and custom-layout actions (kept out of static HTML for ordering). */
+function renderHeaderDynamic() {
+  const wrap = document.getElementById("cfg-header-dynamic");
+  if (!wrap) return;
+  wrap.replaceChildren();
+  const isCustom = state.layout === "custom";
+
+  function addButton(id, label, className, handler) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = id;
+    btn.className = className;
+    btn.textContent = label;
+    btn.addEventListener("click", handler);
+    wrap.appendChild(btn);
+  }
+
+  if (isCustom) {
+    addButton("btn-exit-custom", "Exit custom", "cfg-btn cfg-btn-ghost", () => {
+      update({ layout: previousLayout || "glasscard" });
+    });
+    addButton("btn-publish-custom-preset", "Publish preset", "cfg-btn cfg-btn-ghost", () => {
+      publishCustomPresetWithPrompt();
+    });
+  }
+
+  addButton("btn-setup", "Setup", "cfg-btn cfg-btn-ghost", () => openSetupWizard());
+  addButton("btn-presets", "Presets", "cfg-btn cfg-btn-ghost", () => openPresetsModal());
+}
+
+let obsGuideEscCleanup = null;
+
+function closeObsGuideModal() {
+  if (obsGuideEscCleanup) {
+    obsGuideEscCleanup();
+    obsGuideEscCleanup = null;
+  }
+  document.getElementById("cfg-obs-modal")?.remove();
+}
+
+function openObsGuideModal() {
+  closeObsGuideModal();
+  const shell = document.getElementById("cfg-shell");
+  if (!shell) return;
+  const url =
+    document.getElementById("cfg-url-display")?.textContent?.trim() || buildOverlayUrl(state);
+  const modal = document.createElement("div");
+  modal.id = "cfg-obs-modal";
+  modal.className = "cfg-obs-modal";
+  modal.innerHTML = `
+    <div class="cfg-obs-dialog" role="dialog" aria-labelledby="cfg-obs-title">
+      <div class="cfg-obs-header">
+        <h2 class="cfg-obs-title" id="cfg-obs-title">Add to OBS Studio</h2>
+        <button type="button" class="cfg-btn cfg-btn-ghost" id="cfg-obs-close">Close</button>
+      </div>
+      <p class="cfg-obs-lead">
+        Use a <strong>Browser</strong> source so the overlay can update in real time. Paste the same URL you use in the preview below.
+      </p>
+      <div class="cfg-obs-url-block">
+        <label class="cfg-obs-label" for="cfg-obs-url-field">Overlay URL</label>
+        <div class="cfg-obs-url-row">
+          <input id="cfg-obs-url-field" class="cfg-obs-url-input" type="text" readonly spellcheck="false" />
+          <button type="button" class="cfg-btn cfg-btn-primary" id="cfg-obs-copy-url">Copy</button>
+        </div>
+      </div>
+      <div class="cfg-obs-section">
+        <h3 class="cfg-obs-h3">Steps</h3>
+        <ol class="cfg-obs-steps">
+          <li>In OBS, add a source → <strong>Browser</strong>.</li>
+          <li>Name it (e.g. &quot;Nowify&quot;), then paste the URL above into <strong>URL</strong>.</li>
+          <li>Set <strong>Width</strong> and <strong>Height</strong> to fit your scene (see sizing tips below).</li>
+          <li>Click <strong>OK</strong>, then drag and crop the source in your scene as needed.</li>
+        </ol>
+      </div>
+      <div class="cfg-obs-section">
+        <h3 class="cfg-obs-h3">Sizing (starting points)</h3>
+        <ul class="cfg-obs-bullets">
+          <li><strong>Glass card / island</strong> — about <strong>520 × 200</strong> px; increase height if you show album, BPM, or extra rows.</li>
+          <li><strong>Strip</strong> — wide and short, e.g. <strong>720 × 80</strong> px.</li>
+          <li><strong>Album focus</strong> — about <strong>220 × 280</strong> px.</li>
+          <li>If the overlay looks clipped, raise width/height in OBS or reduce <strong>Max card width</strong> in the sidebar so it fits.</li>
+        </ul>
+      </div>
+      <div class="cfg-obs-section">
+        <h3 class="cfg-obs-h3">OBS browser settings</h3>
+        <ul class="cfg-obs-bullets">
+          <li><strong>FPS</strong> — 30 is enough for most streams; use 60 only if motion looks choppy.</li>
+          <li><strong>Shutdown source when not visible</strong> — optional; saves CPU when the scene is off.</li>
+          <li><strong>Refresh browser when scene becomes active</strong> — useful if the overlay ever freezes after tab sleep.</li>
+          <li>Leave <strong>Custom CSS</strong> empty unless you intentionally override styles.</li>
+        </ul>
+      </div>
+      <div class="cfg-obs-section">
+        <h3 class="cfg-obs-h3">Transparent background</h3>
+        <p class="cfg-obs-p">
+          Turn on <strong>Transparent background</strong> in Nowify (Options), then in the OBS Browser source enable transparent output if your OBS version shows that option. For a solid backdrop, keep transparency off in Nowify and size the browser box to match the card.
+        </p>
+      </div>
+      <div class="cfg-obs-section cfg-obs-note">
+        <p class="cfg-obs-p">
+          <strong>Local files:</strong> If your URL is <code>file://</code> or localhost, OBS must reach that path or server from the same machine. Spotify auth and some features work best when the configurator is opened over <code>http://localhost</code> (or your deployed site), not raw file paths.
+        </p>
+      </div>
+    </div>
+  `;
+  shell.appendChild(modal);
+  const urlField = document.getElementById("cfg-obs-url-field");
+  if (urlField) urlField.value = url;
+  const onEsc = (e) => {
+    if (e.key === "Escape") closeObsGuideModal();
+  };
+  document.addEventListener("keydown", onEsc);
+  obsGuideEscCleanup = () => document.removeEventListener("keydown", onEsc);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeObsGuideModal();
+  });
+  document.getElementById("cfg-obs-close")?.addEventListener("click", closeObsGuideModal);
+  document.getElementById("cfg-obs-copy-url")?.addEventListener("click", async () => {
+    const field = document.getElementById("cfg-obs-url-field");
+    const t = field?.value || url;
+    try {
+      await navigator.clipboard.writeText(t);
+      const btn = document.getElementById("cfg-obs-copy-url");
+      if (btn) {
+        const prev = btn.textContent;
+        btn.textContent = "Copied!";
+        window.setTimeout(() => {
+          btn.textContent = prev;
+        }, 1200);
+      }
+    } catch (_e) {
+      field?.select();
+    }
+  });
 }
 
 function closePresetsModal() {
@@ -1025,7 +1103,7 @@ function update(newState) {
   const urlDisplay = document.getElementById("cfg-url-display");
   if (iframe) iframe.src = url;
   if (urlDisplay) urlDisplay.textContent = url;
-  ensurePresetHeaderButton();
+  renderHeaderDynamic();
   renderSidebar();
   checkCustomMode();
 }
@@ -1055,14 +1133,14 @@ export function initConfig() {
     }
 
     renderSidebar();
-    ensurePresetHeaderButton();
-    ensureSetupHeaderButton();
+    renderHeaderDynamic();
     checkCustomMode();
     update({});
 
     const copyButton = document.getElementById("btn-copy");
     const openButton = document.getElementById("btn-open");
     const resetButton = document.getElementById("btn-reset");
+    document.getElementById("btn-obs-guide")?.addEventListener("click", openObsGuideModal);
 
     if (copyButton) {
       copyButton.addEventListener("click", async () => {

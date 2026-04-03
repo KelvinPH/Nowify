@@ -16,12 +16,20 @@
   <div id="cfg-shell">
     <header id="cfg-header">
       <img class="cfg-logo" src="assets/logo/logo.png" alt="Nowify" />
-      <div class="cfg-header-actions">
-        <a href="stats.html" class="cfg-btn cfg-btn-link">Stats</a>
-        <button id="btn-copy" class="cfg-btn">Copy URL</button>
-        <button id="btn-open" class="cfg-btn">Open preview</button>
-        <button id="btn-reset" class="cfg-btn">Reset</button>
-      </div>
+      <nav class="cfg-header-nav" aria-label="Configurator actions">
+        <div class="cfg-nav-chunk cfg-nav-primary">
+          <button type="button" id="btn-copy" class="cfg-btn cfg-btn-primary">Copy URL</button>
+          <button type="button" id="btn-obs-guide" class="cfg-btn cfg-btn-secondary">Add to OBS</button>
+        </div>
+        <div class="cfg-nav-divider" aria-hidden="true"></div>
+        <div id="cfg-header-dynamic" class="cfg-nav-chunk cfg-nav-dynamic"></div>
+        <div class="cfg-nav-divider" aria-hidden="true"></div>
+        <div class="cfg-nav-chunk cfg-nav-secondary">
+          <a href="stats.html" class="cfg-btn cfg-btn-link cfg-btn-ghost">Stats</a>
+          <button type="button" id="btn-open" class="cfg-btn cfg-btn-ghost">Preview</button>
+          <button type="button" id="btn-reset" class="cfg-btn cfg-btn-ghost cfg-btn-danger-ghost">Reset</button>
+        </div>
+      </nav>
     </header>
 
     <div id="cfg-body">
