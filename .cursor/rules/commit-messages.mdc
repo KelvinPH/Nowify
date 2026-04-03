@@ -1,0 +1,14 @@
+---
+description: No attribution footers in git commits
+alwaysApply: true
+---
+
+# Commit messages
+
+Never add any of the following to commit messages (subject or body):
+
+- `Made-with:` or `made-with` (or any variant)
+- `Co-authored-by:` unless the human author explicitly asks for a co-author
+- Similar tool- or assistant-attribution trailers
+
+Use only the human-written summary and body the author wants on GitHub.
