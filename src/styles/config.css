@@ -1715,3 +1715,252 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 .cfg-mini-toggle input:checked ~ .cfg-mini-thumb {
   transform: translateX(12px);
 }
+
+/* Queue overlay designer (Songify) — matches collapsible sidebar / cfg-btn language */
+body.cfg-queue-mode #cfg-preview {
+  padding: 0;
+}
+
+body.cfg-queue-mode #cfg-queue-preview-wrap {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 16px 20px 12px;
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+body.cfg-queue-mode #cfg-queue-iframe {
+  width: min(100%, 420px);
+  height: 100%;
+  min-height: 360px;
+  max-height: 72vh;
+  border: none;
+  border-radius: 16px;
+  background: transparent;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.cfg-queue-preview-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 20px 0;
+  flex-shrink: 0;
+}
+
+.cfg-queue-preview-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cfg-text);
+  letter-spacing: -0.02em;
+}
+
+.cfg-queue-preview-sub {
+  font-size: 12px;
+  color: var(--cfg-muted);
+  margin-top: 4px;
+  line-height: 1.45;
+  max-width: 42ch;
+}
+
+body.cfg-queue-mode #cfg-preview-bar {
+  flex-shrink: 0;
+  height: auto;
+  min-height: 44px;
+  padding: 10px 16px 14px;
+  align-items: center;
+}
+
+.cfg-url-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.cfg-url-row-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cfg-muted);
+  flex-shrink: 0;
+}
+
+.cfg-url-mono {
+  font-size: 11px;
+  font-family: "SF Mono", ui-monospace, monospace;
+  color: var(--cfg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+#cfg-sidebar.cfg-queue-sidebar-mode {
+  padding-top: 12px;
+}
+
+.cfg-queue-tabstrip {
+  padding: 0 12px 10px;
+  margin: 0;
+}
+
+.cfg-queue-tab {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cfg-queue-tab-panel {
+  padding: 0 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.cfg-queue-panel-block {
+  padding-bottom: 14px;
+  margin-bottom: 12px;
+  border-bottom: 0.5px solid var(--cfg-border2);
+}
+
+.cfg-queue-panel-block:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.cfg-queue-source-btns {
+  margin-top: 8px;
+}
+
+.cfg-queue-theme-grid,
+.cfg-queue-layout-grid {
+  margin-top: 6px;
+}
+
+.cfg-queue-slider-block {
+  margin-bottom: 10px;
+}
+
+.cfg-queue-slider-block:last-child {
+  margin-bottom: 0;
+}
+
+.cfg-queue-range {
+  width: 100%;
+  margin-top: 4px;
+  accent-color: var(--cfg-accent);
+}
+
+.cfg-queue-select-field {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cfg-queue-select-label {
+  font-size: 11px;
+  color: var(--cfg-muted);
+  font-weight: 500;
+}
+
+.cfg-select-block {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--cfg-bg);
+  border: 0.5px solid var(--cfg-border2);
+  color: var(--cfg-text);
+}
+
+.cfg-queue-color-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.cfg-queue-color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cfg-queue-color-wheel {
+  width: 36px;
+  height: 32px;
+  padding: 0;
+  border: 0.5px solid var(--cfg-border2);
+  border-radius: 8px;
+  background: var(--cfg-surface2);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cfg-queue-color-text {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.cfg-queue-color-hint {
+  font-size: 10px;
+  color: var(--cfg-muted);
+  line-height: 1.45;
+  margin: 4px 0 0;
+  opacity: 0.85;
+}
+
+.cfg-queue-obs-note {
+  margin-top: 4px;
+}
+
+.cfg-queue-entry-card {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--cfg-surface2);
+  border: 0.5px solid var(--cfg-border2);
+}
+
+.cfg-queue-entry-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cfg-queue-entry-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cfg-queue-entry-label {
+  padding: 0;
+  margin: 0;
+  letter-spacing: 0.06em;
+}
+
+.cfg-queue-entry-desc {
+  font-size: 12px;
+  color: var(--cfg-muted);
+  line-height: 1.45;
+  margin: 6px 0 0;
+  max-width: 36ch;
+}

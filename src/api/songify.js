@@ -16,6 +16,8 @@ let onConnectCallback = null;
 let onDisconnectCallback = null;
 let httpPollTimer = null;
 let lastEmitSig = "";
+let lastTrackId = "";
+let versionLogged = false;
 let _isConnected = false;
 
 function normalizeMs(value) {
@@ -122,72 +124,215 @@ function computeProgressMs(data, durationMs) {
   return normalizeMs(p);
 }
 
-/**
- * Maps Songify's public HTTP JSON (GET /) or WS payloads to the overlay track shape.
- * @see https://github.com/songify-rocks/Songify/blob/master/docs/wiki/Web-server-and-API.md
- */
-export function mapSongifyPayload(raw) {
-  const data = unwrapPayload(raw);
-  if (!data) {
-    return null;
+function resolvedFromEnvelope(data) {
+  if (!data || typeof data !== "object") {
+    return { queueTracks: [], queueRequests: [], queueCount: 0 };
   }
-
-  const title = pickStr(data, ["Title", "title", "song", "track"]);
-  const artist = normalizeArtist(data);
-  const album = pickStr(data, ["Album", "album"]);
-  const cover =
-    pickStr(data, ["cover", "albumCover", "albumArt", "image"]) ||
-    albumArtFromAlbums(data);
-  const isPlaying = data.IsPlaying !== false && data.isPlaying !== false;
-  const songId =
-    pickStr(data, ["SongId", "songId", "trackId", "id"]) ||
-    (artist && title ? `${artist}::${title}` : "");
-  const durationMs = computeDurationMs(data);
-  const progressMs = computeProgressMs(data, durationMs);
-  const trackUrl = pickStr(data, ["Url", "spotifyUrl", "url"]);
-  const canvasUrl = pickStr(data, [
-    "CanvasUrl",
-    "canvasUrl",
-    "canvasURL",
-    "SpotifyCanvasUrl",
-    "spotifyCanvasUrl",
-  ]);
-
+  const isNew = Boolean(data.Track?.Data);
+  if (isNew) {
+    return {
+      queueTracks: Array.isArray(data.Queue?.Tracks) ? data.Queue.Tracks : [],
+      queueRequests: Array.isArray(data.Queue?.Requests) ? data.Queue.Requests : [],
+      queueCount: Number(data.Queue?.Count) || 0,
+    };
+  }
   return {
-    isPlaying,
-    trackId: String(songId || "").trim(),
-    title: String(title || "").trim(),
-    artist: String(artist || "").trim(),
-    album: String(album || "").trim(),
-    albumArt: String(cover || "").trim(),
-    durationMs,
-    progressMs,
-    trackUrl,
-    canvasUrl: String(canvasUrl || "").trim(),
-    source: "songify",
-    requester: pickStr(data, ["requester", "Requester"]),
+    queueTracks: Array.isArray(data.Queue) ? data.Queue : [],
+    queueRequests: Array.isArray(data.RequestQueue) ? data.RequestQueue : [],
+    queueCount: Number(data.QueueCount) || 0,
   };
 }
 
-function emitTrack(track) {
-  if (!track || !track.title || typeof onTrackCallback !== "function") {
-    return;
+/**
+ * Maps Songify's public HTTP JSON (GET /) or WS payloads to the overlay track shape.
+ * Supports the envelope { Track: { Data, … }, Queue, … } and legacy flat payloads.
+ */
+export function mapSongifyPayload(raw) {
+  try {
+    if (!raw || typeof raw !== "object") {
+      return null;
+    }
+    const isNew = Boolean(raw.Track?.Data);
+    const data = isNew ? raw.Track.Data : unwrapPayload(raw);
+    if (!data || typeof data !== "object") {
+      return null;
+    }
+
+    const title = String(data.Title ?? data.title ?? "").trim();
+    const artist = isNew ? String(data.Artists ?? "").trim() : normalizeArtist(data);
+    if (!title && !artist) {
+      return null;
+    }
+
+    const albums = Array.isArray(data.Albums) ? data.Albums : [];
+    const albumArt =
+      albums[0]?.Url || albums[1]?.Url || albums[2]?.Url || albumArtFromAlbums(data);
+    const album =
+      albums[0] && (albums[0].Width != null || albums[0].Height != null)
+        ? `${albums[0].Width}x${albums[0].Height}`
+        : pickStr(data, ["Album", "album"]);
+
+    const isPlaying = data.IsPlaying !== false && data.isPlaying !== false;
+    const songId =
+      pickStr(data, ["SongId", "songId", "trackId", "id"]) || `${artist}-${title}`;
+
+    let durationMs;
+    let progressMs;
+    if (isNew) {
+      durationMs = Number(data.DurationMs || 0);
+      progressMs = Number(data.Progress || 0);
+    } else {
+      durationMs = computeDurationMs(data);
+      progressMs = computeProgressMs(data, durationMs);
+    }
+
+    const trackUrl = pickStr(data, ["Url", "spotifyUrl", "url"]);
+    const canvasUrl = isNew
+      ? String(raw.Track?.CanvasUrl || "").trim()
+      : pickStr(data, [
+          "CanvasUrl",
+          "canvasUrl",
+          "canvasURL",
+          "SpotifyCanvasUrl",
+          "spotifyCanvasUrl",
+        ]);
+    const isLiked = isNew ? Boolean(raw.Track?.IsInLikedPlaylist) : Boolean(data.IsInLikedPlaylist);
+    const requester = isNew
+      ? String(raw.Track?.Requester?.Name || "").trim()
+      : pickStr(data, ["requester", "Requester"]);
+
+    return {
+      isPlaying,
+      trackId: String(songId || "").trim(),
+      title,
+      artist,
+      album: String(album || "").trim(),
+      albumArt: String(albumArt || "").trim(),
+      durationMs,
+      progressMs,
+      trackUrl,
+      canvasUrl,
+      source: "songify",
+      requester,
+      isLiked,
+    };
+  } catch (_error) {
+    return null;
   }
-  const sig = `${track.trackId}\0${track.title}\0${track.artist}\0${track.progressMs}\0${track.durationMs}\0${track.isPlaying}\0${track.canvasUrl || ""}`;
-  if (sig === lastEmitSig) {
-    return;
-  }
-  lastEmitSig = sig;
-  onTrackCallback(track);
 }
 
 function handleMessage(data) {
   try {
-    const track = mapSongifyPayload(data);
-    if (track) {
-      emitTrack(track);
+    if (!data) {
+      return;
     }
-  } catch (_error) {}
+
+    const isNewStructure = Boolean(data?.Track?.Data);
+
+    let trackData;
+    let canvasUrl;
+    let isLiked;
+    let requester;
+    let queueTracks;
+    let queueRequests;
+    let queueCount;
+
+    if (isNewStructure) {
+      trackData = data.Track.Data;
+      canvasUrl = data.Track?.CanvasUrl || "";
+      isLiked = data.Track?.IsInLikedPlaylist || false;
+      requester = data.Track?.Requester?.Name || "";
+      queueTracks = data.Queue?.Tracks || [];
+      queueRequests = data.Queue?.Requests || [];
+      queueCount = data.Queue?.Count || 0;
+    } else {
+      trackData = data;
+      canvasUrl = data.CanvasUrl || "";
+      isLiked = data.IsInLikedPlaylist || false;
+      requester =
+        typeof data.Requester === "object" && data.Requester !== null
+          ? String(data.Requester.Name || "").trim()
+          : String(data.Requester || "").trim();
+      queueTracks = data.Queue || [];
+      queueRequests = data.RequestQueue || [];
+      queueCount = data.QueueCount || 0;
+    }
+
+    const resolved = {
+      queueTracks,
+      queueRequests,
+      queueCount,
+    };
+
+    const title = isNewStructure
+      ? String(trackData?.Title || "").trim()
+      : pickStr(trackData, ["Title", "title", "song", "track"]);
+    const artist = isNewStructure
+      ? String(trackData?.Artists || "").trim()
+      : normalizeArtist(trackData);
+    if (!title && !artist) {
+      return;
+    }
+
+    if (!versionLogged && data?.SongifyInfo?.Version) {
+      console.warn(
+        `[Songify] Version: ${data.SongifyInfo.Version}`,
+        data.SongifyInfo.Beta ? "(beta)" : ""
+      );
+      versionLogged = true;
+    }
+
+    const albums = Array.isArray(trackData?.Albums) ? trackData.Albums : [];
+    const albumArt = albums[0]?.Url || albums[1]?.Url || albums[2]?.Url || "";
+
+    let durationMs;
+    let progressMs;
+    if (isNewStructure) {
+      durationMs = Number(trackData?.DurationMs || 0);
+      progressMs = Number(trackData?.Progress || 0);
+    } else {
+      durationMs = computeDurationMs(trackData);
+      progressMs = computeProgressMs(trackData, durationMs);
+    }
+
+    const isPlaying = trackData?.IsPlaying !== false;
+
+    const songId =
+      pickStr(trackData, ["SongId", "songId", "trackId", "id"]) || `${artist}-${title}`;
+
+    const newTrackId = `${songId}-${isPlaying}`;
+    if (newTrackId === lastTrackId) {
+      return;
+    }
+    lastTrackId = newTrackId;
+
+    const album =
+      albums[0] && (albums[0].Width != null || albums[0].Height != null)
+        ? `${albums[0].Width}x${albums[0].Height}`
+        : "";
+
+    const track = {
+      isPlaying,
+      trackId: songId,
+      title,
+      artist,
+      album,
+      albumArt,
+      durationMs,
+      progressMs,
+      trackUrl: trackData?.Url || "",
+      source: "songify",
+      requester: String(requester || "").trim(),
+      canvasUrl: String(canvasUrl || "").trim(),
+      isLiked,
+    };
+
+    if (typeof onTrackCallback === "function") {
+      onTrackCallback(track, resolved);
+    }
+  } catch (e) {
+    console.warn("[Songify] handleMessage error:", e);
+  }
 }
 
 function stopHttpPoll() {
@@ -214,7 +359,14 @@ async function pollNowPlayingHttp() {
     const data = JSON.parse(text);
     const track = mapSongifyPayload(data);
     if (track) {
-      emitTrack(track);
+      const sig = `${track.trackId}\0${track.title}\0${track.artist}\0${track.progressMs}\0${track.durationMs}\0${track.isPlaying}\0${track.canvasUrl || ""}`;
+      if (sig === lastEmitSig) {
+        return;
+      }
+      lastEmitSig = sig;
+      if (typeof onTrackCallback === "function") {
+        onTrackCallback(track, resolvedFromEnvelope(data));
+      }
     }
   } catch (_error) {
     /* CORS, offline, or empty body */
@@ -227,11 +379,6 @@ function startHttpPoll() {
   httpPollTimer = window.setInterval(pollNowPlayingHttp, HTTP_POLL_MS);
 }
 
-function wsUrl(path) {
-  const p = path.startsWith("/") ? path : `/${path}`;
-  return `ws://127.0.0.1:${port}${p}`;
-}
-
 function connectCommandSocket() {
   try {
     if (commandSocket) {
@@ -241,11 +388,13 @@ function connectCommandSocket() {
       commandSocket = null;
     }
 
-    commandSocket = new WebSocket(wsUrl("/"));
+    commandSocket = new WebSocket(`ws://127.0.0.1:${port}/`);
 
     commandSocket.addEventListener("message", function (event) {
       try {
-        const parsed = JSON.parse(String(event?.data || "{}"));
+        const parsed = JSON.parse(
+          typeof event.data === "string" ? event.data : "{}"
+        );
         handleMessage(parsed);
       } catch (_error) {}
     });
@@ -281,38 +430,53 @@ function connectDataSocket() {
     if (dataSocket) {
       try {
         dataSocket.close();
-      } catch (_error) {}
+      } catch (_e) {}
       dataSocket = null;
     }
 
-    dataSocket = new WebSocket(wsUrl(DATA_PATH));
+    const host = reconnectAttempts % 2 === 0 ? "localhost" : "127.0.0.1";
+    const url = `ws://${host}:${port}${DATA_PATH}`;
+
+    console.warn(`[Songify] Connecting to ${url}`);
+
+    dataSocket = new WebSocket(url);
 
     dataSocket.addEventListener("open", function () {
       try {
-        reconnectAttempts = 0;
         _isConnected = true;
-        if (typeof onConnectCallback === "function") onConnectCallback();
-        console.warn("[Songify] Track stream:", DATA_PATH, "port", port);
+        reconnectAttempts = 0;
+        if (typeof onConnectCallback === "function") {
+          onConnectCallback();
+        }
+        console.warn("[Songify] Connected — waiting for data");
       } catch (_error) {}
     });
 
     dataSocket.addEventListener("message", function (event) {
       try {
-        const parsed = JSON.parse(String(event?.data || "{}"));
-        handleMessage(parsed);
-      } catch (_error) {}
+        const data = JSON.parse(
+          typeof event.data === "string" ? event.data : "{}"
+        );
+        handleMessage(data);
+      } catch (e) {
+        console.warn("[Songify] Message parse error:", e);
+      }
     });
 
     dataSocket.addEventListener("close", function () {
       try {
         _isConnected = false;
-        if (typeof onDisconnectCallback === "function") onDisconnectCallback();
+        versionLogged = false;
+        lastTrackId = "";
+        if (typeof onDisconnectCallback === "function") {
+          onDisconnectCallback();
+        }
         scheduleReconnect();
       } catch (_error) {}
     });
 
     dataSocket.addEventListener("error", function () {
-      console.warn("[Songify] Data WebSocket error", DATA_PATH);
+      console.warn("[Songify] WebSocket error");
     });
   } catch (_error) {
     _isConnected = false;
@@ -332,6 +496,8 @@ export function init({ port: p, onTrack, onConnect, onDisconnect } = {}) {
     onDisconnectCallback = onDisconnect || null;
     port = Number(p) || DEFAULT_PORT;
     lastEmitSig = "";
+    lastTrackId = "";
+    versionLogged = false;
     startHttpPoll();
     connect();
   } catch (_error) {}
@@ -362,6 +528,8 @@ export function disconnect() {
     commandSocket = null;
     _isConnected = false;
     lastEmitSig = "";
+    lastTrackId = "";
+    versionLogged = false;
   } catch (_error) {}
 }
 

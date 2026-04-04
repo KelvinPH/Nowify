@@ -1,5 +1,3 @@
-import { mapSongifyPayload } from "../api/songify.js";
-
 function clampMaxItems(raw) {
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 1) return 5;
@@ -8,7 +6,6 @@ function clampMaxItems(raw) {
 
 /** @type {ReturnType<typeof parseConfig> | null} */
 let config = null;
-let pollTimer = null;
 let headerTimer = null;
 let lastPayloadAt = 0;
 let lastTrackSnap = null;
@@ -65,51 +62,6 @@ function parseConfig() {
   };
 }
 
-function unwrapPayload(raw) {
-  if (!raw || typeof raw !== "object") {
-    return null;
-  }
-  const inner = raw.data;
-  if (
-    inner &&
-    typeof inner === "object" &&
-    !Array.isArray(inner) &&
-    (inner.Title || inner.title || inner.SongId || inner.songId)
-  ) {
-    return inner;
-  }
-  return raw;
-}
-
-function pickQueueArray(obj, keys) {
-  for (let i = 0; i < keys.length; i += 1) {
-    const v = obj[keys[i]];
-    if (Array.isArray(v)) {
-      return v;
-    }
-  }
-  return [];
-}
-
-function trackIdOf(item) {
-  return String(item?.trackid ?? item?.TrackId ?? item?.trackId ?? "").trim();
-}
-
-function normalizeArtistField(item) {
-  const a = item?.Artists ?? item?.artists ?? item?.artist ?? item?.Artist;
-  if (Array.isArray(a)) {
-    return a
-      .map((x) => (typeof x === "string" ? x : x?.name ?? x?.Name ?? ""))
-      .filter(Boolean)
-      .join(", ");
-  }
-  return String(a ?? "").trim();
-}
-
-function pickAlbum(item) {
-  return String(item?.Album ?? item?.album ?? item?.albumName ?? "").trim();
-}
-
 /** youtube | spotify | twitch | "" — from Songify metadata or track URL heuristics */
 function inferRequesterSource(raw) {
   if (!raw || typeof raw !== "object") return "";
@@ -153,72 +105,50 @@ function shouldShowRequesterRow(item) {
   return true;
 }
 
-function buildQueueItems(data) {
-  if (!config) {
+function buildQueueItems(resolved) {
+  if (!config || !resolved) {
     return [];
   }
-  const outer = data && typeof data === "object" && !Array.isArray(data) ? data : {};
-  const inner = unwrapPayload(data);
-  const innerObj = inner && typeof inner === "object" ? inner : {};
-  function pickQ(obj) {
-    return pickQueueArray(obj, ["Queue", "queue"]);
-  }
-  function pickRq(obj) {
-    return pickQueueArray(obj, ["RequestQueue", "requestQueue"]);
-  }
-  let q = pickQ(innerObj);
-  if (!q.length) {
-    q = pickQ(outer);
-  }
-  let rq = pickRq(innerObj);
-  if (!rq.length) {
-    rq = pickRq(outer);
-  }
-  let list = [];
-  if (config.queueSource === "queue") {
-    list = q.slice();
-  } else if (config.queueSource === "requestqueue") {
-    list = rq.slice();
+
+  let items = [];
+
+  if (config.queueSource === "requestqueue") {
+    items = resolved.queueRequests || [];
   } else if (config.queueSource === "both") {
-    const seen = new Set();
-    const merged = [];
-    const pushUnique = (item) => {
-      const tid = trackIdOf(item);
-      const key = tid || `__idx_${merged.length}`;
-      if (seen.has(key)) {
-        return;
-      }
-      seen.add(key);
-      merged.push(item);
-    };
-    rq.forEach(pushUnique);
-    q.forEach(pushUnique);
-    list = merged;
+    function itemTrackId(i) {
+      return String(i?.trackid ?? i?.trackId ?? "").trim();
+    }
+    const srIds = new Set(
+      (resolved.queueRequests || [])
+        .map(itemTrackId)
+        .filter(Boolean)
+    );
+    const autoplay = (resolved.queueTracks || []).filter(function (i) {
+      return !srIds.has(itemTrackId(i));
+    });
+    items = (resolved.queueRequests || []).concat(autoplay);
+  } else {
+    items = resolved.queueTracks || [];
   }
-  const max = clampMaxItems(config.maxItems);
-  return list.slice(0, max).map((item, index) => ({
-    position: index + 1,
-    trackId: trackIdOf(item),
-    title: String(item?.title ?? item?.Title ?? "").trim(),
-    artist: normalizeArtistField(item),
-    album: pickAlbum(item),
-    duration: String(item?.length ?? item?.Length ?? "").trim(),
-    requester: String(item?.requester ?? item?.Requester ?? "").trim(),
-    requesterAvatar: String(
-      item?.FullRequester?.ProfileImageUrl ?? item?.fullRequester?.profileImageUrl ?? ""
-    ).trim(),
-    requesterDisplay: String(
-      item?.FullRequester?.DisplayName ??
-        item?.fullRequester?.displayName ??
-        item?.requester ??
-        item?.Requester ??
-        ""
-    ).trim(),
-    requesterSource: inferRequesterSource(item),
-    albumArt: String(item?.albumcover ?? item?.albumCover ?? item?.AlbumCover ?? "").trim(),
-    isLiked: Boolean(item?.IsLiked ?? item?.isLiked),
-    isSR: Boolean(item?.FullRequester ?? item?.fullRequester),
-  }));
+
+  return items.slice(0, config.maxItems).map(function (item, i) {
+    return {
+      position: i + 1,
+      trackId: String(item.trackid ?? item.trackId ?? "").trim(),
+      title: item.title || "",
+      artist: item.artist || "",
+      duration: item.length || "",
+      requester: item.requester || "",
+      requesterAvatar: item.FullRequester?.ProfileImageUrl || "",
+      requesterDisplay:
+        item.FullRequester?.DisplayName || item.requester || "",
+      requesterSource: inferRequesterSource(item),
+      album: "",
+      albumArt: item.albumcover || "",
+      isLiked: Boolean(item.IsLiked),
+      isSR: Boolean(item.FullRequester),
+    };
+  });
 }
 
 /** Slice pre-shaped queue rows (e.g. demo) to config.maxItems and renumber positions. */
@@ -431,13 +361,6 @@ function renderQueue(items) {
   }
 }
 
-function stopQueuePoll() {
-  if (pollTimer) {
-    window.clearInterval(pollTimer);
-    pollTimer = null;
-  }
-}
-
 function stopHeaderTimer() {
   if (headerTimer) {
     window.clearInterval(headerTimer);
@@ -461,53 +384,6 @@ function startHeaderTimerIfNeeded() {
       app.insertAdjacentHTML("afterbegin", header);
     }
   }, 1000);
-}
-
-function applyQueueFromRaw(raw) {
-  const items = buildQueueItems(raw);
-  lastQueuedTitles = items;
-  lastPayloadAt = Date.now();
-  lastTrackSnap = mapSongifyPayload(raw);
-  const app = document.getElementById("queue-app");
-  if (!app) {
-    return;
-  }
-  const headerHtml = renderQueueHeader(items);
-  if (!items.length) {
-    app.innerHTML = headerHtml || "";
-    return;
-  }
-  renderQueue(items);
-}
-
-async function fetchQueueOnce(port) {
-  try {
-    const res = await fetch(`http://127.0.0.1:${port}/`, {
-      method: "GET",
-      mode: "cors",
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      return;
-    }
-    const text = await res.text();
-    if (!text || !String(text).trim()) {
-      return;
-    }
-    const data = JSON.parse(text);
-    applyQueueFromRaw(data);
-  } catch (_e) {
-    /* CORS, offline, or parse error */
-  }
-}
-
-function startQueuePoll(port) {
-  stopQueuePoll();
-  function tick() {
-    fetchQueueOnce(port);
-  }
-  tick();
-  pollTimer = window.setInterval(tick, 1500);
 }
 
 function applyDomConfig() {
@@ -556,24 +432,42 @@ export async function init() {
   const { init: initSongify } = await import("../api/songify.js");
   initSongify({
     port: config.songifyPort,
-    onConnect: () => {
-      startQueuePoll(config.songifyPort);
-      fetchQueueOnce(config.songifyPort);
+    onTrack: function (track, resolved) {
+      try {
+        lastPayloadAt = Date.now();
+        lastTrackSnap = track;
+        if (!resolved) {
+          return;
+        }
+        const items = buildQueueItems(resolved);
+        if (!items.length) {
+          const app = document.getElementById("queue-app");
+          if (app) {
+            app.innerHTML = "";
+          }
+          lastQueuedTitles = [];
+          return;
+        }
+        lastQueuedTitles = items;
+        renderQueue(items);
+      } catch (e) {
+        console.warn("[Queue] render failed:", e);
+      }
+    },
+    onConnect: function () {
+      console.warn("[Queue] Songify connected");
       startHeaderTimerIfNeeded();
     },
-    onTrack: () => {
-      fetchQueueOnce(config.songifyPort);
-    },
-    onDisconnect: () => {
-      stopQueuePoll();
-      stopHeaderTimer();
-      lastTrackSnap = null;
+    onDisconnect: function () {
       const app = document.getElementById("queue-app");
       if (app) {
         app.innerHTML = "";
       }
+      console.warn("[Queue] Songify disconnected");
+      stopHeaderTimer();
+      lastTrackSnap = null;
+      lastQueuedTitles = [];
     },
   });
-  startQueuePoll(config.songifyPort);
   startHeaderTimerIfNeeded();
 }

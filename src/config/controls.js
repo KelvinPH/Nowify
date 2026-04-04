@@ -23,6 +23,40 @@ const DEFAULT_STATE = {
   twitchToken: "",
   lastfmUsername: "",
   lastfmApiKey: "",
+  queueSource: "queue",
+  queueMaxItems: 5,
+  queueShowPosition: true,
+  queueShowArt: true,
+  queueShowTitle: true,
+  queueShowArtist: true,
+  queueShowDuration: true,
+  queueShowRequester: true,
+  queueShowAvatar: true,
+  queueShowLiked: true,
+  queueHighlightRequests: false,
+  queueTransparent: false,
+  queueAnimateIn: "slide",
+  queueFontSize: 13,
+  queueItemRadius: 10,
+  queueItemPadding: 10,
+  queueItemOpacity: 80,
+  queueArtSize: 40,
+  queueGap: 6,
+  queueDemoPreview: false,
+  queueLayout: "glasscard",
+  queueArtPosition: "left",
+  queueShowAlbum: false,
+  queueShowTimeLeft: false,
+  queueShowNextTrack: false,
+  queueShowPlayState: false,
+  queueShowProgress: false,
+  queueBlur: 24,
+  queueMaxWidth: 480,
+  queueCustomColors: false,
+  queueColorAccent: "#ffffff",
+  queueColorTitle: "#ffffff",
+  queueColorMuted: "rgba(255,255,255,0.45)",
+  queueColorCard: "rgba(10,10,10,0.85)",
   canvasEnabled: false,
   commands: {
     sr: {
@@ -249,6 +283,20 @@ let openSections = new Set(DEFAULT_OPEN);
 const TWITCH_COMMAND_ORDER = ["sr", "skip", "prev", "queue", "vol"];
 let expandedCommands = new Set();
 let twitchCmdSliderDebounceTimer = null;
+let queueConfigOpen = false;
+let queueConfigSidebarTab = "look";
+let queueRangeDebounceTimer = null;
+let queueColorDebounceTimer = null;
+
+function exitQueueDesignerMode() {
+  if (!queueConfigOpen && !document.body.classList.contains("cfg-queue-mode")) {
+    return;
+  }
+  queueConfigOpen = false;
+  queueConfigSidebarTab = "look";
+  document.body.classList.remove("cfg-queue-mode");
+  restoreConfiguratorPreviewShell();
+}
 
 let state = {
   ...DEFAULT_STATE,
@@ -317,6 +365,17 @@ function loadPlatformState() {
       state.songifyPort = Number(parsed.port) || 4002;
     } catch (_error) {}
   }
+
+  try {
+    const qSaved = JSON.parse(localStorage.getItem("nowify_queue") || "null");
+    if (qSaved && typeof qSaved === "object") {
+      Object.keys(qSaved).forEach((k) => {
+        if (k.startsWith("queue") && qSaved[k] !== undefined) {
+          state[k] = qSaved[k];
+        }
+      });
+    }
+  } catch (_e) {}
 }
 
 function savePlatformState(newState) {
@@ -352,6 +411,16 @@ function savePlatformState(newState) {
   try {
     localStorage.setItem("nowify_commands", JSON.stringify(state.commands));
   } catch (_e) {}
+
+  try {
+    const qSnap = {};
+    Object.keys(state).forEach((k) => {
+      if (k.startsWith("queue")) {
+        qSnap[k] = state[k];
+      }
+    });
+    localStorage.setItem("nowify_queue", JSON.stringify(qSnap));
+  } catch (_e) {}
 }
 
 /** Builds the full overlay URL from the current configurator state. */
@@ -361,6 +430,9 @@ export function buildOverlayUrl(currentState) {
 
   Object.entries(currentState).forEach(([key, value]) => {
     if (key === "commands") {
+      return;
+    }
+    if (key.startsWith("queue")) {
       return;
     }
     if (value !== null && typeof value === "object") {
@@ -374,6 +446,537 @@ export function buildOverlayUrl(currentState) {
   });
 
   return `${base}?${params.toString()}`;
+}
+
+function buildQueueSearchParams(inputState, forConfiguratorPreview) {
+  const params = new URLSearchParams({
+    songifyPort: String(inputState.songifyPort || 4002),
+    theme: inputState.theme || "obsidian",
+    layout:
+      inputState.queueLayout === "sidebar"
+        ? "glasscard"
+        : inputState.queueLayout || "glasscard",
+    artPosition: inputState.queueArtPosition || "left",
+    maxItems: String(inputState.queueMaxItems || 5),
+    queueSource: inputState.queueSource || "queue",
+    showPosition: inputState.queueShowPosition ? "1" : "0",
+    showArt: inputState.queueShowArt ? "1" : "0",
+    showTitle: inputState.queueShowTitle ? "1" : "0",
+    showArtist: inputState.queueShowArtist ? "1" : "0",
+    showAlbum: inputState.queueShowAlbum ? "1" : "0",
+    showDuration: inputState.queueShowDuration ? "1" : "0",
+    showRequester: inputState.queueShowRequester ? "1" : "0",
+    showRequesterAvatar: inputState.queueShowAvatar ? "1" : "0",
+    showLiked: inputState.queueShowLiked ? "1" : "0",
+    highlightRequests: inputState.queueHighlightRequests ? "1" : "0",
+    showTimeLeft: inputState.queueShowTimeLeft ? "1" : "0",
+    showNextTrack: inputState.queueShowNextTrack ? "1" : "0",
+    showPlayState: inputState.queueShowPlayState ? "1" : "0",
+    showProgress: inputState.queueShowProgress ? "1" : "0",
+    transparent: inputState.queueTransparent ? "1" : "0",
+    animateIn: inputState.queueAnimateIn || "slide",
+    fontSize: String(inputState.queueFontSize || 13),
+    itemRadius: String(inputState.queueItemRadius || 10),
+    itemPadding: String(inputState.queueItemPadding || 10),
+    itemOpacity: String(inputState.queueItemOpacity || 80),
+    artSize: String(inputState.queueArtSize || 40),
+    gap: String(inputState.queueGap || 6),
+    blurStrength: String(inputState.queueBlur ?? 24),
+    maxWidth: String(inputState.queueMaxWidth ?? 480),
+  });
+  if (forConfiguratorPreview && inputState.queueDemoPreview) {
+    params.set("demo", "1");
+  }
+  if (inputState.queueCustomColors) {
+    params.set("customColors", "1");
+    if (inputState.queueColorAccent) params.set("colorAccent", inputState.queueColorAccent);
+    if (inputState.queueColorTitle) params.set("colorTitle", inputState.queueColorTitle);
+    if (inputState.queueColorMuted) params.set("colorMuted", inputState.queueColorMuted);
+    if (inputState.queueColorCard) params.set("colorCard", inputState.queueColorCard);
+  }
+  return params;
+}
+
+/** Queue overlay URL (preview uses demo when queueDemoPreview is on). */
+export function buildQueueUrl(inputState) {
+  const base =
+    window.location.origin + window.location.pathname.replace("config.html", "") + "queue.html";
+  return `${base}?${buildQueueSearchParams(inputState, true).toString()}`;
+}
+
+function queuePreviewIframeSrc(inputState) {
+  const url = buildQueueUrl(inputState);
+  const u = new URL(url);
+  u.searchParams.set("nwPv", String(Date.now()));
+  return u.toString();
+}
+
+function buildQueueFinalUrl(inputState) {
+  const base =
+    window.location.origin + window.location.pathname.replace("config.html", "") + "queue.html";
+  return `${base}?${buildQueueSearchParams(inputState, false).toString()}`;
+}
+
+function clampByte(n) {
+  return Math.max(0, Math.min(255, Math.round(Number(n) || 0)));
+}
+
+function rgbToHex(r, g, b) {
+  return `#${[r, g, b]
+    .map((x) => clampByte(x).toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
+function parseColorToHexForPicker(css) {
+  const s = String(css || "").trim();
+  if (/^#[0-9a-f]{6}$/i.test(s)) return s.toLowerCase();
+  const hex3 = s.match(/^#([0-9a-f]{3})$/i);
+  if (hex3) {
+    const h = hex3[1];
+    return `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}`.toLowerCase();
+  }
+  const rgb = s.match(
+    /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*[,\/]\s*([\d.]+%?))?\s*\)/i
+  );
+  if (rgb) return rgbToHex(rgb[1], rgb[2], rgb[3]);
+  return "#ffffff";
+}
+
+function extractAlphaFromCss(css) {
+  const s = String(css || "");
+  const m = s.match(/rgba\s*\([\d\s,]+,\s*([\d.]+)\s*\)/i);
+  if (m) {
+    const a = parseFloat(m[1]);
+    return Number.isFinite(a) ? Math.min(1, Math.max(0, a)) : 1;
+  }
+  return 1;
+}
+
+function hexToRgba(hex, a) {
+  const h = String(hex).replace("#", "");
+  if (h.length !== 6) return hex;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const alpha = Math.min(1, Math.max(0, Number(a) || 1));
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function wheelHexToQueueColorValue(key, hex) {
+  if (key === "queueColorMuted" || key === "queueColorCard") {
+    const alpha =
+      extractAlphaFromCss(state[key]) || (key === "queueColorMuted" ? 0.45 : 0.85);
+    return hexToRgba(hex, alpha);
+  }
+  return hex;
+}
+
+function restoreConfiguratorPreviewShell() {
+  const preview = document.getElementById("cfg-preview");
+  if (!preview) return;
+  preview.innerHTML = `
+    <div id="cfg-preview-frame-wrap">
+      <iframe id="cfg-iframe" frameborder="0"></iframe>
+    </div>
+    <div id="cfg-preview-bar">
+      <span id="cfg-url-display"></span>
+    </div>
+  `;
+  const url = buildOverlayUrl(state);
+  const iframe = document.getElementById("cfg-iframe");
+  if (iframe) iframe.src = url;
+  const urlDisplay = document.getElementById("cfg-url-display");
+  if (urlDisplay) urlDisplay.textContent = url;
+}
+
+function refreshQueueConfiguratorPreview() {
+  const qi = document.getElementById("cfg-queue-iframe");
+  if (qi) qi.src = queuePreviewIframeSrc(state);
+  const qd = document.getElementById("cfg-queue-url-display");
+  if (qd) qd.textContent = buildQueueFinalUrl(state);
+}
+
+function attachQueueSidebarListeners(sidebar) {
+  sidebar.querySelectorAll("[data-set-key]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const k = btn.getAttribute("data-set-key");
+      const v = btn.getAttribute("data-set-value");
+      update({ [k]: v });
+      refreshQueueConfiguratorPreview();
+    });
+  });
+
+  sidebar.querySelectorAll("[data-toggle-key]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const k = input.getAttribute("data-toggle-key");
+      update({ [k]: input.checked });
+      refreshQueueConfiguratorPreview();
+    });
+  });
+
+  sidebar.querySelectorAll("[data-range-key]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const key = input.getAttribute("data-range-key");
+      const val = Number(input.value);
+      const label = document.getElementById(`val-${key}`);
+      const units = {
+        queueFontSize: "px",
+        queueItemRadius: "px",
+        queueItemPadding: "px",
+        queueItemOpacity: "%",
+        queueArtSize: "px",
+        queueGap: "px",
+        queueMaxItems: "",
+        queueBlur: "",
+        queueMaxWidth: "px",
+      };
+      if (label) label.textContent = val + (units[key] || "");
+      window.clearTimeout(queueRangeDebounceTimer);
+      queueRangeDebounceTimer = window.setTimeout(() => {
+        update({ [key]: val });
+        refreshQueueConfiguratorPreview();
+      }, 300);
+    });
+  });
+
+  sidebar.querySelectorAll("[data-select-key]").forEach((sel) => {
+    sel.addEventListener("change", () => {
+      const k = sel.getAttribute("data-select-key");
+      update({ [k]: sel.value });
+      refreshQueueConfiguratorPreview();
+    });
+  });
+
+  sidebar.querySelectorAll("[data-queue-color]").forEach((inp) => {
+    inp.addEventListener("input", () => {
+      window.clearTimeout(queueColorDebounceTimer);
+      queueColorDebounceTimer = window.setTimeout(() => {
+        const k = inp.getAttribute("data-queue-color");
+        if (!k) return;
+        update({ [k]: inp.value.trim() });
+        const wheel = sidebar.querySelector(`[data-queue-color-wheel="${k}"]`);
+        if (wheel) {
+          wheel.value = parseColorToHexForPicker(inp.value.trim());
+        }
+        refreshQueueConfiguratorPreview();
+      }, 400);
+    });
+  });
+
+  sidebar.querySelectorAll("[data-queue-color-wheel]").forEach((picker) => {
+    picker.addEventListener("input", () => {
+      const k = picker.getAttribute("data-queue-color-wheel");
+      if (!k) return;
+      const next = wheelHexToQueueColorValue(k, picker.value);
+      update({ [k]: next });
+      const textInp = sidebar.querySelector(`[data-queue-color="${k}"]`);
+      if (textInp) textInp.value = next;
+      refreshQueueConfiguratorPreview();
+    });
+  });
+
+  sidebar.querySelectorAll("[data-queue-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-queue-tab");
+      queueConfigSidebarTab =
+        id === "queue" || id === "style" || id === "colors" || id === "obs" ? id : "look";
+      renderQueueSidebar();
+    });
+  });
+}
+
+function renderQueueSidebar() {
+  const sidebar = document.getElementById("cfg-sidebar");
+  if (!sidebar) return;
+  sidebar.classList.add("cfg-queue-sidebar-mode");
+
+  if (state.queueLayout === "sidebar") {
+    state.queueLayout = "glasscard";
+    refreshQueueConfiguratorPreview();
+  }
+
+  const themeOptions = ["obsidian", "midnight", "aurora", "forest", "amber", "glass"];
+  const queueLayoutOptions = ["glasscard", "pill", "island", "strip", "albumfocus"];
+  const tab = queueConfigSidebarTab;
+
+  function sliderRow(label, key, min, max, step, value, suffix) {
+    return `
+    <div class="cfg-queue-slider-block">
+      <div class="cfg-slider-row cfg-slider-row-tight">
+        <span class="cfg-slider-label">${label}</span>
+        <span class="cfg-slider-val" id="val-${key}">${value}${suffix}</span>
+      </div>
+      <input type="range" class="cfg-queue-range" data-range-key="${key}"
+        min="${min}" max="${max}" step="${step}" value="${value}" />
+    </div>`;
+  }
+
+  function toggleRow(label, key, description = "") {
+    return `
+      <label class="cfg-toggle-row cfg-toggle-row-compact">
+        <span class="cfg-toggle-label-wrap">
+          <span class="cfg-toggle-label">${label}</span>
+          ${description ? `<span class="cfg-toggle-desc">${description}</span>` : ""}
+        </span>
+        <span class="cfg-toggle">
+          <input type="checkbox" data-toggle-key="${key}" ${state[key] ? "checked" : ""} />
+          <span class="cfg-toggle-track"></span>
+          <span class="cfg-toggle-thumb"></span>
+        </span>
+      </label>
+    `;
+  }
+
+  function toggleSimple(label, key) {
+    return toggleRow(label, key, "");
+  }
+
+  function queueTabBtnClass(id) {
+    return tab === id
+      ? "cfg-btn cfg-sm-btn cfg-queue-tab cfg-active"
+      : "cfg-btn cfg-sm-btn cfg-queue-tab";
+  }
+
+  const panelLook = `
+  <div class="cfg-queue-panel-block">
+    <div class="cfg-cmd-field-label">Queue data</div>
+    ${toggleSimple("Demo sample list", "queueDemoPreview")}
+    <div class="cfg-btn-group cfg-btn-group-wrap cfg-queue-source-btns">
+      <button type="button" class="cfg-btn cfg-sm-btn ${state.queueSource === "queue" ? "cfg-active" : ""}" data-set-key="queueSource" data-set-value="queue">All</button>
+      <button type="button" class="cfg-btn cfg-sm-btn ${state.queueSource === "requestqueue" ? "cfg-active" : ""}" data-set-key="queueSource" data-set-value="requestqueue">Requests</button>
+      <button type="button" class="cfg-btn cfg-sm-btn ${state.queueSource === "both" ? "cfg-active" : ""}" data-set-key="queueSource" data-set-value="both">Both</button>
+    </div>
+  </div>
+  <div class="cfg-queue-panel-block">
+    <div class="cfg-cmd-field-label">Theme</div>
+    <div class="cfg-theme-grid cfg-queue-theme-grid">
+      ${themeOptions
+        .map(
+          (opt) => `
+        <button type="button" class="cfg-theme-btn ${state.theme === opt ? "cfg-active" : ""}" data-set-key="theme" data-set-value="${opt}">
+          <div class="cfg-theme-dot cfg-theme-dot-${opt}"></div><span>${themeLabel(opt)}</span>
+        </button>`
+        )
+        .join("")}
+    </div>
+  </div>
+  <div class="cfg-queue-panel-block">
+    <div class="cfg-cmd-field-label">Layout</div>
+    <div class="cfg-layout-grid cfg-queue-layout-grid">
+      ${queueLayoutOptions
+        .map(
+          (opt) => `
+        <button type="button" class="cfg-layout-btn ${state.queueLayout === opt ? "cfg-active" : ""}" data-set-key="queueLayout" data-set-value="${opt}">
+          <div class="cfg-layout-icon cfg-layout-icon-${opt}"></div><span>${LAYOUT_LABELS[opt] || opt}</span>
+        </button>`
+        )
+        .join("")}
+    </div>
+    <div class="cfg-cmd-field-label" style="margin-top:10px">Art position</div>
+    <div class="cfg-btn-group">
+      <button type="button" class="cfg-btn cfg-sm-btn ${state.queueArtPosition === "left" ? "cfg-active" : ""}" data-set-key="queueArtPosition" data-set-value="left">Left</button>
+      <button type="button" class="cfg-btn cfg-sm-btn ${state.queueArtPosition === "right" ? "cfg-active" : ""}" data-set-key="queueArtPosition" data-set-value="right">Right</button>
+    </div>
+  </div>`;
+
+  const panelQueue = `
+  <div class="cfg-queue-panel-block">
+    <div class="cfg-cmd-field-label">Now playing context</div>
+    ${toggleSimple("Time to next track", "queueShowTimeLeft")}
+    ${toggleSimple("Current track progress", "queueShowProgress")}
+    ${toggleSimple("Up next title", "queueShowNextTrack")}
+    ${toggleSimple("Play state dot", "queueShowPlayState")}
+  </div>
+  <div class="cfg-queue-panel-block">
+    <div class="cfg-cmd-field-label">List length</div>
+    ${sliderRow("Max items", "queueMaxItems", 1, 25, 1, state.queueMaxItems, "")}
+  </div>
+  <div class="cfg-queue-panel-block">
+    <div class="cfg-cmd-field-label">Track row</div>
+    ${toggleRow("Position number", "queueShowPosition", "")}
+    ${toggleRow("Album art", "queueShowArt", "")}
+    ${toggleRow("Track title", "queueShowTitle", "")}
+    ${toggleRow("Artist", "queueShowArtist", "")}
+    ${toggleRow("Album name", "queueShowAlbum", "")}
+    ${toggleRow("Duration", "queueShowDuration", "")}
+    ${toggleRow("Requester", "queueShowRequester", "")}
+    ${toggleRow("Requester avatar", "queueShowAvatar", "")}
+    ${toggleRow("Liked indicator", "queueShowLiked", "")}
+    ${toggleRow(
+      "Highlight user requests",
+      "queueHighlightRequests",
+      "Accent on Songify user requests"
+    )}
+    ${toggleRow("Transparent background", "queueTransparent", "")}
+  </div>`;
+
+  const panelStyle = `
+  <div class="cfg-queue-panel-block">
+    <div class="cfg-cmd-field-label">Sizing and motion</div>
+    ${sliderRow("Font size", "queueFontSize", 10, 20, 1, state.queueFontSize, "px")}
+    ${sliderRow("Corner radius", "queueItemRadius", 0, 24, 1, state.queueItemRadius, "px")}
+    ${sliderRow("Padding", "queueItemPadding", 4, 24, 1, state.queueItemPadding, "px")}
+    ${sliderRow("Opacity", "queueItemOpacity", 0, 100, 5, state.queueItemOpacity, "%")}
+    ${sliderRow("Art size", "queueArtSize", 24, 80, 4, state.queueArtSize, "px")}
+    ${sliderRow("Item gap", "queueGap", 2, 20, 1, state.queueGap, "px")}
+    ${sliderRow("Blur", "queueBlur", 8, 40, 1, state.queueBlur, "")}
+    ${sliderRow("Max width", "queueMaxWidth", 280, 720, 10, state.queueMaxWidth, "px")}
+    <div class="cfg-queue-select-field">
+      <span class="cfg-queue-select-label">Animate in</span>
+      <select data-select-key="queueAnimateIn" class="cfg-input cfg-select-block">
+        ${[
+          ["slide", "Slide up"],
+          ["fade", "Fade"],
+          ["pop", "Pop"],
+          ["none", "None"],
+        ]
+          .map(
+            ([v, l]) => `
+          <option value="${v}" ${state.queueAnimateIn === v ? "selected" : ""}>${l}</option>`
+          )
+          .join("")}
+      </select>
+    </div>
+  </div>`;
+
+  const panelColors = `
+  <div class="cfg-queue-panel-block">
+    <div class="cfg-cmd-field-label">Custom colors</div>
+    ${toggleSimple("Override theme colors", "queueCustomColors")}
+    ${
+      state.queueCustomColors
+        ? `
+    <div class="cfg-queue-color-grid">
+      <div class="cfg-queue-color-field">
+        <div class="cfg-cmd-field-label">Accent</div>
+        <div class="cfg-queue-color-row">
+          <input type="color" class="cfg-queue-color-wheel" data-queue-color-wheel="queueColorAccent" value="${parseColorToHexForPicker(state.queueColorAccent)}" title="Accent" aria-label="Accent color" />
+          <input class="cfg-input cfg-input-sm cfg-queue-color-text" type="text" data-queue-color="queueColorAccent" value="${escCfg(state.queueColorAccent)}" autocomplete="off" spellcheck="false" />
+        </div>
+      </div>
+      <div class="cfg-queue-color-field">
+        <div class="cfg-cmd-field-label">Title</div>
+        <div class="cfg-queue-color-row">
+          <input type="color" class="cfg-queue-color-wheel" data-queue-color-wheel="queueColorTitle" value="${parseColorToHexForPicker(state.queueColorTitle)}" title="Title" aria-label="Title text color" />
+          <input class="cfg-input cfg-input-sm cfg-queue-color-text" type="text" data-queue-color="queueColorTitle" value="${escCfg(state.queueColorTitle)}" autocomplete="off" spellcheck="false" />
+        </div>
+      </div>
+      <div class="cfg-queue-color-field">
+        <div class="cfg-cmd-field-label">Muted text</div>
+        <div class="cfg-queue-color-row">
+          <input type="color" class="cfg-queue-color-wheel" data-queue-color-wheel="queueColorMuted" value="${parseColorToHexForPicker(state.queueColorMuted)}" title="Muted" aria-label="Muted text color" />
+          <input class="cfg-input cfg-input-sm cfg-queue-color-text" type="text" data-queue-color="queueColorMuted" value="${escCfg(state.queueColorMuted)}" autocomplete="off" spellcheck="false" />
+        </div>
+      </div>
+      <div class="cfg-queue-color-field">
+        <div class="cfg-cmd-field-label">Row background</div>
+        <div class="cfg-queue-color-row">
+          <input type="color" class="cfg-queue-color-wheel" data-queue-color-wheel="queueColorCard" value="${parseColorToHexForPicker(state.queueColorCard)}" title="Row background" aria-label="Row background color" />
+          <input class="cfg-input cfg-input-sm cfg-queue-color-text" type="text" data-queue-color="queueColorCard" value="${escCfg(state.queueColorCard)}" autocomplete="off" spellcheck="false" />
+        </div>
+      </div>
+      <p class="cfg-queue-color-hint">Muted and row colors keep alpha from the text field; edit CSS to change opacity.</p>
+    </div>`
+        : ""
+    }
+  </div>`;
+
+  const panelObs = `
+  <div class="cfg-queue-panel-block">
+    <div class="cfg-cmd-field-label">OBS</div>
+    <div class="cfg-songify-preview-note cfg-queue-obs-note">
+      Add a <strong>Browser Source</strong>, paste the queue URL, about <strong>400 × 600</strong> px.
+    </div>
+  </div>`;
+
+  let panelBody = "";
+  if (tab === "look") panelBody = panelLook;
+  else if (tab === "queue") panelBody = panelQueue;
+  else if (tab === "style") panelBody = panelStyle;
+  else if (tab === "colors") panelBody = panelColors;
+  else if (tab === "obs") panelBody = panelObs;
+  else panelBody = panelLook;
+
+  sidebar.innerHTML = `
+  <div class="cfg-queue-tabstrip cfg-btn-group cfg-btn-group-wrap" role="tablist">
+    <button type="button" class="${queueTabBtnClass("look")}" data-queue-tab="look" role="tab" aria-selected="${tab === "look" ? "true" : "false"}">Look</button>
+    <button type="button" class="${queueTabBtnClass("queue")}" data-queue-tab="queue" role="tab" aria-selected="${tab === "queue" ? "true" : "false"}">Queue</button>
+    <button type="button" class="${queueTabBtnClass("style")}" data-queue-tab="style" role="tab" aria-selected="${tab === "style" ? "true" : "false"}">Sizing</button>
+    <button type="button" class="${queueTabBtnClass("colors")}" data-queue-tab="colors" role="tab" aria-selected="${tab === "colors" ? "true" : "false"}">Colors</button>
+    <button type="button" class="${queueTabBtnClass("obs")}" data-queue-tab="obs" role="tab" aria-selected="${tab === "obs" ? "true" : "false"}">OBS</button>
+  </div>
+  <div class="cfg-queue-tab-panel">
+    ${panelBody}
+  </div>
+  `;
+
+  attachQueueSidebarListeners(sidebar);
+  attachCfgTooltips(sidebar);
+}
+
+function renderQueueConfig() {
+  queueConfigOpen = true;
+  const customContainer = document.getElementById("cfg-custom-editor");
+  if (customContainer) customContainer.style.display = "none";
+  const sidebarEl = document.getElementById("cfg-sidebar");
+  if (sidebarEl) sidebarEl.style.display = "";
+
+  const preview = document.getElementById("cfg-preview");
+  if (!preview) return;
+
+  document.body.classList.add("cfg-queue-mode");
+
+  preview.innerHTML = `
+      <div id="cfg-preview-bg"></div>
+      <div class="cfg-queue-preview-header">
+        <div class="cfg-queue-preview-heading">
+          <div class="cfg-queue-preview-title">Queue overlay</div>
+          <div class="cfg-queue-preview-sub">
+            Separate browser source for upcoming tracks (Songify)
+          </div>
+        </div>
+        <button class="cfg-btn cfg-sm-btn cfg-btn-secondary" id="btn-close-queue-config" type="button">
+          Back to overlay
+        </button>
+      </div>
+      <div id="cfg-queue-preview-wrap">
+        <iframe id="cfg-queue-iframe" frameborder="0" title="Queue overlay preview"></iframe>
+      </div>
+      <div id="cfg-preview-bar">
+        <div class="cfg-url-row">
+          <span class="cfg-url-row-label">Queue URL</span>
+          <span class="cfg-url-mono" id="cfg-queue-url-display"></span>
+          <button class="cfg-btn cfg-sm-btn cfg-btn-primary" id="btn-copy-queue" type="button">
+            Copy URL
+          </button>
+        </div>
+      </div>
+    `;
+
+  const queueIf = document.getElementById("cfg-queue-iframe");
+  if (queueIf) queueIf.src = queuePreviewIframeSrc(state);
+  const qd = document.getElementById("cfg-queue-url-display");
+  if (qd) qd.textContent = buildQueueFinalUrl(state);
+
+  renderQueueSidebar();
+
+  document.getElementById("btn-close-queue-config")?.addEventListener("click", () => {
+    exitQueueDesignerMode();
+    update({});
+  });
+
+  document.getElementById("btn-copy-queue")?.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(buildQueueFinalUrl(state));
+      const btn = document.getElementById("btn-copy-queue");
+      if (!btn) return;
+      const prev = btn.textContent;
+      btn.textContent = "Copied!";
+      window.setTimeout(() => {
+        btn.textContent = prev;
+      }, 1200);
+    } catch (_e) {}
+  });
 }
 
 function getRedirectUri() {
@@ -546,12 +1149,29 @@ function renderSourceContent() {
       <input id="ctrl-lastfmApiKey" class="cfg-input cfg-input-sm" type="text" placeholder="API key" value="${escCfg(state.lastfmApiKey)}" data-cfg-tip="${escAttr("Create an API account on Last.fm to get a key.")}" />`;
   }
 
+  const portNum = Number(state.songifyPort);
+  const portOk = Number.isInteger(portNum) && portNum >= 1024 && portNum <= 65535;
+  const queueCard = portOk
+    ? `<div class="cfg-queue-entry-card" data-cfg-tip="${escAttr("Opens a dedicated layout editor and preview for queue.html — use as a second OBS browser source.")}">
+    <div class="cfg-queue-entry-top">
+      <div>
+        <div class="cfg-queue-entry-head">
+          <span class="cfg-cmd-section-label cfg-queue-entry-label">Queue overlay</span>
+          <span class="cfg-beta-chip">Songify</span>
+        </div>
+        <p class="cfg-queue-entry-desc">Show upcoming tracks in a separate browser source powered by Songify.</p>
+      </div>
+      <button type="button" class="cfg-btn cfg-sm-btn cfg-btn-primary" id="btn-open-queue-config">Configure</button>
+    </div>
+  </div>`
+    : "";
   return `${pills}
     ${renderSongifyStatus()}
     <div class="cfg-row" data-cfg-tip="${escAttr("WebSocket port from Songify → Settings → Web Server (default 4002).")}">
       <span class="cfg-row-label">Port</span>
       <input type="number" id="ctrl-songifyPort" class="cfg-input-inline" value="${escCfg(String(state.songifyPort))}" min="1024" max="65535" />
-    </div>`;
+    </div>
+    ${queueCard}`;
 }
 
 function renderLayoutContent(layoutOptions) {
@@ -944,6 +1564,11 @@ function attachSidebarListeners(sidebar) {
 function renderSidebar() {
   const sidebar = document.getElementById("cfg-sidebar");
   if (!sidebar) return;
+  if (queueConfigOpen) {
+    renderQueueSidebar();
+    return;
+  }
+  sidebar.classList.remove("cfg-queue-sidebar-mode");
   const scrollTop = sidebar.scrollTop;
   const layoutOptions = ["glasscard", "pill", "island", "strip", "albumfocus", "sidebar", "custom"];
   const themeOptions = ["obsidian", "midnight", "aurora", "forest", "amber", "glass"];
@@ -1031,6 +1656,13 @@ function renderSidebar() {
       if (Number.isInteger(val) && val >= 1024 && val <= 65535) {
         update({ songifyPort: val });
       }
+    });
+  }
+
+  const btnOpenQueue = document.getElementById("btn-open-queue-config");
+  if (btnOpenQueue) {
+    btnOpenQueue.addEventListener("click", () => {
+      renderQueueConfig();
     });
   }
 
@@ -1532,6 +2164,14 @@ function update(newState) {
 
   Object.assign(state, newState);
 
+  if (newState.layout === "custom") {
+    exitQueueDesignerMode();
+  }
+
+  if (newState.source !== undefined && newState.source !== "songify") {
+    exitQueueDesignerMode();
+  }
+
   if (newState.source !== undefined) {
     localStorage.setItem("nowify_source", state.source);
   }
@@ -1601,8 +2241,12 @@ function update(newState) {
   const url = buildOverlayUrl(state);
   const iframe = document.getElementById("cfg-iframe");
   const urlDisplay = document.getElementById("cfg-url-display");
-  if (iframe) iframe.src = url;
-  if (urlDisplay) urlDisplay.textContent = url;
+  if (queueConfigOpen) {
+    refreshQueueConfiguratorPreview();
+  } else {
+    if (iframe) iframe.src = url;
+    if (urlDisplay) urlDisplay.textContent = url;
+  }
   renderHeaderDynamic();
   renderSidebar();
   checkCustomMode();
@@ -1648,8 +2292,12 @@ export function initConfig() {
 
     if (copyButton) {
       copyButton.addEventListener("click", async () => {
+        const queueDisp = document.getElementById("cfg-queue-url-display")?.textContent?.trim();
+        const overlayDisp = document.getElementById("cfg-url-display")?.textContent?.trim();
         const activeUrl =
-          document.getElementById("cfg-url-display")?.textContent || buildOverlayUrl(state);
+          queueDisp ||
+          overlayDisp ||
+          (queueConfigOpen ? buildQueueFinalUrl(state) : buildOverlayUrl(state));
         await navigator.clipboard.writeText(activeUrl);
         const previousText = copyButton.textContent;
         copyButton.textContent = "Copied!";
@@ -1661,14 +2309,19 @@ export function initConfig() {
 
     if (openButton) {
       openButton.addEventListener("click", () => {
+        const queueDisp = document.getElementById("cfg-queue-url-display")?.textContent?.trim();
+        const overlayDisp = document.getElementById("cfg-url-display")?.textContent?.trim();
         const activeUrl =
-          document.getElementById("cfg-url-display")?.textContent || buildOverlayUrl(state);
+          queueDisp ||
+          overlayDisp ||
+          (queueConfigOpen ? buildQueueFinalUrl(state) : buildOverlayUrl(state));
         window.open(activeUrl, "_blank");
       });
     }
 
     if (resetButton) {
       resetButton.addEventListener("click", () => {
+        exitQueueDesignerMode();
         state = {
           ...DEFAULT_STATE,
           commands: JSON.parse(JSON.stringify(DEFAULT_STATE.commands)),
