@@ -35,6 +35,16 @@ function metaEl(config) {
   return `<div class="nw-meta">${album}${time}${next}${play}</div>`;
 }
 
+/**
+ * Wrapper for one-line title/artist/strip text. Overlay JS measures overflow and
+ * inserts a marquee only when the line is wider than the layout allows.
+ * @param {string} extraLineClasses e.g. "nw-albumfocus-line" or "nw-strip-text-host"
+ */
+function overflowMeasureLine(extraLineClasses, textClass, escapedHtml) {
+  const x = extraLineClasses.trim() ? ` ${extraLineClasses.trim()}` : "";
+  return `<div class="nw-marquee-line${x}" data-nw-overflow-measure><div class="${textClass}">${escapedHtml}</div></div>`;
+}
+
 export function fmtTime(ms) {
   if (!ms) return "0:00";
   const s = Math.floor(ms / 1000);
@@ -48,8 +58,8 @@ export const LAYOUTS = {
     return `<section class="nw-overlay nw-pill">
     ${artEl(track, "", "circle")}
     <div class="nw-info">
-      <div class="nw-title">${title}</div>
-      <div class="nw-artist">${artist}</div>
+      ${overflowMeasureLine("", "nw-title", title)}
+      ${overflowMeasureLine("", "nw-artist", artist)}
       ${metaEl(config)}
     </div>
   </section>`;
@@ -61,8 +71,8 @@ export const LAYOUTS = {
     return `<section class="nw-overlay nw-glasscard">
     ${artEl(track, "")}
     <div class="nw-info">
-      <div class="nw-title">${title}</div>
-      <div class="nw-artist">${artist}</div>
+      ${overflowMeasureLine("", "nw-title", title)}
+      ${overflowMeasureLine("", "nw-artist", artist)}
       ${progressEl(config)}
       ${metaEl(config)}
     </div>
@@ -74,8 +84,8 @@ export const LAYOUTS = {
     const artist = escHtml(track?.artist || "Unknown artist");
     return `<section class="nw-overlay nw-island">
     ${artEl(track, "")}
-    <div class="nw-title">${title}</div>
-    <div class="nw-artist">${artist}</div>
+    ${overflowMeasureLine("", "nw-title", title)}
+    ${overflowMeasureLine("", "nw-artist", artist)}
     ${progressEl(config)}
     ${metaEl(config)}
   </section>`;
@@ -85,20 +95,11 @@ export const LAYOUTS = {
     const title = escHtml(track?.title || "Unknown title");
     const artist = escHtml(track?.artist || "Unknown artist");
     const text = `${title} - ${artist}`;
-    const useMarquee = text.length > 40;
-    const textMarkup = useMarquee
-      ? `<div class="nw-marquee-wrap">
-    <div class="nw-marquee-inner">
-      <span>${text}</span>
-      <span>${text}</span>
-    </div>
-  </div>`
-      : `<div class="nw-strip-text">${text}</div>`;
     const stripTime = config?.showTimeLeft ? `<div class="nw-strip-time">${fmtTime(track?.progressMs)}</div>` : "";
     return `<section class="nw-overlay nw-strip">
     ${artEl(track, "nw-strip-art")}
     <div class="nw-accent-bar"></div>
-    ${textMarkup}
+    ${overflowMeasureLine("nw-strip-text-host", "nw-strip-text", text)}
     ${stripTime}
   </section>`;
   },
@@ -112,8 +113,9 @@ export const LAYOUTS = {
         : "";
     return `<section class="nw-overlay nw-albumfocus">
     ${artEl(track, "")}
-    <div class="nw-title">${title}</div>
-    <div class="nw-artist">${artist}</div>
+    ${overflowMeasureLine("nw-albumfocus-line", "nw-title", title)}
+    ${overflowMeasureLine("nw-albumfocus-line", "nw-artist", artist)}
+    ${progressEl(config)}
     ${bpm}
     ${metaEl(config)}
   </section>`;
@@ -125,8 +127,8 @@ export const LAYOUTS = {
     return `<section class="nw-overlay nw-sidebar">
     ${artEl(track, "")}
     <div class="nw-sidebar-body">
-      <div class="nw-title">${title}</div>
-      <div class="nw-artist">${artist}</div>
+      ${overflowMeasureLine("", "nw-title", title)}
+      ${overflowMeasureLine("", "nw-artist", artist)}
       ${progressEl(config)}
       ${metaEl(config)}
     </div>
@@ -162,11 +164,11 @@ export const LAYOUTS = {
     const renderedParts = [];
     for (const key of order) {
       if (key === "title") {
-        renderedParts.push(`<div class="nw-title">${title}</div>`);
+        renderedParts.push(overflowMeasureLine("", "nw-title", title));
         continue;
       }
       if (key === "artist" && custom.showArtist) {
-        renderedParts.push(`<div class="nw-artist">${artist}</div>`);
+        renderedParts.push(overflowMeasureLine("", "nw-artist", artist));
         continue;
       }
       if (key === "album" && custom.showAlbum) {

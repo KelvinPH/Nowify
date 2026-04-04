@@ -70,6 +70,8 @@ body { background: transparent; overflow: hidden;
 }
 
 .nw-overlay {
+  position: relative;
+  overflow: hidden;
   -webkit-backdrop-filter: var(--nw-blur);
   backdrop-filter: var(--nw-blur);
   background: var(--nw-card-bg, var(--nw-bg));
@@ -214,6 +216,12 @@ body { background: transparent; overflow: hidden;
   font-size: 13px;
 }
 
+/* JS measures here and enables horizontal marquee only when text overflows */
+.nw-marquee-line {
+  overflow: hidden;
+  min-width: 0;
+}
+
 .nw-pill {
   display: flex;
   align-items: center;
@@ -231,13 +239,30 @@ body { background: transparent; overflow: hidden;
 .nw-pill .nw-art img { width: 100%; height: 100%; object-fit: cover; }
 .nw-pill .nw-art-placeholder { background: var(--nw-glass); }
 .nw-pill .nw-info { flex: 1; min-width: 0; }
-.nw-pill .nw-title {
+.nw-pill .nw-marquee-line {
+  width: 100%;
+  min-width: 0;
+}
+.nw-pill .nw-marquee-line:first-of-type {
+  margin-bottom: 2px;
+}
+.nw-pill .nw-marquee-line > .nw-title {
   font-size: 13px; font-weight: 500; color: var(--nw-text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.nw-pill .nw-artist {
+.nw-pill .nw-marquee-line > .nw-artist {
   font-size: 11px; color: var(--nw-text-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nw-pill .nw-marquee-line .nw-marquee-wrap .nw-title {
+  font-size: 13px; font-weight: 500; color: var(--nw-text);
+  display: inline-block;
+  white-space: nowrap;
+}
+.nw-pill .nw-marquee-line .nw-marquee-wrap .nw-artist {
+  font-size: 11px; color: var(--nw-text-muted);
+  display: inline-block;
+  white-space: nowrap;
 }
 .nw-pill .nw-playing-dot {
   width: 6px; height: 6px; border-radius: 50%;
@@ -261,13 +286,30 @@ body { background: transparent; overflow: hidden;
 .nw-glasscard .nw-art img { width: 100%; height: 100%; object-fit: cover; }
 .nw-glasscard .nw-art-placeholder { background: var(--nw-glass); }
 .nw-glasscard .nw-info { flex: 1; min-width: 0; }
-.nw-glasscard .nw-title {
+.nw-glasscard .nw-marquee-line {
+  width: 100%;
+  min-width: 0;
+}
+.nw-glasscard .nw-info > .nw-marquee-line + .nw-marquee-line {
+  margin-top: 2px;
+}
+.nw-glasscard .nw-marquee-line > .nw-title {
   font-size: 14px; font-weight: 600; color: var(--nw-text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.nw-glasscard .nw-artist {
-  font-size: 12px; color: var(--nw-text-muted); margin-top: 2px;
+.nw-glasscard .nw-marquee-line > .nw-artist {
+  font-size: 12px; color: var(--nw-text-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nw-glasscard .nw-marquee-line .nw-marquee-wrap .nw-title {
+  font-size: 14px; font-weight: 600; color: var(--nw-text);
+  display: inline-block;
+  white-space: nowrap;
+}
+.nw-glasscard .nw-marquee-line .nw-marquee-wrap .nw-artist {
+  font-size: 12px; color: var(--nw-text-muted);
+  display: inline-block;
+  white-space: nowrap;
 }
 .nw-glasscard .nw-progress { margin-top: 10px; }
 
@@ -289,14 +331,31 @@ body { background: transparent; overflow: hidden;
 }
 .nw-island .nw-art img { width: 100%; height: 100%; object-fit: cover; }
 .nw-island .nw-art-placeholder { background: var(--nw-glass); }
-.nw-island .nw-title {
+.nw-island .nw-marquee-line {
+  max-width: 140px;
+  min-width: 0;
+  width: 100%;
+  align-self: center;
+}
+.nw-island .nw-marquee-line > .nw-title {
   font-size: 13px; font-weight: 600; color: var(--nw-text);
-  text-align: center; max-width: 140px;
+  text-align: center;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.nw-island .nw-artist {
+.nw-island .nw-marquee-line > .nw-artist {
   font-size: 11px; color: var(--nw-text-muted);
   text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nw-island .nw-marquee-line .nw-marquee-wrap .nw-title {
+  font-size: 13px; font-weight: 600; color: var(--nw-text);
+  display: inline-block;
+  white-space: nowrap;
+}
+.nw-island .nw-marquee-line .nw-marquee-wrap .nw-artist {
+  font-size: 11px; color: var(--nw-text-muted);
+  display: inline-block;
+  white-space: nowrap;
 }
 .nw-island .nw-progress { width: 120px; }
 
@@ -314,10 +373,18 @@ body { background: transparent; overflow: hidden;
   background: var(--nw-accent);
   border-radius: 2px; flex-shrink: 0;
 }
-.nw-strip .nw-strip-text {
+.nw-strip .nw-strip-text-host {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.nw-strip .nw-strip-text-host > .nw-strip-text {
   font-size: 13px; color: var(--nw-text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  flex: 1;
+}
+.nw-strip .nw-strip-text-host .nw-marquee-wrap .nw-strip-text {
+  display: inline-block;
+  white-space: nowrap;
 }
 .nw-strip .nw-strip-time {
   font-size: 11px; color: var(--nw-text-muted);
@@ -332,31 +399,97 @@ body { background: transparent; overflow: hidden;
 .nw-albumfocus {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 12px;
   border-radius: 20px;
   padding: 20px;
-  width: fit-content;
+  width: 168px;
+  min-width: 168px;
+  max-width: 168px;
+  box-sizing: border-box;
 }
 .nw-albumfocus .nw-art {
   width: 120px; height: 120px;
+  align-self: center;
   border-radius: 14px;
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0,0,0,0.5);
 }
 .nw-albumfocus .nw-art img { width: 100%; height: 100%; object-fit: cover; }
 .nw-albumfocus .nw-art-placeholder { background: var(--nw-glass); }
-.nw-albumfocus .nw-title {
-  font-size: 13px; font-weight: 600; color: var(--nw-text);
-  text-align: center; max-width: 160px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+
+.nw-albumfocus-line {
+  width: 100%;
+  min-width: 0;
 }
-.nw-albumfocus .nw-artist {
-  font-size: 11px; color: var(--nw-text-muted); text-align: center;
+
+/* Short lines: centered, clipped if just under marquee threshold */
+.nw-albumfocus-line > .nw-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--nw-text);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nw-albumfocus-line > .nw-artist {
+  font-size: 11px;
+  color: var(--nw-text-muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Marquee rows: horizontal scroll loop */
+.nw-albumfocus-marquee {
+  width: 100%;
+  flex: none;
+  min-width: 0;
+}
+.nw-albumfocus-marquee-inner {
+  animation: nw-marquee 16s linear infinite;
+}
+.nw-albumfocus-marquee .nw-title,
+.nw-albumfocus-marquee .nw-artist {
+  display: inline-block;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  white-space: nowrap;
+}
+.nw-albumfocus-marquee .nw-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--nw-text);
+}
+.nw-albumfocus-marquee .nw-artist {
+  font-size: 11px;
+  color: var(--nw-text-muted);
+}
+
+.nw-albumfocus .nw-progress {
+  width: 100%;
+  margin-top: 2px;
 }
 .nw-albumfocus .nw-bpm {
-  font-size: 11px; color: var(--nw-accent);
+  font-size: 11px;
+  color: var(--nw-accent);
   letter-spacing: 0.04em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nw-albumfocus .nw-meta {
+  max-width: 100%;
+  justify-content: center;
+}
+.nw-albumfocus .nw-meta-next {
+  max-width: 100%;
 }
 
 .nw-sidebar {
@@ -375,13 +508,29 @@ body { background: transparent; overflow: hidden;
   padding: 8px 6px 10px;
   display: flex; flex-direction: column; gap: 3px;
 }
-.nw-sidebar .nw-title {
+.nw-sidebar .nw-marquee-line {
+  width: 100%;
+  min-width: 0;
+}
+.nw-sidebar .nw-marquee-line > .nw-title {
   font-size: 9px; font-weight: 600; color: var(--nw-text);
   text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.nw-sidebar .nw-artist {
+.nw-sidebar .nw-marquee-line > .nw-artist {
   font-size: 8px; color: var(--nw-text-muted);
   text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nw-sidebar .nw-marquee-line .nw-marquee-wrap .nw-title {
+  font-size: 9px; font-weight: 600; color: var(--nw-text);
+  text-align: center;
+  display: inline-block;
+  white-space: nowrap;
+}
+.nw-sidebar .nw-marquee-line .nw-marquee-wrap .nw-artist {
+  font-size: 8px; color: var(--nw-text-muted);
+  text-align: center;
+  display: inline-block;
+  white-space: nowrap;
 }
 .nw-sidebar .nw-progress { margin-top: 4px; }
 
@@ -400,4 +549,123 @@ body { background: transparent; overflow: hidden;
   white-space: nowrap;
   will-change: transform;
   animation: nw-marquee 14s linear infinite;
+}
+
+/* Spotify Canvas video (Songify) */
+.nw-canvas-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  object-fit: cover;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.nw-art {
+  position: relative;
+  overflow: hidden;
+}
+
+.nw-art img {
+  position: relative;
+  z-index: 1;
+  transition: opacity 400ms ease;
+}
+
+/* Animated card background */
+@keyframes nw-aurora {
+  0% {
+    background-position: 0% 50%;
+    filter: blur(40px) saturate(150%);
+  }
+  25% { background-position: 50% 100%; }
+  50% {
+    background-position: 100% 50%;
+    filter: blur(48px) saturate(180%);
+  }
+  75% { background-position: 50% 0%; }
+  100% {
+    background-position: 0% 50%;
+    filter: blur(40px) saturate(150%);
+  }
+}
+
+@keyframes nw-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes nw-pulse {
+  0% { background-size: 200% 200%; background-position: 0% 50%; }
+  50% { background-size: 300% 300%; background-position: 100% 50%; }
+  100% { background-size: 200% 200%; background-position: 0% 50%; }
+}
+
+@keyframes nw-breathe {
+  0%, 100% { opacity: 0.7; background-position: 0% 50%; }
+  50% { opacity: 1; background-position: 100% 50%; }
+}
+
+.nw-animated-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.5s ease;
+}
+
+.nw-animated-bg.nw-bg-active {
+  opacity: 1;
+}
+
+.nw-animated-bg[data-style="aurora"] {
+  background: linear-gradient(
+    -45deg,
+    var(--nw-anim-color1),
+    var(--nw-anim-color2),
+    var(--nw-anim-color1),
+    var(--nw-anim-color2)
+  );
+  background-size: 400% 400%;
+  animation: nw-aurora var(--nw-anim-speed, 12s) ease infinite;
+  filter: blur(40px) saturate(150%);
+}
+
+.nw-animated-bg[data-style="flow"] {
+  background: linear-gradient(
+    135deg,
+    var(--nw-anim-color1),
+    var(--nw-anim-color2)
+  );
+  background-size: 300% 300%;
+  animation: nw-flow var(--nw-anim-speed, 8s) ease infinite;
+}
+
+.nw-animated-bg[data-style="pulse"] {
+  background: radial-gradient(
+    circle at center,
+    var(--nw-anim-color1),
+    var(--nw-anim-color2)
+  );
+  background-size: 200% 200%;
+  animation: nw-pulse var(--nw-anim-speed, 6s) ease-in-out infinite;
+}
+
+.nw-animated-bg[data-style="breathe"] {
+  background: linear-gradient(
+    135deg,
+    var(--nw-anim-color1),
+    var(--nw-anim-color2)
+  );
+  background-size: 300% 300%;
+  animation: nw-breathe var(--nw-anim-speed, 4s) ease-in-out infinite;
+}
+
+.nw-overlay > *:not(.nw-animated-bg) {
+  position: relative;
+  z-index: 1;
 }

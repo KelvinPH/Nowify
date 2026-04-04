@@ -8,20 +8,26 @@
   <link rel="stylesheet" href="src/styles/base.css" />
   <link rel="stylesheet" href="src/styles/config.css" />
   <link rel="stylesheet" href="src/styles/custom-editor.css" />
-  <style>
-    body { background: #0a0a0a; }
-  </style>
 </head>
 <body>
   <div id="cfg-shell">
     <header id="cfg-header">
-      <img class="cfg-logo" src="assets/logo/logo.png" alt="Nowify" />
-      <div class="cfg-header-actions">
-        <a href="stats.html" class="cfg-btn cfg-btn-link">Stats</a>
-        <button id="btn-copy" class="cfg-btn">Copy URL</button>
-        <button id="btn-open" class="cfg-btn">Open preview</button>
-        <button id="btn-reset" class="cfg-btn">Reset</button>
+      <div class="cfg-header-brand">
+        <img class="cfg-logo" src="assets/logo/logo.png" alt="Nowify" />
+        <span class="cfg-header-product">Configurator</span>
       </div>
+      <nav class="cfg-header-nav" aria-label="Configurator actions">
+        <div class="cfg-nav-actions">
+          <button type="button" id="btn-copy" class="cfg-nav-btn cfg-nav-btn--accent">Copy URL</button>
+          <button type="button" id="btn-obs-guide" class="cfg-nav-btn">Add to OBS</button>
+          <span class="cfg-nav-sep" aria-hidden="true"></span>
+          <div id="cfg-header-dynamic" class="cfg-nav-dynamic"></div>
+          <span class="cfg-nav-sep" aria-hidden="true"></span>
+          <a href="stats.html" class="cfg-nav-btn cfg-nav-btn--link">Stats</a>
+          <button type="button" id="btn-open" class="cfg-nav-btn">Preview</button>
+          <button type="button" id="btn-reset" class="cfg-nav-btn cfg-nav-btn--danger">Reset</button>
+        </div>
+      </nav>
     </header>
 
     <div id="cfg-body">
