@@ -1,7 +1,8 @@
 :root {
-  --cfg-bg:       #090a0d;
-  --cfg-surface:  #12151c;
-  --cfg-surface2: #1a1f28;
+  /* Neutral charcoal (match setup wizard — no cool slate / blue cast) */
+  --cfg-bg:       #0f0f0f;
+  --cfg-surface:  #131313;
+  --cfg-surface2: #1a1a1a;
   --cfg-border:   rgba(255, 255, 255, 0.11);
   --cfg-border2:  rgba(255, 255, 255, 0.2);
   --cfg-text:     #f6f7f9;
@@ -46,13 +47,13 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 }
 
 #cfg-header {
-  min-height: 64px;
+  min-height: 56px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  row-gap: 12px;
+  row-gap: 10px;
   column-gap: 20px;
-  padding: 10px 18px 10px 16px;
+  padding: 8px 16px 8px 14px;
   background: var(--cfg-surface);
   border-bottom: 0.5px solid var(--cfg-border2);
   position: sticky;
@@ -100,51 +101,54 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 2px;
   width: 100%;
 }
 
 .cfg-nav-sep {
   width: 1px;
-  height: 24px;
-  background: var(--cfg-border2);
+  height: 18px;
+  background: rgba(255, 255, 255, 0.12);
   flex-shrink: 0;
   align-self: center;
-  margin: 0 2px;
+  margin: 0 6px;
 }
 
 .cfg-nav-dynamic {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
 }
 
-/* Header toolbar: one family of controls, same footprint */
+/* Header toolbar: compact ghost actions + one filled primary */
 .cfg-nav-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  min-height: 40px;
-  min-width: 7.25rem;
-  padding: 0 14px;
-  border-radius: var(--cfg-radius);
-  font-size: 13px;
+  min-height: 32px;
+  min-width: 0;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 12px;
   font-weight: 500;
   font-family: inherit;
-  line-height: 1.2;
-  border: 0.5px solid var(--cfg-border2);
-  background: var(--cfg-bg);
-  color: var(--cfg-text);
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  border: 0.5px solid transparent;
+  background: transparent;
+  color: var(--cfg-muted);
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, filter 0.12s ease;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .cfg-nav-btn:hover {
-  background: var(--cfg-surface2);
-  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--cfg-text);
 }
 
 .cfg-nav-btn--accent {
@@ -152,6 +156,7 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   border-color: var(--cfg-accent);
   color: #0b0d10;
   font-weight: 600;
+  padding: 0 12px;
 }
 
 /* Must override .cfg-nav-btn:hover (dark surface); keep light fill + dark label */
@@ -163,19 +168,24 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 }
 
 .cfg-nav-btn--danger {
-  color: rgba(255, 155, 155, 0.95);
-  border-color: rgba(255, 120, 120, 0.28);
-  background: rgba(255, 70, 70, 0.08);
+  color: rgba(255, 155, 155, 0.88);
+  border-color: transparent;
+  background: transparent;
 }
 
 .cfg-nav-btn--danger:hover {
   color: #ffd4d4;
-  background: rgba(255, 80, 80, 0.14);
-  border-color: rgba(255, 150, 150, 0.4);
+  background: rgba(255, 80, 80, 0.12);
+  border-color: rgba(255, 150, 150, 0.22);
 }
 
 .cfg-nav-btn--link {
   text-decoration: none;
+}
+
+.cfg-nav-btn--link:link,
+.cfg-nav-btn--link:visited {
+  color: inherit;
 }
 
 @media (max-width: 720px) {
@@ -281,7 +291,7 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 }
 #cfg-preview-bg {
   position: absolute; inset: 0;
-  background: linear-gradient(140deg, #13151a 0%, #0f1116 55%, #151922 100%);
+  background: linear-gradient(140deg, #161616 0%, #0f0f0f 50%, #141414 100%);
   opacity: 0.75;
 }
 #cfg-iframe {
@@ -878,7 +888,7 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 #cfg-wizard {
   position: fixed;
   inset: 0;
-  background: #0f0f0f;
+  background: var(--cfg-bg);
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -886,9 +896,8 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   justify-content: center;
   padding: 48px 24px;
   overflow-y: auto;
-  /* Neutral charcoal panels (no cool slate / blue cast) */
-  --wiz-panel: #131313;
-  --wiz-panel-raised: #1a1a1a;
+  --wiz-panel: var(--cfg-surface);
+  --wiz-panel-raised: var(--cfg-surface2);
   --wiz-input-fill: #111111;
 }
 

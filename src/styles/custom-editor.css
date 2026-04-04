@@ -46,8 +46,8 @@
 
 #cfg-custom-editor .cfg-nav-btn.ce-header-reset {
   min-width: 0;
-  min-height: 36px;
-  padding: 0 12px;
+  min-height: 32px;
+  padding: 0 10px;
   font-size: 12px;
   font-weight: 500;
   flex-shrink: 0;
