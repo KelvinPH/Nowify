@@ -2,11 +2,29 @@ const FADE_DURATION = 400;
 
 let currentCanvasUrl = "";
 let videoEl = null;
-let artEl = null;
+/** Album art slot (positioning box) */
+let artHost = null;
+/** Visible face: <img> or .nw-art-placeholder — opacity toggled when swapping to canvas video */
+let artFace = null;
 
-/** Initialize canvas system with references to art and video elements */
+/**
+ * @param {Element | null} artElement — `.nw-art`, or `img` inside it (callers often pass querySelector result)
+ */
 export function initCanvas(artElement) {
-  artEl = artElement;
+  artHost = null;
+  artFace = null;
+  if (!artElement || typeof artElement.closest !== "function") {
+    return;
+  }
+  const host =
+    artElement.closest(".nw-art") ||
+    (artElement.classList?.contains("nw-art") ? artElement : null);
+  if (!host) {
+    return;
+  }
+  artHost = host;
+  artFace =
+    host.querySelector("img") || host.querySelector(".nw-art-placeholder");
 }
 
 /** Update canvas for new track data */
@@ -25,21 +43,23 @@ export function updateCanvas(canvasUrl, enabled) {
 /** Show album art, hide video */
 function showArt() {
   currentCanvasUrl = "";
-  if (!artEl) return;
+  if (!artHost) return;
 
-  const existing = artEl.parentElement?.querySelector(".nw-canvas-video");
+  const existing = artHost.querySelector(".nw-canvas-video");
   if (existing) {
     existing.style.opacity = "0";
     window.setTimeout(() => existing.remove(), FADE_DURATION);
   }
 
-  artEl.style.opacity = "1";
+  if (artFace) {
+    artFace.style.opacity = "1";
+  }
   videoEl = null;
 }
 
-/** Show video, hide album art */
+/** Show video, hide album art — video stays inside `.nw-art` over the art face */
 function showVideo(url) {
-  if (!artEl) return;
+  if (!artHost) return;
 
   const video = document.createElement("video");
   video.className = "nw-canvas-video";
@@ -52,18 +72,25 @@ function showVideo(url) {
   video.setAttribute("webkit-playsinline", "");
   video.style.opacity = "0";
   video.style.transition = `opacity ${FADE_DURATION}ms ease`;
+  video.style.position = "absolute";
+  video.style.top = "0";
+  video.style.left = "0";
+  video.style.width = "100%";
+  video.style.height = "100%";
+  video.style.objectFit = "cover";
+  video.style.borderRadius = getComputedStyle(artHost).borderRadius;
+  video.style.pointerEvents = "none";
+  video.style.zIndex = "2";
 
-  video.style.width = `${artEl.offsetWidth}px`;
-  video.style.height = `${artEl.offsetHeight}px`;
-  video.style.borderRadius = getComputedStyle(artEl).borderRadius;
-
-  artEl.parentElement?.appendChild(video);
+  artHost.appendChild(video);
 
   video.addEventListener(
     "canplay",
     () => {
-      artEl.style.transition = `opacity ${FADE_DURATION}ms ease`;
-      artEl.style.opacity = "0";
+      if (artFace) {
+        artFace.style.transition = `opacity ${FADE_DURATION}ms ease`;
+        artFace.style.opacity = "0";
+      }
       video.style.opacity = "1";
       videoEl = video;
     },

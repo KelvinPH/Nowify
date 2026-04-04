@@ -1258,7 +1258,7 @@ function renderVisualsContent() {
     parts.push(compactToggle("Mood sync", "moodSync", true, "", TOGGLE_KEY_TIPS.moodSync));
   }
 
-  if (state.layout !== "custom") {
+  if (state.layout !== "custom" && state.source !== "songify") {
     parts.push(compactToggle("Animated background", "animBgEnabled", true, "", TOGGLE_KEY_TIPS.animBgEnabled));
     if (state.animBgEnabled) {
       const styles = ["aurora", "flow", "pulse", "breathe"]
@@ -2193,6 +2193,9 @@ function update(newState) {
     state.clientId = "";
     state.showBpm = false;
     state.moodSync = false;
+    if (state.layout !== "custom") {
+      state.animBgEnabled = false;
+    }
   }
   if (newState.layout) {
     const relevant = LAYOUT_OPTIONS[newState.layout] || {};

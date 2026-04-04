@@ -505,12 +505,17 @@ export function parseConfig() {
   const layout = params.get("layout") || "glasscard";
   const isCustomLayout = layout === "custom";
   const custom = parseCustomConfig(params);
+  const source = params.get("source") || "spotify";
+  const songifyDefaultLayout = source === "songify" && !isCustomLayout;
 
-  const animBgEnabled = isCustomLayout
+  let animBgEnabled = isCustomLayout
     ? custom.animBgEnabled !== undefined
       ? custom.animBgEnabled
       : toBool(params.get("animBgEnabled"), false)
     : toBool(params.get("animBgEnabled"), false);
+  if (songifyDefaultLayout) {
+    animBgEnabled = false;
+  }
   let animBgStyle = isCustomLayout
     ? custom.animBgStyle || params.get("animBgStyle") || "aurora"
     : params.get("animBgStyle") || "aurora";
@@ -535,7 +540,7 @@ export function parseConfig() {
   return {
     layout,
     theme: params.get("theme") || "spotify",
-    source: params.get("source") || "spotify",
+    source,
     songifyPort: Number(params.get("songifyPort")) || 4002,
     clientId: params.get("clientId") || "",
     demo: toBool(params.get("demo"), false),
@@ -957,9 +962,109 @@ async function resolveTwitchUserId(channelName, token) {
   return data?.data?.[0]?.id || null;
 }
 
+/** Songify + custom layout: full renderer (c_* params) with WebSocket feed — not the minimal main.js path. */
+async function initSongifyCustomOverlay() {
+  activeSource = "songify";
+  config.moodSync = false;
+  if (config.animBgEnabled && config.animBgColorMode === "mood") {
+    config.animBgColorMode = "custom";
+    if (!config.animBgColor1) {
+      config.animBgColor1 =
+        config.custom?.animBgColor1 || "rgba(145,70,255,0.6)";
+    }
+    if (!config.animBgColor2) {
+      config.animBgColor2 = config.custom?.animBgColor2 || "rgba(30,30,80,0.8)";
+    }
+  }
+
+  document.documentElement.setAttribute("data-theme", config.theme);
+  if (config.transparent) {
+    document.body.style.background = "transparent";
+  } else {
+    document.body.style.background = "";
+  }
+
+  if (config.animBgEnabled) {
+    registerAnimatedBackgroundMoodHook();
+  } else {
+    removeAnimatedBackground();
+  }
+
+  let lastSnap = null;
+  function samePlaying(a, b) {
+    if (!a || !b) return false;
+    if (a.trackId && b.trackId && String(a.trackId) === String(b.trackId)) {
+      return true;
+    }
+    return a.title === b.title && a.artist === b.artist;
+  }
+
+  const appBoot = document.getElementById("app");
+  if (appBoot) {
+    appBoot.innerHTML = '<div class="nw-idle">Connecting to Songify…</div>';
+  }
+
+  const { init: initSongifyWs } = await import("../api/songify.js");
+
+  initSongifyWs({
+    port: config.songifyPort || 4002,
+    onTrack(track) {
+      void (async () => {
+        try {
+          if (lastSnap && samePlaying(lastSnap, track)) {
+            lastSnap = track;
+            updateProgress(track);
+            const rootEl = document.querySelector(".nw-overlay.nw-custom");
+            if (rootEl) {
+              applyCustomDynamicFields(rootEl, track, null, null);
+            }
+            if (config.animBgEnabled) {
+              const syncRoot = document.querySelector(".nw-overlay");
+              const bg = syncRoot?.querySelector(".nw-animated-bg");
+              if (track?.isPlaying) {
+                bg?.classList.add("nw-bg-active");
+              } else {
+                bg?.classList.remove("nw-bg-active");
+              }
+            }
+            return;
+          }
+          lastSnap = track;
+          await render(track, null, null);
+          updateProgress(track);
+        } catch (e) {
+          console.warn("[Songify custom] render failed:", e);
+        }
+      })();
+    },
+    onConnect() {
+      sourceErrorMessage = "";
+      const app = document.getElementById("app");
+      if (app && !app.querySelector(".nw-overlay")) {
+        app.innerHTML =
+          '<div class="nw-idle">Songify connected — waiting for track</div>';
+      }
+    },
+    onDisconnect() {
+      lastSnap = null;
+      sourceErrorMessage =
+        "Cannot reach Songify — start the web server and check the port.";
+      showIdle();
+    },
+  });
+
+  startProgressTimer();
+}
+
 /** Initializes auth, applies config, and starts overlay polling. */
 export async function init() {
   config = parseConfig();
+
+  if (config.source === "songify" && config.layout === "custom") {
+    await initSongifyCustomOverlay();
+    return;
+  }
+
   loadSession();
   const { tracks: restoredTracks } = getSession();
   const lastRestored = restoredTracks[restoredTracks.length - 1];

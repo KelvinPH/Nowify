@@ -193,6 +193,11 @@ export function init() {
   if (window.location.pathname.endsWith("overlay.html")) {
     const config = parseSongifyConfig();
     if (config.source === "songify") {
+      const layout = new URLSearchParams(window.location.search).get("layout") || "glasscard";
+      if (layout === "custom") {
+        import("./overlay/renderer.js").then(({ init }) => init());
+        return;
+      }
       initSongifyOverlay();
       return;
     }
