@@ -137,6 +137,16 @@
   color: #0b0d10;
 }
 
+.ce-tab.ce-tab-active:hover {
+  background: color-mix(in srgb, var(--cfg-accent) 88%, #ffffff);
+  border-color: color-mix(in srgb, var(--cfg-accent) 88%, #ffffff);
+  color: #0a0c0f;
+}
+
+.ce-tab.ce-tab-active:hover svg {
+  color: #0a0c0f;
+}
+
 .ce-panels {
   flex: 1;
   min-height: 0;
@@ -361,6 +371,13 @@
   border-color: var(--cfg-accent);
   color: #0b0d10;
   font-weight: 600;
+}
+
+/* Beats .ce-btn:hover so selected chips stay light with dark label */
+.ce-btn.ce-btn-active:hover {
+  background: color-mix(in srgb, var(--cfg-accent) 88%, #ffffff);
+  border-color: color-mix(in srgb, var(--cfg-accent) 88%, #ffffff);
+  color: #0a0c0f;
 }
 
 .ce-toggle-row {

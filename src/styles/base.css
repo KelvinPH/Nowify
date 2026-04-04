@@ -1,5 +1,12 @@
 /* Shared reset and theme custom properties. */
 
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  font-family: inherit;
+}
+
 .nowify-attribution {
   position: fixed;
   left: 50%;
