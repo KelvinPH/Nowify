@@ -131,12 +131,19 @@ async function initSongifyOverlay() {
       '<div class="nw-idle">Songify connected — waiting for track (HTTP + WebSocket)</div>';
   }
 
+  function sameSongifyTrack(a, b) {
+    if (!a || !b) return false;
+    if (a.trackId && b.trackId && String(a.trackId) === String(b.trackId)) return true;
+    return a.title === b.title && a.artist === b.artist;
+  }
+
   function updateProgress() {
-    if (!currentTrack?.durationMs || !currentTrack?.progressMs) return;
+    if (!currentTrack?.durationMs) return;
     const fill = app.querySelector(".nw-progress-fill");
     if (!fill) return;
+    const baseProgress = Number(currentTrack.progressMs) || 0;
     const elapsed = Date.now() - currentTrackTs;
-    const live = currentTrack.isPlaying ? currentTrack.progressMs + elapsed : currentTrack.progressMs;
+    const live = currentTrack.isPlaying ? baseProgress + elapsed : baseProgress;
     const pct = Math.min(100, (live / currentTrack.durationMs) * 100);
     fill.style.width = `${pct}%`;
 
@@ -154,6 +161,16 @@ async function initSongifyOverlay() {
     port: config.songifyPort || 4002,
     onTrack: function (track) {
       try {
+        if (hasRenderedTrack && sameSongifyTrack(currentTrack, track)) {
+          currentTrack.progressMs = Number(track.progressMs) || 0;
+          currentTrack.durationMs = Number(track.durationMs) || currentTrack.durationMs;
+          currentTrack.isPlaying = track.isPlaying;
+          currentTrack.canvasUrl = track.canvasUrl || "";
+          currentTrackTs = Date.now();
+          updateProgress();
+          syncSongifyCanvas(currentTrack);
+          return;
+        }
         renderSongifyTrack(track);
       } catch (e) {
         console.warn("[Songify] render failed", e);
@@ -169,7 +186,7 @@ async function initSongifyOverlay() {
     },
   });
 
-  window.setInterval(updateProgress, 1000);
+  window.setInterval(updateProgress, 250);
 }
 
 export function init() {

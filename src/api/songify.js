@@ -16,7 +16,6 @@ let onConnectCallback = null;
 let onDisconnectCallback = null;
 let httpPollTimer = null;
 let lastEmitSig = "";
-let lastTrackId = "";
 let versionLogged = false;
 let _isConnected = false;
 
@@ -176,15 +175,8 @@ export function mapSongifyPayload(raw) {
     const songId =
       pickStr(data, ["SongId", "songId", "trackId", "id"]) || `${artist}-${title}`;
 
-    let durationMs;
-    let progressMs;
-    if (isNew) {
-      durationMs = Number(data.DurationMs || 0);
-      progressMs = Number(data.Progress || 0);
-    } else {
-      durationMs = computeDurationMs(data);
-      progressMs = computeProgressMs(data, durationMs);
-    }
+    const durationMs = computeDurationMs(data);
+    const progressMs = computeProgressMs(data, durationMs);
 
     const trackUrl = pickStr(data, ["Url", "spotifyUrl", "url"]);
     const canvasUrl = isNew
@@ -285,26 +277,13 @@ function handleMessage(data) {
     const albums = Array.isArray(trackData?.Albums) ? trackData.Albums : [];
     const albumArt = albums[0]?.Url || albums[1]?.Url || albums[2]?.Url || "";
 
-    let durationMs;
-    let progressMs;
-    if (isNewStructure) {
-      durationMs = Number(trackData?.DurationMs || 0);
-      progressMs = Number(trackData?.Progress || 0);
-    } else {
-      durationMs = computeDurationMs(trackData);
-      progressMs = computeProgressMs(trackData, durationMs);
-    }
+    const durationMs = computeDurationMs(trackData);
+    const progressMs = computeProgressMs(trackData, durationMs);
 
     const isPlaying = trackData?.IsPlaying !== false;
 
     const songId =
       pickStr(trackData, ["SongId", "songId", "trackId", "id"]) || `${artist}-${title}`;
-
-    const newTrackId = `${songId}-${isPlaying}`;
-    if (newTrackId === lastTrackId) {
-      return;
-    }
-    lastTrackId = newTrackId;
 
     const album =
       albums[0] && (albums[0].Width != null || albums[0].Height != null)
@@ -467,7 +446,6 @@ function connectDataSocket() {
       try {
         _isConnected = false;
         versionLogged = false;
-        lastTrackId = "";
         if (typeof onDisconnectCallback === "function") {
           onDisconnectCallback();
         }
@@ -496,7 +474,6 @@ export function init({ port: p, onTrack, onConnect, onDisconnect } = {}) {
     onDisconnectCallback = onDisconnect || null;
     port = Number(p) || DEFAULT_PORT;
     lastEmitSig = "";
-    lastTrackId = "";
     versionLogged = false;
     startHttpPoll();
     connect();
@@ -528,7 +505,6 @@ export function disconnect() {
     commandSocket = null;
     _isConnected = false;
     lastEmitSig = "";
-    lastTrackId = "";
     versionLogged = false;
   } catch (_error) {}
 }
