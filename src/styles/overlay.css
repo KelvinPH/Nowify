@@ -608,10 +608,36 @@ body { background: transparent; overflow: hidden;
   50% { opacity: 1; background-position: 100% 50%; }
 }
 
-.nw-animated-bg {
+.nw-art-backdrop {
   position: absolute;
   inset: 0;
   z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+
+.nw-art-backdrop.nw-art-backdrop-visible {
+  opacity: 1;
+}
+
+.nw-art-backdrop img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 120%;
+  height: 120%;
+  object-fit: cover;
+  filter: blur(var(--nw-art-backdrop-blur, 48px));
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.nw-animated-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   border-radius: inherit;
   pointer-events: none;
   opacity: 0;
@@ -665,7 +691,7 @@ body { background: transparent; overflow: hidden;
   animation: nw-breathe var(--nw-anim-speed, 4s) ease-in-out infinite;
 }
 
-.nw-overlay > *:not(.nw-animated-bg) {
+.nw-overlay > *:not(.nw-animated-bg):not(.nw-art-backdrop) {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }

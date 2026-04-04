@@ -1,4 +1,4 @@
-import { readAnimBgForEditor, readSongifyArtFlags } from "./controls.js";
+import { readAnimBgForEditor, readArtBackdropForEditor, readSongifyArtFlags } from "./controls.js";
 
 export const CUSTOM_DEFAULTS = {
   direction: "row",
@@ -65,6 +65,8 @@ export const CUSTOM_DEFAULTS = {
   animBgColor1: "rgba(145,70,255,0.6)",
   animBgColor2: "rgba(30,30,80,0.8)",
   canvasEnabled: false,
+  artBackdropEnabled: false,
+  artBackdropBlur: 48,
 };
 
 const EFFECTS_STYLE_HINTS = {
@@ -219,6 +221,18 @@ function renderArtPanel() {
     ${sliderRow("Shadow", "artShadow", 0, 3, customState.artShadow)}
     ${toggleRow("Art border", "artBorder")}
     ${songifyCanvasSection}
+  </div>`;
+}
+
+function renderArtBackdropBlock() {
+  return `<div class="ce-colours-region ce-colours-region--motion">
+    <div class="ce-region-title">Album art backdrop</div>
+    <p class="ce-region-lead">Blurred cover art behind the card. Works with the animated gradient (art stays underneath).</p>
+    ${toggleRow("Enable", "artBackdropEnabled", "")}
+    <div class="ce-effects-detail" data-condition="artBackdropEnabled:true">
+      ${sliderRow("Blur", "artBackdropBlur", 0, 120, customState.artBackdropBlur, "px", "2")}
+      <p class="ce-mini-info ce-mini-info--tight">Higher values soften the image; 0 keeps it sharp but enlarged.</p>
+    </div>
   </div>`;
 }
 
@@ -446,6 +460,10 @@ function renderColoursPanel() {
 
       <div class="ce-region-divider" role="presentation"></div>
 
+      ${renderArtBackdropBlock()}
+
+      <div class="ce-region-divider" role="presentation"></div>
+
       ${renderAnimatedBackgroundBlock()}
     </div>
   </div>`;
@@ -602,6 +620,13 @@ export function initCustomEditor(containerEl, seedLayout, onChange) {
   const songifyFlags = readSongifyArtFlags();
   if (!saved || saved.canvasEnabled === undefined) {
     customState.canvasEnabled = songifyFlags.canvasEnabled;
+  }
+  const artBd = readArtBackdropForEditor();
+  if (!saved || saved.artBackdropEnabled === undefined) {
+    customState.artBackdropEnabled = artBd.artBackdropEnabled;
+  }
+  if (!saved || saved.artBackdropBlur === undefined) {
+    customState.artBackdropBlur = artBd.artBackdropBlur;
   }
   // Keep maxCardWidth aligned with the selected seed by default.
   // (If the user already saved a custom value, we keep that.)
@@ -779,6 +804,7 @@ function formatSliderValue(key, value, unit) {
   if (key === "letterSpacing") return `${(Number(value) / 100).toFixed(2)}em`;
   if (key === "artShadow") return ["None", "Soft", "Medium", "Strong"][Number(value)] || "None";
   if (key === "animBgSpeed") return `${value}${unit || "s"}`;
+  if (key === "artBackdropBlur") return `${value}px`;
   return `${value}${unit || ""}`;
 }
 

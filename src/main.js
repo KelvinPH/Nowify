@@ -41,6 +41,17 @@ function parseSongifyConfig() {
       if (top !== null && top !== "") return toBool(top, false);
       return toBool(params.get("c_canvasEnabled"), false);
     })(),
+    artBackdropEnabled: (() => {
+      const top = params.get("artBackdropEnabled");
+      if (top !== null && top !== "") return toBool(top, false);
+      return toBool(params.get("c_artBackdropEnabled"), false);
+    })(),
+    artBackdropBlur: (() => {
+      const top = params.get("artBackdropBlur");
+      if (top !== null && top !== "") return Number(top) || 48;
+      const c = params.get("c_artBackdropBlur");
+      return c !== null && c !== "" ? Number(c) || 48 : 48;
+    })(),
   };
 }
 
@@ -110,7 +121,14 @@ async function initSongifyOverlay() {
     if (playEl) playEl.innerHTML = config.showPlayState && track?.isPlaying ? '<div class="nw-playing-dot"></div>' : "";
     updateProgress();
     syncSongifyCanvas(track);
-    bindOverflowMarquees(app.querySelector(".nw-overlay"));
+    const root = app.querySelector(".nw-overlay");
+    bindOverflowMarquees(root);
+    void import("./visuals/art-backdrop.js").then(({ syncArtBackdrop }) => {
+      syncArtBackdrop(root, track, {
+        enabled: Boolean(config.artBackdropEnabled),
+        blurPx: config.artBackdropBlur,
+      });
+    });
   }
 
   function showIdle() {
@@ -166,9 +184,17 @@ async function initSongifyOverlay() {
           currentTrack.durationMs = Number(track.durationMs) || currentTrack.durationMs;
           currentTrack.isPlaying = track.isPlaying;
           currentTrack.canvasUrl = track.canvasUrl || "";
+          currentTrack.albumArt = track.albumArt || currentTrack.albumArt;
           currentTrackTs = Date.now();
           updateProgress();
           syncSongifyCanvas(currentTrack);
+          const root = app.querySelector(".nw-overlay");
+          void import("./visuals/art-backdrop.js").then(({ syncArtBackdrop }) => {
+            syncArtBackdrop(root, currentTrack, {
+              enabled: Boolean(config.artBackdropEnabled),
+              blurPx: config.artBackdropBlur,
+            });
+          });
           return;
         }
         renderSongifyTrack(track);

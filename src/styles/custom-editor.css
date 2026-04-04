@@ -1,6 +1,7 @@
 #cfg-custom-editor {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: var(--cfg-bg);
   position: relative;
@@ -10,6 +11,8 @@
 .ce-shell {
   width: 320px;
   flex-shrink: 0;
+  min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background: var(--cfg-surface);
@@ -118,7 +121,9 @@
 
 .ce-panels {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
 }
 

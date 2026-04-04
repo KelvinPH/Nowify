@@ -131,6 +131,8 @@ const DEFAULT_STATE = {
   animBgColorMode: "mood",
   animBgColor1: "rgba(145,70,255,0.6)",
   animBgColor2: "rgba(30,30,80,0.8)",
+  artBackdropEnabled: false,
+  artBackdropBlur: 48,
 };
 
 /** Seeds custom editor from sidebar state (custom layout). */
@@ -150,6 +152,13 @@ export function readSongifyArtFlags() {
   return {
     source: state.source,
     canvasEnabled: Boolean(state.canvasEnabled),
+  };
+}
+
+export function readArtBackdropForEditor() {
+  return {
+    artBackdropEnabled: Boolean(state.artBackdropEnabled),
+    artBackdropBlur: Number(state.artBackdropBlur) || 48,
   };
 }
 
@@ -210,6 +219,7 @@ const TOGGLE_KEY_TIPS = {
   showIdleMessage: "Message when nothing is playing or when setup needs attention.",
   moodSync: "Background reacts to track energy using colors from album art.",
   animBgEnabled: "Animated gradient behind the card.",
+  artBackdropEnabled: "Blurred cover art fills the area behind the glass card.",
   canvasEnabled: "Uses Spotify Canvas video for art when Songify supplies it.",
   transparent: "Transparent background for layering in OBS or over gameplay.",
 };
@@ -305,6 +315,7 @@ let state = {
 let inputDebounceTimer = null;
 let previousLayout = "glasscard";
 let animBgSpeedDebounceTimer = null;
+let artBackdropBlurDebounceTimer = null;
 let cfgTipEl = null;
 let cfgTipShowTimer = null;
 let cfgTipHideTimer = null;
@@ -1281,6 +1292,20 @@ function renderVisualsContent() {
     parts.push(compactToggle("Canvas video", "canvasEnabled", true, "", TOGGLE_KEY_TIPS.canvasEnabled));
   }
 
+  if (state.layout !== "custom") {
+    parts.push(
+      compactToggle("Album art backdrop", "artBackdropEnabled", true, "", TOGGLE_KEY_TIPS.artBackdropEnabled)
+    );
+    if (state.artBackdropEnabled) {
+      parts.push(`<div class="cfg-visual-sub" data-cfg-tip="${escAttr("Blur radius for the cover behind the card. Works with transparent or frosted backgrounds.")}">
+        <div class="cfg-slider-row cfg-slider-row-tight">
+          <span class="cfg-slider-label" id="ctrl-art-backdrop-blur-label">Backdrop blur (${state.artBackdropBlur}px)</span>
+          <input id="ctrl-art-backdrop-blur" type="range" min="0" max="120" step="2" value="${state.artBackdropBlur}" />
+        </div>
+      </div>`);
+    }
+  }
+
   parts.push(
     compactToggle(
       "Transparent background",
@@ -1683,6 +1708,23 @@ function renderSidebar() {
       animBgSpeedDebounceTimer = window.setTimeout(() => {
         if (Number.isFinite(val)) {
           update({ animBgSpeed: val });
+        }
+      }, 250);
+    });
+  }
+
+  const artBackdropBlurInput = document.getElementById("ctrl-art-backdrop-blur");
+  if (artBackdropBlurInput) {
+    artBackdropBlurInput.addEventListener("input", () => {
+      const val = Number(artBackdropBlurInput.value);
+      const label = document.getElementById("ctrl-art-backdrop-blur-label");
+      if (label && Number.isFinite(val)) {
+        label.textContent = `Backdrop blur (${val}px)`;
+      }
+      window.clearTimeout(artBackdropBlurDebounceTimer);
+      artBackdropBlurDebounceTimer = window.setTimeout(() => {
+        if (Number.isFinite(val)) {
+          update({ artBackdropBlur: val });
         }
       }, 250);
     });
@@ -2125,6 +2167,8 @@ function updateCustomPreview(customState) {
   state.animBgSpeed = customState.animBgSpeed;
   state.animBgColorMode = customState.animBgColorMode;
   state.canvasEnabled = customState.canvasEnabled;
+  state.artBackdropEnabled = customState.artBackdropEnabled;
+  state.artBackdropBlur = customState.artBackdropBlur;
   import("./custom-editor.js").then(({ buildCustomUrl }) => {
     const url = buildCustomUrl(state, customState);
     const iframe = document.getElementById("cfg-iframe");

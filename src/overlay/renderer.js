@@ -11,6 +11,7 @@ import { bindOverflowMarquees, disconnectOverflowMarquees } from "./overflow-mar
 import { initVinyl, setVinylPlaying } from "../visuals/vinyl.js";
 import { applyBeatSync, clearBeatSync } from "../visuals/beatsync.js";
 import { applyMood, clearMood, onMoodColorsUpdated } from "../visuals/mood.js";
+import { removeAllArtBackdrops, syncArtBackdrop } from "../visuals/art-backdrop.js";
 import { connectIRC, connectEventSub } from "../platforms/twitch.js";
 import {
   backfillCurrentTrackFeatures,
@@ -127,6 +128,12 @@ function parseCustomConfig(params) {
       : undefined,
     animBgColor1: params.get("c_animBgColor1") || "",
     animBgColor2: params.get("c_animBgColor2") || "",
+    artBackdropEnabled: params.has("c_artBackdropEnabled")
+      ? toCustomBool(params.get("c_artBackdropEnabled"), false)
+      : undefined,
+    artBackdropBlur: params.has("c_artBackdropBlur")
+      ? toCustomNumber(params.get("c_artBackdropBlur"), 48)
+      : undefined,
   };
 }
 
@@ -537,6 +544,17 @@ export function parseConfig() {
     ? params.get("c_animBgColor2") || params.get("animBgColor2") || custom.animBgColor2 || ""
     : params.get("animBgColor2") || "";
 
+  const artBackdropEnabled = isCustomLayout
+    ? custom.artBackdropEnabled !== undefined
+      ? custom.artBackdropEnabled
+      : toBool(params.get("artBackdropEnabled"), false)
+    : toBool(params.get("artBackdropEnabled"), false);
+  const artBackdropBlur = isCustomLayout
+    ? custom.artBackdropBlur !== undefined
+      ? custom.artBackdropBlur
+      : Number(params.get("artBackdropBlur")) || 48
+    : Number(params.get("artBackdropBlur")) || 48;
+
   return {
     layout,
     theme: params.get("theme") || "spotify",
@@ -551,6 +569,8 @@ export function parseConfig() {
     animBgColorMode,
     animBgColor1,
     animBgColor2,
+    artBackdropEnabled,
+    artBackdropBlur,
     showBpm: toBool(params.get("showBpm"), false),
     showTimeLeft: toBool(params.get("showTimeLeft"), false),
     showNextTrack: toBool(params.get("showNextTrack"), false),
@@ -739,6 +759,11 @@ async function poll() {
         removeAnimatedBackground();
       }
 
+      syncArtBackdrop(syncRoot, track, {
+        enabled: Boolean(config.artBackdropEnabled),
+        blurPx: config.artBackdropBlur,
+      });
+
       if (config.source === "songify" && config.canvasEnabled) {
         void import("../visuals/canvas.js").then(({ initCanvas, updateCanvas }) => {
           const artEl = syncRoot.querySelector(".nw-art img, .nw-art");
@@ -840,6 +865,11 @@ async function render(track, extras, nextTrack = null, options = {}) {
     removeAnimatedBackground();
   }
 
+  syncArtBackdrop(rootEl, track, {
+    enabled: Boolean(config.artBackdropEnabled),
+    blurPx: config.artBackdropBlur,
+  });
+
   if (config.source === "songify" && config.canvasEnabled) {
     const { initCanvas, updateCanvas } = await import("../visuals/canvas.js");
     const artEl = rootEl.querySelector(".nw-art img, .nw-art");
@@ -926,6 +956,7 @@ function showIdle() {
     app.innerHTML = `<div class="nw-idle">${escHtml(text)}</div>`;
   }
   removeAnimatedBackground();
+  removeAllArtBackdrops();
   clearBeatSync(app.querySelector(".nw-overlay"));
   clearMood(app.querySelector(".nw-overlay"));
 }
@@ -990,6 +1021,10 @@ async function initSongifyCustomOverlay() {
     removeAnimatedBackground();
   }
 
+  if (!config.artBackdropEnabled) {
+    removeAllArtBackdrops();
+  }
+
   let lastSnap = null;
   function samePlaying(a, b) {
     if (!a || !b) return false;
@@ -1018,14 +1053,20 @@ async function initSongifyCustomOverlay() {
             if (rootEl) {
               applyCustomDynamicFields(rootEl, track, null, null);
             }
+            const syncRoot = document.querySelector(".nw-overlay");
             if (config.animBgEnabled) {
-              const syncRoot = document.querySelector(".nw-overlay");
               const bg = syncRoot?.querySelector(".nw-animated-bg");
               if (track?.isPlaying) {
                 bg?.classList.add("nw-bg-active");
               } else {
                 bg?.classList.remove("nw-bg-active");
               }
+            }
+            if (syncRoot) {
+              syncArtBackdrop(syncRoot, track, {
+                enabled: Boolean(config.artBackdropEnabled),
+                blurPx: config.artBackdropBlur,
+              });
             }
             return;
           }
@@ -1124,6 +1165,10 @@ export async function init() {
     removeAnimatedBackground();
   } else {
     registerAnimatedBackgroundMoodHook();
+  }
+
+  if (!config.artBackdropEnabled) {
+    removeAllArtBackdrops();
   }
 
   await startPolling();
