@@ -10,6 +10,30 @@ let headerTimer = null;
 let lastPayloadAt = 0;
 let lastTrackSnap = null;
 let lastQueuedTitles = [];
+/** Stable JSON of visible queue rows — skip DOM replace when only now-playing progress changed (HTTP poll). */
+let lastQueueVisualSig = "";
+
+function queueListVisualSignature(items) {
+  if (!items.length) {
+    return "";
+  }
+  return JSON.stringify(
+    items.map(function (i) {
+      return {
+        p: i.position,
+        id: i.trackId,
+        t: i.title,
+        a: i.artist,
+        d: i.duration,
+        rd: i.requesterDisplay,
+        ra: i.requesterAvatar,
+        art: i.albumArt,
+        l: i.isLiked,
+        sr: i.isSR,
+      };
+    })
+  );
+}
 
 function parseConfig() {
   const params = new URLSearchParams(window.location.search);
@@ -419,10 +443,11 @@ export async function init() {
   config = parseConfig();
   applyDomConfig();
 
-  if (config.demo) {
+    if (config.demo) {
     const { buildDemoQueue } = await import("./demo.js");
     const demoItems = limitDisplayQueueItems(buildDemoQueue());
     lastQueuedTitles = demoItems;
+    lastQueueVisualSig = queueListVisualSignature(demoItems);
     lastTrackSnap = { title: "Current track", durationMs: 210000, progressMs: 60000, isPlaying: true };
     lastPayloadAt = Date.now();
     renderQueue(demoItems);
@@ -446,9 +471,15 @@ export async function init() {
             app.innerHTML = "";
           }
           lastQueuedTitles = [];
+          lastQueueVisualSig = "";
           return;
         }
+        const nextSig = queueListVisualSignature(items);
         lastQueuedTitles = items;
+        if (nextSig === lastQueueVisualSig) {
+          return;
+        }
+        lastQueueVisualSig = nextSig;
         renderQueue(items);
       } catch (e) {
         console.warn("[Queue] render failed:", e);
@@ -467,6 +498,7 @@ export async function init() {
       stopHeaderTimer();
       lastTrackSnap = null;
       lastQueuedTitles = [];
+      lastQueueVisualSig = "";
     },
   });
   startHeaderTimerIfNeeded();

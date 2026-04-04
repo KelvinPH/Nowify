@@ -1795,7 +1795,8 @@ body.cfg-queue-mode #cfg-preview-bar {
   flex-shrink: 0;
 }
 
-.cfg-url-mono {
+.cfg-url-mono,
+#cfg-queue-url-display {
   font-size: 11px;
   font-family: "SF Mono", ui-monospace, monospace;
   color: var(--cfg-muted);
@@ -1804,6 +1805,9 @@ body.cfg-queue-mode #cfg-preview-bar {
   white-space: nowrap;
   flex: 1;
   min-width: 0;
+  cursor: text;
+  user-select: all;
+  -webkit-user-select: all;
 }
 
 #cfg-sidebar.cfg-queue-sidebar-mode {
