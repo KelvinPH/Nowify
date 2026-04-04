@@ -94,7 +94,7 @@
   width: 15px;
   height: 15px;
   flex-shrink: 0;
-  opacity: 0.55;
+  opacity: 0.72;
 }
 
 .ce-tab:hover {
@@ -104,7 +104,7 @@
 }
 
 .ce-tab:hover svg {
-  opacity: 0.85;
+  opacity: 0.92;
 }
 
 .ce-tab.ce-tab-active {
@@ -335,7 +335,7 @@
 .ce-btn:hover {
   color: var(--cfg-text);
   background: var(--cfg-surface2);
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .ce-btn.ce-btn-active {
@@ -365,8 +365,9 @@
   display: block;
   width: 36px;
   height: 20px;
-  background: rgba(255,255,255,0.12);
+  background: var(--cfg-toggle-off, rgba(255, 255, 255, 0.22));
   border-radius: 10px;
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.08);
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -379,6 +380,7 @@
   height: 14px;
   border-radius: 50%;
   background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   transition: transform 0.2s;
   pointer-events: none;
 }

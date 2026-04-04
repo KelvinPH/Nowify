@@ -1,12 +1,14 @@
 :root {
-  --cfg-bg:      #0b0c0f;
-  --cfg-surface: #101216;
-  --cfg-surface2:#171a20;
-  --cfg-border:  rgba(255,255,255,0.07);
-  --cfg-border2: rgba(255,255,255,0.12);
-  --cfg-text:    #f3f4f7;
-  --cfg-muted:   rgba(255,255,255,0.5);
-  --cfg-accent:  #d2d7e0;
+  --cfg-bg:       #090a0d;
+  --cfg-surface:  #12151c;
+  --cfg-surface2: #1a1f28;
+  --cfg-border:   rgba(255, 255, 255, 0.11);
+  --cfg-border2:  rgba(255, 255, 255, 0.2);
+  --cfg-text:     #f6f7f9;
+  --cfg-muted:    rgba(255, 255, 255, 0.72);
+  --cfg-accent:   #e8eaef;
+  /* Toggle / chip “off” fill — visible but still recedes vs on state */
+  --cfg-toggle-off: rgba(255, 255, 255, 0.22);
   --cfg-radius:  10px;
 }
 
@@ -142,7 +144,7 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 
 .cfg-nav-btn:hover {
   background: var(--cfg-surface2);
-  border-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.26);
 }
 
 .cfg-nav-btn--accent {
@@ -204,7 +206,7 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   align-items: center;
   text-decoration: none;
 }
-.cfg-btn:hover { background: var(--cfg-surface2); border-color: rgba(255,255,255,0.2); }
+.cfg-btn:hover { background: var(--cfg-surface2); border-color: rgba(255, 255, 255, 0.28); }
 
 .cfg-btn-primary {
   background: var(--cfg-accent);
@@ -306,7 +308,7 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 }
 .cfg-step-title { font-size: 13px; font-weight: 500; color: var(--cfg-text); margin-bottom: 4px; }
 .cfg-step-body { font-size: 12px; color: var(--cfg-muted); line-height: 1.5; }
-.cfg-link { color: #c8ced8; text-decoration: none; }
+.cfg-link { color: #d8dde6; text-decoration: none; }
 .cfg-link:hover { text-decoration: underline; }
 .cfg-copy-box {
   margin-top: 6px; padding: 6px 10px;
@@ -529,10 +531,10 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   border-radius: 11px; color: var(--cfg-muted); font-size: 11px;
   cursor: pointer; transition: border-color 0.12s, background 0.12s, color 0.12s, transform 0.12s;
 }
-.cfg-layout-btn:hover { border-color: rgba(255,255,255,0.22); color: var(--cfg-text); transform: translateY(-1px); }
+.cfg-layout-btn:hover { border-color: rgba(255, 255, 255, 0.3); color: var(--cfg-text); transform: translateY(-1px); }
 .cfg-layout-btn.cfg-active {
   border-color: var(--cfg-accent); color: var(--cfg-accent);
-  background: rgba(210, 215, 224, 0.14);
+  background: rgba(232, 234, 239, 0.12);
 }
 .cfg-layout-icon {
   width: 40px; height: 24px; border-radius: 4px;
@@ -562,7 +564,7 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 .cfg-layout-btn-custom.cfg-active {
   border-color: var(--cfg-accent);
   color: var(--cfg-accent);
-  background: rgba(210, 215, 224, 0.12);
+  background: rgba(232, 234, 239, 0.1);
 }
 
 .cfg-layout-hint {
@@ -579,7 +581,7 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   border-radius: 11px; color: var(--cfg-muted); font-size: 12px;
   cursor: pointer; transition: border-color 0.12s, background 0.12s, color 0.12s;
 }
-.cfg-theme-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--cfg-text); }
+.cfg-theme-btn:hover { border-color: rgba(255, 255, 255, 0.28); color: var(--cfg-text); }
 .cfg-theme-btn.cfg-active { border-color: var(--cfg-accent); color: var(--cfg-text); }
 .cfg-theme-dot {
   width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
@@ -605,14 +607,18 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
 .cfg-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
 .cfg-toggle-track {
   display: block; width: 36px; height: 20px;
-  background: rgba(255,255,255,0.12); border-radius: 10px;
+  background: var(--cfg-toggle-off);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.08);
   cursor: pointer; transition: background 0.2s;
 }
 .cfg-toggle input:checked + .cfg-toggle-track { background: var(--cfg-accent); }
 .cfg-toggle-thumb {
   position: absolute; top: 3px; left: 3px;
   width: 14px; height: 14px; border-radius: 50%;
-  background: #fff; transition: transform 0.2s; pointer-events: none;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s; pointer-events: none;
 }
 .cfg-toggle input:checked ~ .cfg-toggle-thumb { transform: translateX(16px); }
 
@@ -1669,7 +1675,6 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   font-size: 10px;
   color: var(--cfg-muted);
   margin-left: 3px;
-  opacity: 0.7;
 }
 
 .cfg-mini-toggle {
@@ -1690,8 +1695,9 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   display: block;
   width: 28px;
   height: 16px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--cfg-toggle-off);
   border-radius: 8px;
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.08);
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -1708,6 +1714,7 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   height: 12px;
   border-radius: 50%;
   background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   transition: transform 0.2s;
   pointer-events: none;
 }
