@@ -57,16 +57,34 @@
   display: flex;
   flex-wrap: nowrap;
   gap: 6px;
-  padding: 10px 12px;
+  padding: 10px 12px 6px;
   border-bottom: 0.5px solid var(--cfg-border2);
   flex-shrink: 0;
   overflow-x: auto;
-  scrollbar-width: none;
+  overflow-y: hidden;
+  /* Thin bar so Windows / mouse users can drag sideways (wheel won’t scroll X). */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.32) rgba(255, 255, 255, 0.06);
   -webkit-overflow-scrolling: touch;
 }
 
 .ce-tabs::-webkit-scrollbar {
-  display: none;
+  height: 6px;
+}
+
+.ce-tabs::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  margin: 0 4px;
+}
+
+.ce-tabs::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.28);
+  border-radius: 3px;
+}
+
+.ce-tabs::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.42);
 }
 
 .ce-tab {
