@@ -36,6 +36,61 @@ let lastKnownProgress = {
   updatedAt: 0,
 };
 
+/** Per song: show “next” for this many ms after each new track (then hide until the next track). */
+const NEXT_TRACK_PEEK_MS = 10_000;
+
+let perSongPeekTimer = null;
+let perSongPeekForTrackId = null;
+let perSongPeekNext = null;
+let perSongPeekExpiresAt = 0;
+
+function clearNextTrackLineInDom() {
+  const cust = document.querySelector(".nw-overlay.nw-custom .nw-custom-next");
+  if (cust) cust.textContent = "";
+  const def = document.querySelector(".nw-overlay:not(.nw-custom) .nw-meta-next");
+  if (def) def.textContent = "";
+}
+
+function clearPerSongNextPeek() {
+  if (perSongPeekTimer) {
+    clearTimeout(perSongPeekTimer);
+    perSongPeekTimer = null;
+  }
+  perSongPeekForTrackId = null;
+  perSongPeekNext = null;
+  perSongPeekExpiresAt = 0;
+}
+
+function startPerSongNextPeek(trackId, fetchedNext) {
+  if (perSongPeekTimer) {
+    clearTimeout(perSongPeekTimer);
+    perSongPeekTimer = null;
+  }
+  perSongPeekForTrackId = trackId;
+  perSongPeekNext = fetchedNext?.title ? fetchedNext : null;
+  perSongPeekExpiresAt = Date.now() + NEXT_TRACK_PEEK_MS;
+  perSongPeekTimer = window.setTimeout(() => {
+    perSongPeekTimer = null;
+    perSongPeekNext = null;
+    perSongPeekExpiresAt = 0;
+    clearNextTrackLineInDom();
+  }, NEXT_TRACK_PEEK_MS);
+}
+
+function getPerSongNextTrackDisplay(track, fetchedNext) {
+  const tid = track?.trackId;
+  if (!tid || tid !== perSongPeekForTrackId) {
+    return null;
+  }
+  if (Date.now() >= perSongPeekExpiresAt) {
+    return null;
+  }
+  if (fetchedNext?.title) {
+    perSongPeekNext = fetchedNext;
+  }
+  return perSongPeekNext;
+}
+
 function toCustomBool(value, fallback = false) {
   if (value === null || value === undefined || value === "") return fallback;
   return value === "1" || String(value).toLowerCase() === "true";
@@ -574,6 +629,7 @@ export function parseConfig() {
     showBpm: toBool(params.get("showBpm"), false),
     showTimeLeft: toBool(params.get("showTimeLeft"), false),
     showNextTrack: toBool(params.get("showNextTrack"), false),
+    nextTrackMode: params.get("nextTrackMode") === "perSong" ? "perSong" : "always",
     showAlbum: toBool(params.get("showAlbum"), false),
     showPlayState: toBool(params.get("showPlayState"), false),
     showProgress: toBool(params.get("showProgress"), true),
@@ -680,16 +736,39 @@ async function poll() {
       return;
     }
 
-    let nextTrack = null;
-    if (!useLastfm && (config.showNextTrack || (config.layout === "custom" && config.custom?.showNextTrack))) {
+    const trackChanged = track.trackId !== currentTrackId;
+    const appEl = document.getElementById("app");
+    const needsInitialRender = Boolean(appEl && !appEl.querySelector(".nw-overlay"));
+
+    const wantNextTrack =
+      !useLastfm &&
+      (config.showNextTrack || (config.layout === "custom" && config.custom?.showNextTrack));
+
+    let fetchedNext = null;
+    if (wantNextTrack) {
       try {
-        nextTrack = await getNextTrack();
+        fetchedNext = await getNextTrack();
       } catch (_error) {
-        nextTrack = null;
+        fetchedNext = null;
       }
     }
 
-    if (track.trackId !== currentTrackId) {
+    let nextTrack = null;
+    if (wantNextTrack) {
+      if (config.nextTrackMode === "perSong") {
+        if (trackChanged || needsInitialRender) {
+          startPerSongNextPeek(track.trackId, fetchedNext);
+        }
+        nextTrack = getPerSongNextTrackDisplay(track, fetchedNext);
+      } else {
+        clearPerSongNextPeek();
+        nextTrack = fetchedNext;
+      }
+    } else {
+      clearPerSongNextPeek();
+    }
+
+    if (trackChanged) {
       audioFeaturesBackfillAttempted.clear();
       currentTrackId = track.trackId;
       const extras = await fetchTrackAudioExtras(track.trackId, useLastfm);
@@ -698,8 +777,6 @@ async function poll() {
       return;
     }
 
-    const appEl = document.getElementById("app");
-    const needsInitialRender = Boolean(appEl && !appEl.querySelector(".nw-overlay"));
     if (needsInitialRender) {
       const extras = await fetchTrackAudioExtras(track.trackId, useLastfm);
       await render(track, extras, nextTrack, { skipSession: true });
@@ -737,7 +814,17 @@ async function poll() {
     if (config.layout === "custom") {
       const rootEl = document.querySelector(".nw-overlay.nw-custom");
       if (rootEl) {
-        applyCustomDynamicFields(rootEl, track, null, null);
+        let extrasForUi = null;
+        const { tracks: sessionTracks } = getSession();
+        const last = sessionTracks[sessionTracks.length - 1];
+        if (last?.trackId === track.trackId && last.bpm != null) {
+          extrasForUi = {
+            bpm: last.bpm,
+            energy: last.energy,
+            valence: last.valence,
+          };
+        }
+        applyCustomDynamicFields(rootEl, track, extrasForUi, nextTrack);
       }
     } else {
       const rootEl = document.querySelector(".nw-overlay");
@@ -942,6 +1029,7 @@ function showIdle() {
     return;
   }
 
+  clearPerSongNextPeek();
   disconnectOverflowMarquees();
 
   import("../visuals/canvas.js")

@@ -9,6 +9,8 @@ const DEFAULT_STATE = {
   showProgress: true,
   showTimeLeft: false,
   showNextTrack: false,
+  /** Spotify queue label: "always" = every poll; "perSong" = hold last title until track changes */
+  nextTrackMode: "always",
   showBpm: false,
   showAlbum: false,
   showPlayState: false,
@@ -213,6 +215,8 @@ const TOGGLE_KEY_TIPS = {
   showProgress: "Track position when the layout supports a progress bar.",
   showTimeLeft: "Show remaining time instead of elapsed.",
   showNextTrack: "Next in queue when Spotify queue data is available.",
+  nextTrackMode:
+    "Always refresh: update every poll. Per song: show the next title for ~10s after each new track, then hide until the next song.",
   showBpm: "Tempo from Spotify audio features (Spotify source only).",
   showAlbum: "Album name alongside track and artist.",
   showPlayState: "Small indicator when playback is active.",
@@ -1228,6 +1232,17 @@ function renderContentContent() {
   if (lc?.showNextTrack) {
     rows.push(compactToggle("Next track", "showNextTrack", true, "", TOGGLE_KEY_TIPS.showNextTrack));
   }
+  const showNextTrackModeRow =
+    state.source === "spotify" && (isCustom || (lc?.showNextTrack && state.showNextTrack));
+  if (showNextTrackModeRow) {
+    const m = state.nextTrackMode === "perSong" ? "perSong" : "always";
+    rows.push(`<div class="cfg-sub-label" data-cfg-tip="${escAttr(TOGGLE_KEY_TIPS.nextTrackMode)}">Next track updates</div>
+      <p class="cfg-hint" style="margin:-4px 0 8px;line-height:1.45">Always refresh: fetches the Spotify queue every poll (can flicker if the API is empty). Per song: shows the next title for about 10 seconds after each new track, then hides until the next song.</p>
+      <div class="cfg-btn-group" style="margin-bottom:8px">
+        <button type="button" class="cfg-btn cfg-sm-btn ${m === "always" ? "cfg-active" : ""}" data-set-key="nextTrackMode" data-set-value="always" data-cfg-tip="${escAttr("Re-fetch the queue on every poll. Next line stays in sync with Spotify.")}">Always refresh</button>
+        <button type="button" class="cfg-btn cfg-sm-btn ${m === "perSong" ? "cfg-active" : ""}" data-set-key="nextTrackMode" data-set-value="perSong" data-cfg-tip="${escAttr("After each new track, show the next title for ~10 seconds only.")}">Per song (~10s)</button>
+      </div>`);
+  }
   if (state.source !== "lastfm" && state.source !== "songify" && lc?.showBpm) {
     rows.push(compactToggle("BPM", "showBpm", true, "", TOGGLE_KEY_TIPS.showBpm));
   }
@@ -2208,6 +2223,10 @@ function update(newState) {
 
   Object.assign(state, newState);
 
+  if (newState.nextTrackMode !== undefined) {
+    state.nextTrackMode = newState.nextTrackMode === "perSong" ? "perSong" : "always";
+  }
+
   if (newState.layout === "custom") {
     exitQueueDesignerMode();
   }
@@ -2404,4 +2423,12 @@ export function initConfig() {
   }
 
   finishInit();
+}
+
+export function getConfiguratorNextTrackMode() {
+  return state.nextTrackMode === "perSong" ? "perSong" : "always";
+}
+
+export function applyConfiguratorPatch(partial) {
+  update(partial);
 }

@@ -1,4 +1,10 @@
-import { readAnimBgForEditor, readArtBackdropForEditor, readSongifyArtFlags } from "./controls.js";
+import {
+  applyConfiguratorPatch,
+  getConfiguratorNextTrackMode,
+  readAnimBgForEditor,
+  readArtBackdropForEditor,
+  readSongifyArtFlags,
+} from "./controls.js";
 
 export const CUSTOM_DEFAULTS = {
   direction: "row",
@@ -136,6 +142,20 @@ function buttonGroup(key, options) {
       )
       .join("")}
   </div>`;
+}
+
+function renderNextTrackModeSpotifyOnly() {
+  if (readSongifyArtFlags().source !== "spotify") {
+    return "";
+  }
+  const m = getConfiguratorNextTrackMode();
+  return `<div class="ce-subregion-title ce-subregion-title--nested">Next track updates (Spotify)</div>
+    <p class="ce-region-lead ce-region-lead--inline"><strong>Always refresh</strong> — fetches the queue every poll (stays in sync; can flicker if the API is empty). <strong>Per song (~10s)</strong> — after each new track, shows the next title for about 10 seconds, then hides until the next song.</p>
+    <div class="ce-btn-group">
+      <button type="button" class="ce-btn ${m === "always" ? "ce-btn-active" : ""}" data-next-track-mode="always">Always refresh</button>
+      <button type="button" class="ce-btn ${m === "perSong" ? "ce-btn-active" : ""}" data-next-track-mode="perSong">Per song (~10s)</button>
+    </div>
+    <p class="ce-mini-info ce-mini-info--tight" style="margin-top:8px">Enable <strong>Show next track</strong> below for the overlay to show the queue line.</p>`;
 }
 
 function renderContainerPanel() {
@@ -350,6 +370,7 @@ function renderContentPanel() {
     ])}
 
     ${toggleRow("Show remaining time", "showRemainingTime", "Shows time left instead of elapsed time")}
+    ${renderNextTrackModeSpotifyOnly()}
     ${toggleRow("Show next track", "showNextTrack", "Uses your Spotify queue data")}
     <div class="ce-disclaimer">If next track is blank, reconnect Spotify in OBS
       to refresh your session permissions and player state.
@@ -652,6 +673,18 @@ function attachListeners(containerEl) {
       resetCustomState(containerEl);
     });
   }
+
+  containerEl.querySelectorAll("[data-next-track-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mode = btn.getAttribute("data-next-track-mode");
+      if (mode !== "always" && mode !== "perSong") return;
+      saveCustomState();
+      applyConfiguratorPatch({ nextTrackMode: mode });
+      const activePanel = containerEl.querySelector(".ce-tab-active")?.dataset.tab || "content";
+      renderEditor(containerEl, activePanel);
+      triggerChange();
+    });
+  });
 
   containerEl.querySelectorAll(".ce-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
