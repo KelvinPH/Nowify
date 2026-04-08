@@ -14,9 +14,9 @@ Nowify is a browser-based music overlay for **OBS**, **Streamlabs**, and similar
 
 | Source | How it works |
 |--------|----------------|
-| **Spotify** | OAuth + Web API for now playing, progress, optional BPM and mood-driven styling |
+| **Spotify** | OAuth + Web API for now playing, progress, optional BPM, next-track hints, and mood-driven styling |
 | **Last.fm** | Username + API key; scrobble-based now playing |
-| **Songify** | Local bridge via WebSocket—see **[Songify](https://github.com/songify-rocks/Songify)** for the desktop app and setup |
+| **Songify** | Local bridge via WebSocket—see **[Songify](https://github.com/songify-rocks/Songify)** for the desktop app and **[docs/songify-integration.md](./docs/songify-integration.md)** for setup |
 
 The overlay runs as a normal web page; settings are stored in the URL (and local storage where needed) so you can copy one link into a Browser Source and go.
 
@@ -29,24 +29,45 @@ Nowify is the successor to **SpotiStream**, rebuilt for clearer structure, easie
 
 ## Features
 
-- **Spotify** — Live track info, progress, play state; optional BPM and mood sync from audio features
-- **Layouts** — `glasscard`, `pill`, `island`, `strip`, `albumfocus`, `sidebar`, and **`custom`** with a full visual editor
-- **Themes** — `obsidian`, `midnight`, `aurora`, `forest`, `amber`, `glass`
-- **Configurator** — Live preview, collapsible sections, copyable overlay URL
-- **Custom mode** — Typography, spacing, art, colours, content order, animated background options; save/browse community presets (Cloudflare Worker)
-- **Songify** — Connect **[Songify](https://github.com/songify-rocks/Songify)** on your machine for playback-driven metadata and optional **Spotify Canvas**-style art when available ([Songify repo](https://github.com/songify-rocks/Songify))
-- **Twitch** — Optional chat commands: `!sr`, `!skip`, `!prev`, `!queue` (with OAuth token)
-- **Stats** — Local session history, mood/activity views, JSON export (`stats.html`)
+### Core
+
+- **Multiple sources** — Spotify (full API), Last.fm, or Songify (any player Songify supports on Windows)
+- **Layouts** — `glasscard`, `pill`, `island`, `strip`, `albumfocus`, `sidebar`, and **`custom`** with a full visual editor (typography, art, colours, content order, borders, gradients)
+- **Preset “unique” layouts** — Stylised themes such as **vinyl**, **terminal**, **cassette**, **Game Boy**, **HUD**, **sticky note**, and **Spotify-style card** (each with layout-specific options in the configurator)
+- **Themes** — `obsidian`, `midnight`, `aurora`, `forest`, `amber`, `glass` (where applicable)
+- **Configurator** — Live preview, collapsible sections, copyable URLs, wizard for first-time setup, **Presets** (save / community via Cloudflare Worker)
+
+### Playback and visibility
+
+- **Playback transitions** — Configurable **entrance** and **exit** animations when play state changes (fade, zoom, slides, blur, pop, shrink, or none). Adjustable durations and a **pause delay** before exit (default ~2.5s) so short gaps between tracks do not flicker. When nothing is playing, the overlay can stay **fully hidden** (no frozen frame for OBS).
+- **Progress and time** — Progress bar, optional time remaining, play-state dot, next-track line (Spotify; **always refresh** vs **per song** modes)
+
+### Visual polish
+
+- **Mood sync** (Spotify) — Colours influenced by track audio features when enabled
+- **Animated background** — Optional moving gradient behind the card (`aurora`, `flow`, `pulse`, `breathe`), speed and custom colours
+- **Album art backdrop** — Blurred cover behind the card (default and custom layouts)
+- **Songify Canvas** — Optional canvas-style art when using Songify and the track provides a URL
+
+### Twitch and chat
+
+- **Chat commands** — Song requests, skip, previous, queue text, optional volume command; per-role limits and cooldowns (beta; configurable in the sidebar)
+- **EventSub / IRC** — Wiring for live events alongside playback (see configurator Twitch section)
+
+### Other pages
+
+- **Queue overlay** — Separate **`queue.html`** Browser Source: themed list of upcoming tracks (queue / requests / both), demo mode for preview, own style tab in the configurator
+- **Stats** — `stats.html`: local session history, mood views, export (browser-only storage unless you export)
 
 ## Coming soon
 
-- **Customizable queue (with Songify)** — We’re working with **[Songify](https://github.com/songify-rocks/Songify)** on richer queue presentation and controls for the overlay. Details and timing will land as the integration matures; follow **Songify** for desktop updates and this repo for overlay-side changes.
+- **Deeper Songify + queue workflows** — Ongoing collaboration with **[Songify](https://github.com/songify-rocks/Songify)** for richer request/queue behaviour and desktop-side features. The **queue overlay** already ships for listing tracks; follow Songify and this repo for what is next.
 
 ## Quick start
 
 1. Open the **[Configurator](https://kelvinph.github.io/Nowify/config.html)** (or your self-hosted `config.html`).
 2. Complete setup (source, Spotify Client ID, Last.fm keys, or Songify port as needed).
-3. Use **Copy URL** and paste the link into an OBS **Browser** source (e.g. start around **900×300** for the default card layout; adjust per layout).
+3. Use **Copy URL** and paste the link into an OBS **Browser** source (e.g. start around **900×300** for the default card; size per layout).
 
 Self-hosted or local: serve the repo over `http://localhost` (or HTTPS) so OAuth and Browser Source behaviour match what you use in OBS.
 
@@ -62,7 +83,19 @@ Self-hosted or local: serve the repo over `http://localhost` (or HTTPS) so OAuth
 
 ## Configurator
 
-The configurator drives everything through the overlay URL: layout, theme, toggles, credentials (where applicable), and custom layout parameters. Use **Presets** for saved/community layouts, **Custom** for the full editor, and **Add to OBS** for sizing tips.
+The configurator drives the **main overlay** and **queue overlay** URLs: layout, theme, source, toggles, transitions, visuals, Twitch commands, and custom `c_*` fields. Highlights:
+
+- **Source** — Spotify, Last.fm, or Songify (port)
+- **Layout / theme** — Standard cards, unique presets, or **Custom** (dedicated editor with tabs: Container, Typography, Art, Content, **Transitions**, Colours)
+- **Transitions** — Entrance/exit animation style, durations, pause delay (also in the Custom editor **Transitions** tab)
+- **Visuals** — Mood sync, animated background, art backdrop, Songify canvas (where supported)
+- **Queue designer** — Opens styling for **`queue.html`** (separate copy URL from the header when in queue mode)
+
+Use **Presets** for saved or community custom layouts, **Add to OBS** for sizing tips, and **Reset** to clear local configurator state where applicable.
+
+## Queue overlay
+
+The **queue** page is a second Browser Source for a scrollable list (positions, art, titles, requesters, etc.). Configure it from the configurator via the queue / “open queue config” flow; it uses its own URL (`queue.html?…`) independent of the main now-playing overlay.
 
 ## Chat commands
 
@@ -72,20 +105,33 @@ The configurator drives everything through the overlay URL: layout, theme, toggl
 | `!skip` | Skip to next track |
 | `!prev` | Previous track |
 | `!queue` | Queue info |
+| `!vol` | Volume (optional; off by default—enable in Twitch command settings) |
+
+Exact behaviour, roles, limits, and cooldowns are adjusted in the configurator **Twitch** section.
 
 ## URL parameters (overview)
 
+The configurator builds the query string for you. Common **main overlay** parameters:
+
 | Param | Example values | Notes |
 |-------|----------------|--------|
-| `layout` | `glasscard`, `pill`, `island`, `strip`, `albumfocus`, `sidebar`, `custom` | |
-| `theme` | `obsidian`, `midnight`, `aurora`, `forest`, `amber`, `glass` | |
-| `moodSync` | `1` / `0` | Spotify; ties visuals to track energy when on |
-| `showProgress`, `showBpm`, `transparent`, … | `1` / `0` | Layout-dependent |
-| `twitchChannel`, `twitchToken` | strings | Optional Twitch integration |
+| `layout` | `glasscard`, `pill`, `island`, `strip`, `albumfocus`, `sidebar`, `custom`, plus presets `vinyl`, `terminal`, `cassette`, `gameboy`, `hud`, `stickynote`, `spotifycard` | Unique presets use their own layout id |
+| `theme` | `obsidian`, `midnight`, `aurora`, `forest`, `amber`, `glass` | Not all themes apply to every unique layout |
+| `source` | `spotify`, `lastfm`, `songify` | Drives how metadata is fetched |
+| `moodSync` | `1` / `0` | Spotify; ties accents to audio features when on |
+| `showProgress`, `showBpm`, `showAlbum`, `showPlayState`, `showNextTrack`, `showTimeLeft`, `transparent`, … | `1` / `0`; some depend on layout |
+| `nextTrackMode` | `always`, `perSong` | Spotify next-line refresh behaviour |
+| `animBgEnabled`, `animBgStyle`, `animBgSpeed`, `animBgColorMode`, `animBgColor1`, `animBgColor2` | Animated background |
+| `artBackdropEnabled`, `artBackdropBlur` | Blurred art behind the card |
+| `canvasEnabled` | `1` / `0` | Songify canvas-style art |
+| `enterAnim`, `exitAnim` | `fade`, `zoom`, `slide_up`, `slide_down`, `blur`, `pop`, `shrink`, `none` | Playback transitions |
+| `enterDuration`, `exitDuration`, `exitDelay` | milliseconds | Exit delay `0` = immediate hide after pause |
+| `twitchChannel`, `twitchToken`, `twitchUsername` | strings | Twitch integration |
 | `lastfmUsername`, `lastfmApiKey` | strings | Last.fm source |
-| Custom layout | `c_*` params | Set when `layout=custom` |
+| `songifyPort` | e.g. `4002` | Songify WebSocket port |
+| Custom layout | `c_*` params | Set when `layout=custom` (card geometry, colours, content, etc.) |
 
-The configurator builds the full query string for you.
+**Queue overlay** uses its own parameter set (`queue.html`); the configurator’s queue mode serialises those for you (`maxItems`, `showArt`, `blurStrength`, …).
 
 ## Stats dashboard
 
@@ -107,7 +153,7 @@ Pull requests are welcome for fixes, features, and documentation.
 ## Acknowledgements
 
 - [Spotify Web API](https://developer.spotify.com/documentation/web-api)
-- **[Songify](https://github.com/songify-rocks/Songify)** — desktop companion and WebSocket bridge; queue-related work continues in collaboration with the Songify project
+- **[Songify](https://github.com/songify-rocks/Songify)** — desktop companion and WebSocket bridge; ongoing collaboration for queue and playback features
 - Three.js  
 - Chart.js  
 - [OBS Studio](https://obsproject.com/)
