@@ -1177,6 +1177,161 @@ async function resolveTwitchUserId(channelName, token) {
   return data?.data?.[0]?.id || null;
 }
 
+/** Songify + any non-custom layout: WebSocket/HTTP feed, same track object shape as Spotify poll. */
+async function initSongifyStandardOverlay() {
+  activeSource = "songify";
+  if (!config.moodSync && config.animBgEnabled && config.animBgColorMode === "mood") {
+    config.animBgColorMode = "custom";
+    if (!config.animBgColor1) {
+      config.animBgColor1 = "rgba(145,70,255,0.6)";
+    }
+    if (!config.animBgColor2) {
+      config.animBgColor2 = "rgba(30,30,80,0.8)";
+    }
+  }
+
+  document.documentElement.setAttribute("data-theme", config.theme);
+  if (config.transparent) {
+    document.body.style.background = "transparent";
+  } else {
+    document.body.style.background = "";
+  }
+
+  if (config.animBgEnabled) {
+    registerAnimatedBackgroundMoodHook();
+  } else {
+    removeAnimatedBackground();
+  }
+
+  if (!config.artBackdropEnabled) {
+    removeAllArtBackdrops();
+  }
+
+  let lastSnap = null;
+  function samePlaying(a, b) {
+    if (!a || !b) return false;
+    if (a.trackId && b.trackId && String(a.trackId) === String(b.trackId)) {
+      return true;
+    }
+    return a.title === b.title && a.artist === b.artist;
+  }
+
+  function songifyAppHasLayoutRoot(app) {
+    if (!app) return false;
+    if (app.querySelector(".nw-overlay")) return true;
+    return Boolean(
+      app.querySelector(
+        ".vl-wrap, .tm-wrap, .cs-wrap, .gb-wrap, .hud-wrap, .sn-wrap, .sc-wrap"
+      )
+    );
+  }
+
+  const appBoot = document.getElementById("app");
+  if (appBoot) {
+    appBoot.innerHTML = '<div class="nw-idle">Connecting to Songify…</div>';
+  }
+
+  const { init: initSongifyWs } = await import("../api/songify.js");
+
+  initSongifyWs({
+    port: config.songifyPort || 4002,
+    onTrack(track) {
+      void (async () => {
+        try {
+          if (lastSnap && samePlaying(lastSnap, track)) {
+            lastSnap = track;
+            updateProgress(track);
+            updateStripTime(track);
+            if (isSpecialLayout(config.layout)) {
+              const preset = await switchSpecialPreset(config.layout);
+              if (preset?.render) {
+                preset.render({ ...(track || {}), nextTrack: null }, null);
+              }
+            } else {
+              const rootEl = document.querySelector(".nw-overlay");
+              if (rootEl) {
+                applyDefaultDynamicFields(rootEl, track, null);
+              }
+              const syncRoot = document.querySelector(".nw-overlay");
+              if (config.animBgEnabled && syncRoot) {
+                const bg = syncRoot.querySelector(".nw-animated-bg");
+                if (track?.isPlaying) {
+                  bg?.classList.add("nw-bg-active");
+                } else {
+                  bg?.classList.remove("nw-bg-active");
+                }
+              }
+              if (syncRoot) {
+                syncArtBackdrop(syncRoot, track, {
+                  enabled: Boolean(config.artBackdropEnabled),
+                  blurPx: config.artBackdropBlur,
+                });
+              }
+              if (config.canvasEnabled && syncRoot) {
+                void import("../visuals/canvas.js").then(({ initCanvas, updateCanvas }) => {
+                  const artEl = syncRoot.querySelector(".nw-art img, .nw-art");
+                  if (artEl) {
+                    initCanvas(artEl);
+                  }
+                  updateCanvas(track?.canvasUrl || "", true);
+                });
+              }
+            }
+            return;
+          }
+          lastSnap = track;
+          if (track?.trackId) {
+            currentTrackId = track.trackId;
+          }
+          await render(track, null, null);
+          updateProgress(track);
+          updateStripTime(track);
+        } catch (e) {
+          console.warn("[Songify] render failed:", e);
+        }
+      })();
+    },
+    onConnect() {
+      sourceErrorMessage = "";
+      const app = document.getElementById("app");
+      if (app && !lastSnap && !songifyAppHasLayoutRoot(app)) {
+        app.innerHTML =
+          '<div class="nw-idle">Songify connected — waiting for track</div>';
+      }
+    },
+    onDisconnect() {
+      lastSnap = null;
+      sourceErrorMessage =
+        "Cannot reach Songify — start the web server and check the port.";
+      showIdle();
+    },
+  });
+
+  startProgressTimer();
+
+  if (config.twitchChannel && config.twitchToken) {
+    connectIRC({
+      channel: config.twitchChannel,
+      username: config.twitchUsername || config.twitchChannel,
+      token: config.twitchToken,
+    });
+  }
+
+  window.addEventListener("nowify:sr", (e) => {
+    showSrToast(e.detail);
+  });
+
+  if (config.twitchToken && config.twitchChannel) {
+    const broadcasterId = await resolveTwitchUserId(
+      config.twitchChannel,
+      config.twitchToken
+    );
+    if (broadcasterId) {
+      connectEventSub({ broadcasterId, token: config.twitchToken });
+    }
+  }
+}
+
 /** Songify + custom layout: full renderer (c_* params) with WebSocket feed — not the minimal main.js path. */
 async function initSongifyCustomOverlay() {
   activeSource = "songify";
@@ -1284,14 +1439,19 @@ async function initSongifyCustomOverlay() {
 /** Initializes auth, applies config, and starts overlay polling. */
 export async function init() {
   config = parseConfig();
+
+  if (config.source === "songify") {
+    if (config.layout === "custom") {
+      await initSongifyCustomOverlay();
+      return;
+    }
+    await initSongifyStandardOverlay();
+    return;
+  }
+
   if (isSpecialLayout(config.layout)) {
     destroySpecialPreset();
     await switchSpecialPreset(config.layout);
-  }
-
-  if (config.source === "songify" && config.layout === "custom") {
-    await initSongifyCustomOverlay();
-    return;
   }
 
   loadSession();
