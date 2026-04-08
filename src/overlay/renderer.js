@@ -11,6 +11,13 @@ import { bindOverflowMarquees, disconnectOverflowMarquees } from "./overflow-mar
 import { applyBeatSync, clearBeatSync } from "../visuals/beatsync.js";
 import { applyMood, clearMood, onMoodColorsUpdated } from "../visuals/mood.js";
 import { removeAllArtBackdrops, syncArtBackdrop } from "../visuals/art-backdrop.js";
+import {
+  init as initTransitions,
+  playEnter,
+  scheduleExit,
+  cancelExit,
+  getIsVisible,
+} from "../visuals/transitions.js";
 import { connectIRC, connectEventSub } from "../platforms/twitch.js";
 import {
   backfillCurrentTrackFeatures,
@@ -28,6 +35,7 @@ const blockedAudioFeaturesTrackIds = new Set();
 const audioFeaturesBackfillAttempted = new Set();
 let activeSource = "spotify";
 let sourceErrorMessage = "";
+let wasPlaying = false;
 let activeSpecialLayout = null;
 let activeSpecialPreset = null;
 let lastKnownProgress = {
@@ -100,6 +108,48 @@ function toCustomBool(value, fallback = false) {
 function toCustomNumber(value, fallback) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function getPlaybackTransitionRoot() {
+  const overlay = document.querySelector(".nw-overlay");
+  if (overlay) {
+    return overlay;
+  }
+  const app = document.getElementById("app");
+  if (!app) {
+    return null;
+  }
+  return app.querySelector(
+    ".vl-wrap, .tm-wrap, .cs-wrap, .gb-wrap, .hud-wrap, .sn-wrap, .sc-wrap"
+  );
+}
+
+function applyPlaybackTransitions(track) {
+  if (!track) {
+    wasPlaying = false;
+    return;
+  }
+  const playing = track.isPlaying !== false;
+  const root = getPlaybackTransitionRoot();
+  if (!root) {
+    wasPlaying = playing;
+    return;
+  }
+  initTransitions(root);
+  if (!playing && !getIsVisible()) {
+    root.style.visibility = "hidden";
+    root.style.opacity = "0";
+    root.setAttribute("data-hidden", "true");
+  }
+  if (playing && !wasPlaying) {
+    cancelExit();
+    if (!getIsVisible()) {
+      playEnter(config.enterAnim, config.enterDuration);
+    }
+  } else if (!playing && wasPlaying) {
+    scheduleExit(config.exitAnim, config.exitDuration, config.exitDelay);
+  }
+  wasPlaying = playing;
 }
 
 function isSpecialLayout(layout) {
@@ -693,6 +743,15 @@ export function parseConfig() {
       : Number(params.get("artBackdropBlur")) || 48
     : Number(params.get("artBackdropBlur")) || 48;
 
+  const enterAnim = params.get("enterAnim") || "fade";
+  const exitAnim = params.get("exitAnim") || "fade";
+  const enterDurationRaw = Number(params.get("enterDuration"));
+  const enterDuration = Number.isFinite(enterDurationRaw) ? enterDurationRaw : 400;
+  const exitDurationRaw = Number(params.get("exitDuration"));
+  const exitDuration = Number.isFinite(exitDurationRaw) ? exitDurationRaw : 400;
+  const exitDelayRaw = Number(params.get("exitDelay"));
+  const exitDelay = Number.isFinite(exitDelayRaw) ? exitDelayRaw : 2500;
+
   return {
     layout,
     theme: params.get("theme") || "spotify",
@@ -709,6 +768,11 @@ export function parseConfig() {
     animBgColor2,
     artBackdropEnabled,
     artBackdropBlur,
+    enterAnim,
+    exitAnim,
+    enterDuration,
+    exitDuration,
+    exitDelay,
     showBpm: toBool(params.get("showBpm"), false),
     showTimeLeft: toBool(params.get("showTimeLeft"), false),
     showNextTrack: toBool(params.get("showNextTrack"), false),
@@ -871,6 +935,7 @@ async function poll() {
 
     updateProgress(track);
     updateStripTime(track);
+    applyPlaybackTransitions(track);
 
     if (
       !useLastfm &&
@@ -1005,6 +1070,7 @@ async function render(track, extras, nextTrack = null, options = {}) {
       const trackForPreset = { ...(track || {}), nextTrack: nextTrack || null };
       preset.render(trackForPreset, extras);
     }
+    applyPlaybackTransitions(track);
     window.dispatchEvent(new CustomEvent("nowify:trackchange", { detail: { track } }));
     return;
   }
@@ -1068,6 +1134,8 @@ async function render(track, extras, nextTrack = null, options = {}) {
     rootEl.classList.remove("nw-animate-in");
   }, 600);
 
+  applyPlaybackTransitions(track);
+
   window.dispatchEvent(new CustomEvent("nowify:trackchange", { detail: { track } }));
 }
 
@@ -1123,6 +1191,14 @@ function showIdle() {
   if (!app) {
     return;
   }
+
+  cancelExit();
+  const transitionRoot = getPlaybackTransitionRoot();
+  if (transitionRoot) {
+    initTransitions(transitionRoot);
+    scheduleExit(config.exitAnim, config.exitDuration, 0);
+  }
+  wasPlaying = false;
 
   destroySpecialPreset();
   clearPerSongNextPeek();
@@ -1278,6 +1354,7 @@ async function initSongifyStandardOverlay() {
                 });
               }
             }
+            applyPlaybackTransitions(track);
             return;
           }
           lastSnap = track;
@@ -1409,6 +1486,7 @@ async function initSongifyCustomOverlay() {
                 blurPx: config.artBackdropBlur,
               });
             }
+            applyPlaybackTransitions(track);
             return;
           }
           lastSnap = track;

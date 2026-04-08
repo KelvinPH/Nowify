@@ -62,6 +62,11 @@ const DEFAULT_STATE = {
   queueColorMuted: "rgba(255,255,255,0.45)",
   queueColorCard: "rgba(10,10,10,0.85)",
   canvasEnabled: false,
+  enterAnim: "fade",
+  exitAnim: "fade",
+  enterDuration: 400,
+  exitDuration: 400,
+  exitDelay: 2500,
   commands: {
     sr: {
       enabled: true,
@@ -163,6 +168,20 @@ export function readArtBackdropForEditor() {
   return {
     artBackdropEnabled: Boolean(state.artBackdropEnabled),
     artBackdropBlur: Number(state.artBackdropBlur) || 48,
+  };
+}
+
+/** Overlay enter/exit animation settings (URL params, not c_* custom layout). */
+export function readTransitionsForEditor() {
+  const enterDurationRaw = Number(state.enterDuration);
+  const exitDurationRaw = Number(state.exitDuration);
+  const exitDelayRaw = Number(state.exitDelay);
+  return {
+    enterAnim: state.enterAnim || "fade",
+    exitAnim: state.exitAnim || "fade",
+    enterDuration: Number.isFinite(enterDurationRaw) ? enterDurationRaw : 400,
+    exitDuration: Number.isFinite(exitDurationRaw) ? exitDurationRaw : 400,
+    exitDelay: Number.isFinite(exitDelayRaw) ? exitDelayRaw : 2500,
   };
 }
 
@@ -362,6 +381,9 @@ let inputDebounceTimer = null;
 let previousLayout = "glasscard";
 let animBgSpeedDebounceTimer = null;
 let artBackdropBlurDebounceTimer = null;
+let transitionEnterDurDebounceTimer = null;
+let transitionExitDurDebounceTimer = null;
+let transitionExitDelayDebounceTimer = null;
 let cfgTipEl = null;
 let cfgTipShowTimer = null;
 let cfgTipHideTimer = null;
@@ -1421,6 +1443,45 @@ function renderVisualsContent() {
   return parts.join("");
 }
 
+function renderTransitionsContent() {
+  const animBtnRow = (stateKey) =>
+    [
+      ["fade", "Fade"],
+      ["zoom", "Zoom"],
+      ["slide_up", "Slide up"],
+      ["slide_down", "Slide down"],
+      ["blur", "Blur"],
+      ["pop", "Pop"],
+      ["shrink", "Shrink"],
+      ["none", "None"],
+    ]
+      .map(
+        ([v, l]) => `
+      <button type="button" class="cfg-btn cfg-sm-btn ${state[stateKey] === v ? "cfg-active" : ""}"
+        data-set-key="${stateKey}" data-set-value="${v}">${l}</button>`
+      )
+      .join("");
+  return `
+  <div class="cfg-sub-label">Entrance</div>
+  <div class="cfg-btn-group cfg-btn-group-wrap">${animBtnRow("enterAnim")}</div>
+  <div class="cfg-slider-row cfg-slider-row-tight">
+    <span class="cfg-slider-label" id="ctrl-enter-duration-label">Duration (${state.enterDuration}ms)</span>
+    <input id="ctrl-enter-duration" type="range" min="100" max="1200" step="100" value="${state.enterDuration}" />
+  </div>
+  <div class="cfg-section-sep"></div>
+  <div class="cfg-sub-label">Exit</div>
+  <div class="cfg-btn-group cfg-btn-group-wrap">${animBtnRow("exitAnim")}</div>
+  <div class="cfg-slider-row cfg-slider-row-tight">
+    <span class="cfg-slider-label" id="ctrl-exit-duration-label">Duration (${state.exitDuration}ms)</span>
+    <input id="ctrl-exit-duration" type="range" min="100" max="1200" step="100" value="${state.exitDuration}" />
+  </div>
+  <div class="cfg-slider-row cfg-slider-row-tight">
+    <span class="cfg-slider-label" id="ctrl-exit-delay-label">Pause delay (${state.exitDelay}ms)</span>
+    <input id="ctrl-exit-delay" type="range" min="0" max="10000" step="500" value="${state.exitDelay}" />
+  </div>
+  <p class="cfg-hint" style="margin:4px 0 0;line-height:1.45">Pause delay: how long to wait after playback stops before animating out. Prevents flickering on brief pauses. 0 = immediate.</p>`;
+}
+
 function renderStyleContent() {
   if (isUniqueLayout(state.layout)) {
     if (state.layout === "cassette") {
@@ -1723,7 +1784,6 @@ function renderSidebar() {
     state.source !== "songify"
       ? renderSection("twitch", "Twitch", renderTwitchContent())
       : "";
-
   if (uniqueLayout) {
     const uniqueContent = renderContentContent();
     const uniqueVisuals = renderVisualsContent();
@@ -1735,6 +1795,7 @@ function renderSidebar() {
       ${showThemeSection ? renderSection("theme", "Theme", renderThemeContent(themeOptions)) : ""}
       ${uniqueContent ? renderSection("content", "Content", uniqueContent) : ""}
       ${uniqueVisuals ? renderSection("visuals", "Visuals", uniqueVisuals) : ""}
+      ${renderSection("transitions", "Transitions", renderTransitionsContent())}
       ${uniqueStyle ? renderSection("style", "Style", uniqueStyle) : ""}
     `;
   } else {
@@ -1744,6 +1805,7 @@ function renderSidebar() {
       ${renderSection("theme", "Theme", renderThemeContent(themeOptions))}
       ${renderSection("content", "Content", renderContentContent())}
       ${renderSection("visuals", "Visuals", renderVisualsContent())}
+      ${renderSection("transitions", "Transitions", renderTransitionsContent())}
       ${renderSection("style", "Style", renderStyleContent())}
       ${twitchBlock}
     `;
@@ -1872,6 +1934,55 @@ function renderSidebar() {
     });
   }
 
+  const enterDurInput = document.getElementById("ctrl-enter-duration");
+  if (enterDurInput) {
+    enterDurInput.addEventListener("input", () => {
+      const val = Number(enterDurInput.value);
+      const label = document.getElementById("ctrl-enter-duration-label");
+      if (label && Number.isFinite(val)) {
+        label.textContent = `Duration (${val}ms)`;
+      }
+      window.clearTimeout(transitionEnterDurDebounceTimer);
+      transitionEnterDurDebounceTimer = window.setTimeout(() => {
+        if (Number.isFinite(val)) {
+          update({ enterDuration: val });
+        }
+      }, 200);
+    });
+  }
+  const exitDurInput = document.getElementById("ctrl-exit-duration");
+  if (exitDurInput) {
+    exitDurInput.addEventListener("input", () => {
+      const val = Number(exitDurInput.value);
+      const label = document.getElementById("ctrl-exit-duration-label");
+      if (label && Number.isFinite(val)) {
+        label.textContent = `Duration (${val}ms)`;
+      }
+      window.clearTimeout(transitionExitDurDebounceTimer);
+      transitionExitDurDebounceTimer = window.setTimeout(() => {
+        if (Number.isFinite(val)) {
+          update({ exitDuration: val });
+        }
+      }, 200);
+    });
+  }
+  const exitDelayInput = document.getElementById("ctrl-exit-delay");
+  if (exitDelayInput) {
+    exitDelayInput.addEventListener("input", () => {
+      const val = Number(exitDelayInput.value);
+      const label = document.getElementById("ctrl-exit-delay-label");
+      if (label && Number.isFinite(val)) {
+        label.textContent = `Pause delay (${val}ms)`;
+      }
+      window.clearTimeout(transitionExitDelayDebounceTimer);
+      transitionExitDelayDebounceTimer = window.setTimeout(() => {
+        if (Number.isFinite(val)) {
+          update({ exitDelay: val });
+        }
+      }, 200);
+    });
+  }
+
   if (state.source === "songify") {
     const statusEl = document.getElementById("cfg-songify-status");
     if (statusEl) {
@@ -1922,10 +2033,13 @@ function checkCustomMode() {
   let customContainer = document.getElementById("cfg-custom-editor");
 
   if (isCustom) {
+    document.getElementById("cfg-custom-transitions-rail")?.remove();
     normalSidebar.style.display = "none";
     if (!customContainer) {
       customContainer = document.createElement("div");
       customContainer.id = "cfg-custom-editor";
+    }
+    if (!customContainer.parentNode) {
       body.insertBefore(customContainer, body.firstChild);
     }
     customContainer.style.display = "flex";
@@ -1946,6 +2060,7 @@ function checkCustomMode() {
     }
     previousLayout = state.layout;
     renderHeaderDynamic();
+    document.getElementById("cfg-custom-transitions-rail")?.remove();
   }
 }
 

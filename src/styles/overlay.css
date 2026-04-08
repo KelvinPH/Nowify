@@ -88,6 +88,30 @@ body { background: transparent; overflow: hidden;
   border-top-width: var(--nw-accent-line, var(--nw-border-width, 0.5px));
   border-top-color: var(--nw-accent-line-color, var(--nw-border-color, var(--nw-glass-border)));
   transition: background-color 2s ease;
+  will-change: opacity, transform, filter;
+}
+
+.vl-wrap,
+.tm-wrap,
+.cs-wrap,
+.gb-wrap,
+.hud-wrap,
+.sn-wrap,
+.sc-wrap {
+  will-change: opacity, transform, filter;
+}
+
+.nw-overlay[data-hidden="true"],
+.vl-wrap[data-hidden="true"],
+.tm-wrap[data-hidden="true"],
+.cs-wrap[data-hidden="true"],
+.gb-wrap[data-hidden="true"],
+.hud-wrap[data-hidden="true"],
+.sn-wrap[data-hidden="true"],
+.sc-wrap[data-hidden="true"] {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .nw-overlay .nw-art,

@@ -4,6 +4,7 @@ import {
   readAnimBgForEditor,
   readArtBackdropForEditor,
   readSongifyArtFlags,
+  readTransitionsForEditor,
 } from "./controls.js";
 
 export const CUSTOM_DEFAULTS = {
@@ -101,6 +102,10 @@ let onChangeCallback = null;
 let activeColorKey = null;
 let wheelRaf = null;
 let activeSeedLayout = "glasscard";
+/** Preserved when the configurator re-inits the editor after global state updates. */
+let activeEditorPanel = "container";
+
+const cfgPatchSliderTimers = {};
 
 function renderTabButton(name, label, svg, active = false) {
   return `<button class="ce-tab ${active ? "ce-tab-active" : ""}" data-tab="${name}">
@@ -522,6 +527,51 @@ const COLOR_KEY_LABELS = {
   animBgColor2: "animated background 2",
 };
 
+function transitionAnimButtonRow(stateKey, activeVal) {
+  const opts = [
+    ["fade", "Fade"],
+    ["zoom", "Zoom"],
+    ["slide_up", "Slide up"],
+    ["slide_down", "Slide down"],
+    ["blur", "Blur"],
+    ["pop", "Pop"],
+    ["shrink", "Shrink"],
+    ["none", "None"],
+  ];
+  return opts
+    .map(
+      ([v, l]) =>
+        `<button type="button" class="ce-btn ce-btn-compact ${activeVal === v ? "ce-btn-active" : ""}" data-cfg-patch-key="${stateKey}" data-cfg-patch-value="${v}">${l}</button>`
+    )
+    .join("");
+}
+
+function transitionSliderRow(label, key, min, max, step, value, unit) {
+  return `<div class="ce-slider-row">
+    <span class="ce-slider-label">${label}</span>
+    <div class="ce-slider-right">
+      <input type="range" data-cfg-patch-slider="${key}" data-unit="${unit}" min="${min}" max="${max}" step="${step}" value="${value}" />
+      <span class="ce-slider-value">${value}${unit}</span>
+    </div>
+  </div>`;
+}
+
+function renderTransitionsPanel() {
+  const t = readTransitionsForEditor();
+  return `<div class="ce-section">
+    <div class="ce-region-title">Playback transitions</div>
+    <p class="ce-region-lead">Animate the overlay when playback starts and stops. When not playing, the card stays fully hidden so OBS does not show a frozen frame.</p>
+    <div class="ce-subregion-title">Entrance</div>
+    <div class="ce-btn-group ce-btn-group--wrap">${transitionAnimButtonRow("enterAnim", t.enterAnim)}</div>
+    ${transitionSliderRow("Duration", "enterDuration", 100, 1200, 100, t.enterDuration, "ms")}
+    <div class="ce-subregion-title" style="margin-top:12px">Exit</div>
+    <div class="ce-btn-group ce-btn-group--wrap">${transitionAnimButtonRow("exitAnim", t.exitAnim)}</div>
+    ${transitionSliderRow("Duration", "exitDuration", 100, 1200, 100, t.exitDuration, "ms")}
+    ${transitionSliderRow("Pause delay", "exitDelay", 0, 10000, 500, t.exitDelay, "ms")}
+    <p class="ce-mini-info ce-mini-info--tight" style="margin-top:8px">Pause delay waits after playback stops before hiding. Use a few seconds to avoid flicker between Spotify tracks. 0 = hide immediately.</p>
+  </div>`;
+}
+
 function updateActiveColorUi(containerEl) {
   if (!activeColorKey) return;
   const swatches = containerEl.querySelectorAll(".ce-color-preview");
@@ -535,7 +585,9 @@ function updateActiveColorUi(containerEl) {
   }
 }
 
-function renderEditor(containerEl, activePanel = "container") {
+function renderEditor(containerEl, activePanel) {
+  const panel = typeof activePanel === "string" ? activePanel : activeEditorPanel;
+  activeEditorPanel = panel;
   containerEl.innerHTML = `<div class="ce-shell">
     <div class="ce-header">
       <div class="ce-header-brand">
@@ -544,18 +596,20 @@ function renderEditor(containerEl, activePanel = "container") {
       <button type="button" id="ce-reset-custom" class="cfg-nav-btn cfg-nav-btn--danger ce-header-reset">Reset</button>
     </div>
     <div class="ce-tabs">
-      ${renderTabButton("container", "Container", '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="currentColor"/></svg>', activePanel === "container")}
-      ${renderTabButton("typography", "Typography", '<svg viewBox="0 0 24 24"><path d="M4 6h16v2h-7v10h-2V8H4z" fill="currentColor"/></svg>', activePanel === "typography")}
-      ${renderTabButton("art", "Art", '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" fill="currentColor"/></svg>', activePanel === "art")}
-      ${renderTabButton("content", "Content", '<svg viewBox="0 0 24 24"><path d="M6 7h12v2H6zm0 4h12v2H6zm0 4h8v2H6z" fill="currentColor"/></svg>', activePanel === "content")}
-      ${renderTabButton("colours", "Colours", '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg>', activePanel === "colours")}
+      ${renderTabButton("container", "Container", '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="currentColor"/></svg>', panel === "container")}
+      ${renderTabButton("typography", "Typography", '<svg viewBox="0 0 24 24"><path d="M4 6h16v2h-7v10h-2V8H4z" fill="currentColor"/></svg>', panel === "typography")}
+      ${renderTabButton("art", "Art", '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" fill="currentColor"/></svg>', panel === "art")}
+      ${renderTabButton("content", "Content", '<svg viewBox="0 0 24 24"><path d="M6 7h12v2H6zm0 4h12v2H6zm0 4h8v2H6z" fill="currentColor"/></svg>', panel === "content")}
+      ${renderTabButton("transitions", "Transitions", '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>', panel === "transitions")}
+      ${renderTabButton("colours", "Colours", '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg>', panel === "colours")}
     </div>
     <div class="ce-panels">
-      <div class="ce-panel ${activePanel === "container" ? "ce-panel-active" : ""}" data-panel="container">${renderContainerPanel()}</div>
-      <div class="ce-panel ${activePanel === "typography" ? "ce-panel-active" : ""}" data-panel="typography">${renderTypographyPanel()}</div>
-      <div class="ce-panel ${activePanel === "art" ? "ce-panel-active" : ""}" data-panel="art">${renderArtPanel()}</div>
-      <div class="ce-panel ${activePanel === "content" ? "ce-panel-active" : ""}" data-panel="content">${renderContentPanel()}</div>
-      <div class="ce-panel ${activePanel === "colours" ? "ce-panel-active" : ""}" data-panel="colours">${renderColoursPanel()}</div>
+      <div class="ce-panel ${panel === "container" ? "ce-panel-active" : ""}" data-panel="container">${renderContainerPanel()}</div>
+      <div class="ce-panel ${panel === "typography" ? "ce-panel-active" : ""}" data-panel="typography">${renderTypographyPanel()}</div>
+      <div class="ce-panel ${panel === "art" ? "ce-panel-active" : ""}" data-panel="art">${renderArtPanel()}</div>
+      <div class="ce-panel ${panel === "content" ? "ce-panel-active" : ""}" data-panel="content">${renderContentPanel()}</div>
+      <div class="ce-panel ${panel === "transitions" ? "ce-panel-active" : ""}" data-panel="transitions">${renderTransitionsPanel()}</div>
+      <div class="ce-panel ${panel === "colours" ? "ce-panel-active" : ""}" data-panel="colours">${renderColoursPanel()}</div>
     </div>
   </div>`;
   if (!activeColorKey) {
@@ -588,6 +642,7 @@ function resetCustomState(containerEl) {
   const seed = LAYOUT_SEEDS[activeSeedLayout] || {};
   customState = { ...CUSTOM_DEFAULTS, ...seed, maxCardWidth: seed.cardWidth || CUSTOM_DEFAULTS.maxCardWidth };
   activeColorKey = pickDefaultActiveColorKey();
+  activeEditorPanel = "container";
   saveCustomState();
   renderEditor(containerEl, "container");
   if (onChangeCallback) onChangeCallback(customState);
@@ -689,10 +744,34 @@ function attachListeners(containerEl) {
   containerEl.querySelectorAll(".ce-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       const target = tab.dataset.tab;
+      if (target) {
+        activeEditorPanel = target;
+      }
       containerEl.querySelectorAll(".ce-tab").forEach((t) => t.classList.toggle("ce-tab-active", t === tab));
       containerEl
         .querySelectorAll(".ce-panel")
         .forEach((p) => p.classList.toggle("ce-panel-active", p.dataset.panel === target));
+    });
+  });
+
+  containerEl.querySelectorAll("[data-cfg-patch-key][data-cfg-patch-value]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.cfgPatchKey;
+      const value = btn.dataset.cfgPatchValue;
+      if (!key || value === undefined) return;
+      applyConfiguratorPatch({ [key]: value });
+    });
+  });
+
+  containerEl.querySelectorAll('input[type="range"][data-cfg-patch-slider]').forEach((input) => {
+    input.addEventListener("input", () => {
+      const key = input.dataset.cfgPatchSlider;
+      if (!key) return;
+      updateSliderLabel(input);
+      window.clearTimeout(cfgPatchSliderTimers[key]);
+      cfgPatchSliderTimers[key] = window.setTimeout(() => {
+        applyConfiguratorPatch({ [key]: Number(input.value) });
+      }, 200);
     });
   });
 
@@ -844,7 +923,12 @@ function formatSliderValue(key, value, unit) {
 function updateSliderLabel(input) {
   const valueEl = input.closest(".ce-slider-right")?.querySelector(".ce-slider-value");
   if (!valueEl) return;
-  valueEl.textContent = formatSliderValue(input.dataset.customKey, input.value, input.dataset.unit || "");
+  const unit = input.dataset.unit || "";
+  if (input.dataset.cfgPatchSlider) {
+    valueEl.textContent = `${input.value}${unit}`;
+    return;
+  }
+  valueEl.textContent = formatSliderValue(input.dataset.customKey, input.value, unit);
 }
 
 function setupColorWheel(containerEl) {
