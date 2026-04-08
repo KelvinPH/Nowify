@@ -2053,6 +2053,21 @@ function renderHeaderDynamic() {
 
   addButton("btn-setup", "Setup", "cfg-nav-btn", () => openSetupWizard());
   addButton("btn-presets", "Presets", "cfg-nav-btn", () => openPresetsModal());
+  addButton("btn-clear-cache", "Clear cache", "cfg-nav-btn cfg-nav-btn--danger", () => {
+    const ok = window.confirm(
+      "Are you sure? Everything will go back to default and your saved Nowify settings will be removed."
+    );
+    if (!ok) return;
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("nowify_")) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((key) => localStorage.removeItem(key));
+    window.location.reload();
+  });
 }
 
 let obsGuideEscCleanup = null;
