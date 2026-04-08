@@ -585,6 +585,28 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   line-height: 1.5; min-height: 18px;
 }
 
+.cfg-layout-unique-btn {
+  margin-top: 8px;
+  width: 100%;
+  height: 30px;
+  border-radius: 8px;
+  border: 0.5px solid rgba(48, 209, 88, 0.34);
+  background: rgba(48, 209, 88, 0.08);
+  color: #c8f7d8;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.cfg-layout-unique-btn:hover {
+  background: rgba(48, 209, 88, 0.14);
+  border-color: rgba(48, 209, 88, 0.5);
+  color: #e6fff0;
+}
+
 .cfg-theme-grid {
   display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
 }
@@ -696,6 +718,104 @@ body { background: var(--cfg-bg); color: var(--cfg-text);
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.cfg-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.cfg-preset-btn {
+  text-align: left;
+  background: var(--cfg-bg);
+  border: 0.5px solid var(--cfg-border2);
+  border-radius: 8px;
+  color: var(--cfg-text);
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cfg-preset-btn:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: var(--cfg-surface2);
+}
+
+.cfg-preset-name {
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.2;
+}
+
+.cfg-preset-desc {
+  font-size: 11px;
+  color: var(--cfg-muted);
+  line-height: 1.4;
+}
+
+.cfg-preset-btn[data-preset="vinyl"] .cfg-preset-name::before {
+  content: "⬤ ";
+  font-size: 8px;
+  color: #8B4513;
+  vertical-align: middle;
+}
+
+.cfg-preset-btn[data-preset="terminal"] .cfg-preset-name::before {
+  content: "⬤ ";
+  font-size: 8px;
+  color: #30d158;
+  vertical-align: middle;
+}
+
+.cfg-preset-btn[data-preset="cassette"] .cfg-preset-name::before,
+.cfg-preset-btn[data-preset="cassette-mix"] .cfg-preset-name::before {
+  content: "⬤ ";
+  font-size: 8px;
+  color: #d4a15a;
+  vertical-align: middle;
+}
+
+.cfg-preset-btn[data-preset="gameboy"] .cfg-preset-name::before {
+  content: "⬤ ";
+  font-size: 8px;
+  color: #8bac0f;
+  vertical-align: middle;
+  display: inline-block;
+  line-height: 1;
+}
+
+.cfg-preset-btn[data-preset="hud"] .cfg-preset-name::before {
+  content: "⬤ ";
+  font-size: 8px;
+  color: #58a6ff;
+  vertical-align: middle;
+  display: inline-block;
+  line-height: 1;
+}
+
+.cfg-preset-btn[data-preset="stickynote"] .cfg-preset-name::before {
+  content: "⬤ ";
+  font-size: 8px;
+  color: #ffd60a;
+  vertical-align: middle;
+  display: inline-block;
+  line-height: 1;
+}
+
+.cfg-preset-btn[data-preset="spotifycard"] .cfg-preset-name::before {
+  content: "⬤ ";
+  font-size: 8px;
+  color: #1db954;
+  vertical-align: middle;
+  display: inline-block;
+  line-height: 1;
 }
 
 .cfg-presets-row {

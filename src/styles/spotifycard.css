@@ -1,0 +1,164 @@
+:root {
+  --sc-green: #1db954;
+  --sc-green-dark: #158a3e;
+  --sc-white: #ffffff;
+  --sc-muted: rgba(255, 255, 255, 0.6);
+  --sc-dim: rgba(255, 255, 255, 0.4);
+}
+
+.sc-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+  border-radius: 0;
+  font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+.sc-bg {
+  position: absolute;
+  inset: -20px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(24px) saturate(120%) brightness(0.4);
+  transition: opacity 0.3s ease;
+  z-index: 0;
+}
+
+.sc-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1;
+}
+
+.sc-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  height: calc(100% - 60px);
+  padding: 20px 24px 14px;
+  gap: 20px;
+}
+
+.sc-art-wrap {
+  flex-shrink: 0;
+  width: 90px;
+  height: 90px;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.sc-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sc-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sc-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--sc-white);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+}
+
+.sc-artist {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--sc-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sc-album {
+  font-size: 12px;
+  color: var(--sc-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.sc-brand {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.sc-spotify-icon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sc-logo {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  object-fit: contain;
+  display: block;
+}
+
+.sc-spotify-text {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--sc-white);
+  letter-spacing: -0.2px;
+}
+
+.sc-listen {
+  font-size: 10px;
+  color: var(--sc-dim);
+  letter-spacing: 0.02em;
+  text-align: right;
+}
+
+.sc-progress-wrap {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  z-index: 3;
+}
+
+.sc-progress-fill {
+  height: 100%;
+  background: var(--sc-green);
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+.sc-times {
+  position: absolute;
+  bottom: 18px;
+  left: 24px;
+  right: 24px;
+  display: flex;
+  justify-content: flex-end;
+  font-size: 10px;
+  color: var(--sc-dim);
+  font-variant-numeric: tabular-nums;
+  z-index: 3;
+  pointer-events: none;
+}

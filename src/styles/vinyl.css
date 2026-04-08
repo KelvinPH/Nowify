@@ -1,0 +1,228 @@
+:root {
+  --vl-record-size:   220px;
+  --vl-label-size:    80px;
+  --vl-record-color:  #1a1a1a;
+  --vl-groove-color:  rgba(255,255,255,0.04);
+  --vl-label-color:   #2a2020;
+  --vl-spin-speed:    2.8s;
+  --vl-arm-rest:      -30deg;
+  --vl-arm-playing:   -5deg;
+}
+
+.vl-wrap {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 16px;
+  width: 100%;
+  height: 100%;
+}
+
+.vl-table {
+  position: relative;
+  width: var(--vl-record-size);
+  height: var(--vl-record-size);
+  flex-shrink: 0;
+}
+
+.vl-platter-shadow {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(255,255,255,0.03),
+    rgba(0,0,0,0.4)
+  );
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6),
+              inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.vl-record {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--vl-record-color);
+  animation: vl-spin var(--vl-spin-speed) linear infinite;
+  animation-play-state: paused;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.06),
+    inset 0 0 0 1px rgba(255,255,255,0.03);
+}
+
+@keyframes vl-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.vl-grooves {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(
+      circle at center,
+      transparent 0px,
+      transparent 3px,
+      var(--vl-groove-color) 3px,
+      var(--vl-groove-color) 4px
+    );
+}
+
+.vl-label {
+  position: absolute;
+  width: var(--vl-label-size);
+  height: var(--vl-label-size);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--vl-label-color);
+  overflow: hidden;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.08);
+}
+
+.vl-label-art {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.85;
+  transition: opacity 0.4s ease;
+}
+
+.vl-label-hole {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #0f0f0f;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.1);
+  z-index: 2;
+}
+
+.vl-tonearm-wrap {
+  position: absolute;
+  top: -8px;
+  right: -16px;
+  width: 100px;
+  height: 100px;
+  transform-origin: 14px 14px;
+  transform: rotate(var(--vl-arm-rest));
+  transition: transform 0.8s ease;
+  z-index: 10;
+}
+
+.vl-tonearm-wrap.vl-arm-playing {
+  transform: rotate(var(--vl-arm-playing));
+}
+
+.vl-tonearm-pivot {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 40% 35%,
+    #888, #333
+  );
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  z-index: 2;
+}
+
+.vl-tonearm-arm {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 3px;
+  height: 72px;
+  background: linear-gradient(
+    to bottom,
+    #aaa 0%, #666 100%
+  );
+  border-radius: 2px;
+  transform-origin: top center;
+  transform: rotate(10deg);
+}
+
+.vl-tonearm-head {
+  position: absolute;
+  bottom: -6px;
+  left: -4px;
+  width: 10px;
+  height: 8px;
+  background: #555;
+  border-radius: 2px;
+}
+
+.vl-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.vl-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--nw-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--nw-font);
+}
+
+.vl-artist {
+  font-size: 13px;
+  color: var(--nw-text-muted);
+  font-family: var(--nw-font);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vl-progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.vl-progress-bar {
+  width: 100%;
+  height: 3px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.vl-progress-fill {
+  height: 100%;
+  background: var(--nw-accent);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+.vl-times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--nw-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--nw-font);
+}
+
+.vl-meta {
+  font-size: 11px;
+  color: var(--nw-text-muted);
+  font-family: var(--nw-font);
+  opacity: 0.6;
+}

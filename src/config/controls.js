@@ -9,6 +9,8 @@ const DEFAULT_STATE = {
   showProgress: true,
   showTimeLeft: false,
   showNextTrack: false,
+  cassetteStyle: "classic",
+  gameboyArt: false,
   /** Spotify queue label: "always" = every poll; "perSong" = hold last title until track changes */
   nextTrackMode: "always",
   showBpm: false,
@@ -171,6 +173,13 @@ const LAYOUT_LABELS = {
   strip: "Strip",
   albumfocus: "Album",
   sidebar: "Side",
+  vinyl: "Vinyl",
+  terminal: "Terminal",
+  cassette: "Cassette",
+  gameboy: "Game Boy",
+  hud: "HUD",
+  stickynote: "Sticky Note",
+  spotifycard: "Spotify Card",
   custom: "Custom",
 };
 
@@ -181,6 +190,13 @@ const LAYOUT_HINTS_SHORT = {
   strip: "Thin bottom bar",
   albumfocus: "Art-first layout",
   sidebar: "Fixed column",
+  vinyl: "Turntable player preset",
+  terminal: "Retro CLI preset",
+  cassette: "Tape deck preset",
+  gameboy: "Retro handheld preset",
+  hud: "Fighter HUD preset",
+  stickynote: "Pinned note preset",
+  spotifycard: "Social share card preset",
   custom: "Full custom editor",
 };
 
@@ -193,6 +209,13 @@ const LAYOUT_TOOLTIPS = {
   strip: "Very thin horizontal bar.",
   albumfocus: "Large art-first layout for music-focused scenes.",
   sidebar: "Vertical strip for side-mounted scenes.",
+  vinyl: "Turntable scene with spinning disc and tonearm.",
+  terminal: "Retro command-line interface with scan lines.",
+  cassette: "Compact cassette with animated reels.",
+  gameboy: "Game Boy Color style handheld console.",
+  hud: "Heads-up display with targeting reticle.",
+  stickynote: "Handwritten note with pin.",
+  spotifycard: "Spotify social share card style.",
   custom: "Full visual editor for colors, sizing, and advanced layout.",
 };
 
@@ -242,6 +265,13 @@ const LAYOUT_OPTIONS = {
   strip: { showProgress: false, showBpm: false, transparent: true, moodSync: false },
   albumfocus: { showProgress: false, showBpm: true, transparent: true, moodSync: true },
   sidebar: { showProgress: true, showBpm: false, transparent: true, moodSync: true },
+  vinyl: { showProgress: true, showBpm: true, transparent: true, moodSync: true },
+  terminal: { showProgress: true, showBpm: true, transparent: false, moodSync: false },
+  cassette: { showProgress: true, showBpm: false, transparent: false, moodSync: false },
+  gameboy: { showProgress: true, showBpm: true, transparent: false, moodSync: false },
+  hud: { showProgress: true, showBpm: true, transparent: true, moodSync: false },
+  stickynote: { showProgress: true, showBpm: false, transparent: true, moodSync: false },
+  spotifycard: { showProgress: true, showBpm: false, transparent: false, moodSync: false },
   custom: { showProgress: true, showBpm: true, transparent: true, moodSync: true },
 };
 
@@ -277,6 +307,18 @@ const LAYOUT_CONTENT = {
     stackDir: false, artPosition: false,
   },
 };
+
+function isUniqueLayout(layout) {
+  return (
+    layout === "vinyl" ||
+    layout === "terminal" ||
+    layout === "cassette" ||
+    layout === "gameboy" ||
+    layout === "hud" ||
+    layout === "stickynote" ||
+    layout === "spotifycard"
+  );
+}
 
 /** Turn off overlay toggles the current layout does not support (sidebar UI hides them but URL/state could still be on). */
 function applyLayoutOverlayConstraints(layout) {
@@ -981,16 +1023,14 @@ function renderQueueConfig() {
   });
 
   document.getElementById("btn-copy-queue")?.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(buildQueueFinalUrl(state));
-      const btn = document.getElementById("btn-copy-queue");
-      if (!btn) return;
-      const prev = btn.textContent;
-      btn.textContent = "Copied!";
-      window.setTimeout(() => {
-        btn.textContent = prev;
-      }, 1200);
-    } catch (_e) {}
+    const ok = await copyText(buildQueueFinalUrl(state));
+    const btn = document.getElementById("btn-copy-queue");
+    if (!btn) return;
+    const prev = btn.textContent;
+    btn.textContent = ok ? "Copied!" : "Copy failed";
+    window.setTimeout(() => {
+      btn.textContent = prev;
+    }, 1200);
   });
 }
 
@@ -1203,7 +1243,15 @@ function renderLayoutContent(layoutOptions) {
     .join("");
   const hint = LAYOUT_HINTS_SHORT[state.layout] || "";
   return `<div class="cfg-layout-grid">${grid}</div>
-    <div class="cfg-layout-hint cfg-layout-hint-short">${hint}</div>`;
+    <div class="cfg-layout-hint cfg-layout-hint-short">${hint}</div>
+    <button
+      type="button"
+      class="cfg-layout-unique-btn"
+      id="btn-layout-unique-presets"
+      data-cfg-tip="${escAttr("Showcase-only layouts that are not reproducible in the custom editor.")}"
+    >
+      Unique presets
+    </button>`;
 }
 
 function renderThemeContent(themeOptions) {
@@ -1219,6 +1267,18 @@ function renderThemeContent(themeOptions) {
 }
 
 function renderContentContent() {
+  if (isUniqueLayout(state.layout)) {
+    const rows = [];
+    if (state.layout === "terminal") {
+      rows.push(compactToggle("Next track", "showNextTrack", true, "", TOGGLE_KEY_TIPS.showNextTrack));
+    }
+    if (state.layout === "gameboy") {
+      rows.push(compactToggle("Album art", "gameboyArt", true, "Pixelated art on screen"));
+    }
+    rows.push(compactToggle("Idle message", "showIdleMessage", true, "", TOGGLE_KEY_TIPS.showIdleMessage));
+    return rows.join("");
+  }
+
   const lc = LAYOUT_CONTENT[state.layout];
   const isCustom = state.layout === "custom";
   const rows = [];
@@ -1279,6 +1339,33 @@ function renderContentContent() {
 }
 
 function renderVisualsContent() {
+  if (isUniqueLayout(state.layout)) {
+    if (state.layout !== "vinyl") {
+      return "";
+    }
+    const parts = [];
+    parts.push(
+      compactToggle(
+        "Transparent background",
+        "transparent",
+        true,
+        "",
+        TOGGLE_KEY_TIPS.transparent
+      )
+    );
+    if (state.source === "songify") {
+      parts.push(
+        compactToggle(
+          "Mood sync",
+          "moodSync",
+          true,
+          "",
+          TOGGLE_KEY_TIPS.moodSync
+        )
+      );
+    }
+    return parts.join("");
+  }
   const parts = [];
   if (state.source === "spotify") {
     parts.push(compactToggle("Mood sync", "moodSync", true, "", TOGGLE_KEY_TIPS.moodSync));
@@ -1335,6 +1422,16 @@ function renderVisualsContent() {
 }
 
 function renderStyleContent() {
+  if (isUniqueLayout(state.layout)) {
+    if (state.layout === "cassette") {
+      return `<div class="cfg-sub-label">Label style</div>
+      <div class="cfg-btn-group">
+        <button class="cfg-btn cfg-sm-btn ${state.cassetteStyle === "classic" ? "cfg-active" : ""}" data-set-key="cassetteStyle" data-set-value="classic">Classic</button>
+        <button class="cfg-btn cfg-sm-btn ${state.cassetteStyle === "mixtape" ? "cfg-active" : ""}" data-set-key="cassetteStyle" data-set-value="mixtape">Mixtape</button>
+      </div>`;
+    }
+    return "";
+  }
   return `<button type="button" class="cfg-btn cfg-sm-btn cfg-btn-secondary cfg-open-custom-editor" id="btn-open-custom-editor" data-cfg-tip="${escAttr("Switch to custom layout with the full visual editor.")}">Open custom editor</button>`;
 }
 
@@ -1610,23 +1707,47 @@ function renderSidebar() {
   }
   sidebar.classList.remove("cfg-queue-sidebar-mode");
   const scrollTop = sidebar.scrollTop;
-  const layoutOptions = ["glasscard", "pill", "island", "strip", "albumfocus", "sidebar", "custom"];
+  const layoutOptions = [
+    "glasscard",
+    "pill",
+    "island",
+    "strip",
+    "albumfocus",
+    "sidebar",
+    "custom",
+  ];
   const themeOptions = ["obsidian", "midnight", "aurora", "forest", "amber", "glass"];
 
+  const uniqueLayout = isUniqueLayout(state.layout);
   const twitchBlock =
     state.source !== "songify"
       ? renderSection("twitch", "Twitch", renderTwitchContent())
       : "";
 
-  sidebar.innerHTML = `
-    ${renderSection("source", "Source", renderSourceContent())}
-    ${renderSection("layout", "Layout", renderLayoutContent(layoutOptions))}
-    ${renderSection("theme", "Theme", renderThemeContent(themeOptions))}
-    ${renderSection("content", "Content", renderContentContent())}
-    ${renderSection("visuals", "Visuals", renderVisualsContent())}
-    ${renderSection("style", "Style", renderStyleContent())}
-    ${twitchBlock}
-  `;
+  if (uniqueLayout) {
+    const uniqueContent = renderContentContent();
+    const uniqueVisuals = renderVisualsContent();
+    const uniqueStyle = renderStyleContent();
+    const showThemeSection = state.layout !== "spotifycard";
+    sidebar.innerHTML = `
+      ${renderSection("source", "Source", renderSourceContent())}
+      ${renderSection("layout", "Layout", renderLayoutContent(layoutOptions))}
+      ${showThemeSection ? renderSection("theme", "Theme", renderThemeContent(themeOptions)) : ""}
+      ${uniqueContent ? renderSection("content", "Content", uniqueContent) : ""}
+      ${uniqueVisuals ? renderSection("visuals", "Visuals", uniqueVisuals) : ""}
+      ${uniqueStyle ? renderSection("style", "Style", uniqueStyle) : ""}
+    `;
+  } else {
+    sidebar.innerHTML = `
+      ${renderSection("source", "Source", renderSourceContent())}
+      ${renderSection("layout", "Layout", renderLayoutContent(layoutOptions))}
+      ${renderSection("theme", "Theme", renderThemeContent(themeOptions))}
+      ${renderSection("content", "Content", renderContentContent())}
+      ${renderSection("visuals", "Visuals", renderVisualsContent())}
+      ${renderSection("style", "Style", renderStyleContent())}
+      ${twitchBlock}
+    `;
+  }
 
   sidebar.querySelectorAll("[data-toggle-section]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1709,6 +1830,12 @@ function renderSidebar() {
   const openCustomEditor = document.getElementById("btn-open-custom-editor");
   if (openCustomEditor) {
     openCustomEditor.addEventListener("click", () => update({ layout: "custom" }));
+  }
+  const openUniquePresets = document.getElementById("btn-layout-unique-presets");
+  if (openUniquePresets) {
+    openUniquePresets.addEventListener("click", () => {
+      openPresetsModal({ uniqueOnly: true });
+    });
   }
 
   const animSpeedInput = document.getElementById("ctrl-anim-bg-speed");
@@ -1980,6 +2107,11 @@ function openObsGuideModal() {
           <li><strong>Album focus</strong> — fixed width (~168px content + padding); about <strong>210 × 280</strong> px in OBS.</li>
           <li>If the overlay looks clipped, raise width/height in OBS or reduce <strong>Max card width</strong> in the sidebar so it fits.</li>
         </ul>
+        ${
+          state.layout === "spotifycard"
+            ? `<p class="cfg-obs-p"><strong>Spotify Card preset:</strong> Recommended size is <strong>900 × 394 px</strong>. It has no border radius and is designed to fill the entire browser source.</p>`
+            : ""
+        }
       </div>
       <div class="cfg-obs-section">
         <h3 class="cfg-obs-h3">OBS browser settings</h3>
@@ -2018,8 +2150,8 @@ function openObsGuideModal() {
   document.getElementById("cfg-obs-copy-url")?.addEventListener("click", async () => {
     const field = document.getElementById("cfg-obs-url-field");
     const t = field?.value || url;
-    try {
-      await navigator.clipboard.writeText(t);
+    const ok = await copyText(t);
+    if (ok) {
       const btn = document.getElementById("cfg-obs-copy-url");
       if (btn) {
         const prev = btn.textContent;
@@ -2028,7 +2160,7 @@ function openObsGuideModal() {
           btn.textContent = prev;
         }, 1200);
       }
-    } catch (_e) {
+    } else {
       field?.select();
     }
   });
@@ -2145,23 +2277,135 @@ async function renderPublicPresetList() {
   }
 }
 
-async function openPresetsModal() {
+async function openPresetsModal(options = {}) {
+  const uniqueOnly = Boolean(options.uniqueOnly);
   closePresetsModal();
   const shell = document.getElementById("cfg-shell");
   if (!shell) return;
+  const quickPresets = [
+    {
+      name: "vinyl",
+      label: "Vinyl",
+      desc: "Record player with spinning disc",
+      state: {
+        layout: "vinyl",
+        theme: "obsidian",
+        transparent: false,
+      },
+    },
+    {
+      name: "terminal",
+      label: "Terminal",
+      desc: "Command line interface style",
+      state: {
+        layout: "terminal",
+        theme: "forest",
+        transparent: false,
+        msgOpacity: 100,
+        msgRadius: 4,
+      },
+    },
+    {
+      name: "cassette",
+      label: "Cassette",
+      desc: "Tape deck with spinning reels",
+      state: {
+        layout: "cassette",
+        theme: "amber",
+        transparent: false,
+        cassetteStyle: "classic",
+      },
+    },
+    {
+      name: "cassette-mix",
+      label: "Mixtape",
+      desc: "Handwritten cassette label",
+      state: {
+        layout: "cassette",
+        theme: "midnight",
+        transparent: false,
+        cassetteStyle: "mixtape",
+      },
+    },
+    {
+      name: "gameboy",
+      label: "Game Boy",
+      desc: "GBC handheld console",
+      state: {
+        layout: "gameboy",
+        theme: "forest",
+        transparent: false,
+        gameboyArt: false,
+      },
+    },
+    {
+      name: "hud",
+      label: "HUD",
+      desc: "Heads-up display with targeting reticle",
+      state: {
+        layout: "hud",
+        theme: "forest",
+        transparent: false,
+      },
+    },
+    {
+      name: "stickynote",
+      label: "Sticky Note",
+      desc: "Handwritten note with pin",
+      state: {
+        layout: "stickynote",
+        theme: "amber",
+        transparent: true,
+      },
+    },
+    {
+      name: "spotifycard",
+      label: "Spotify Card",
+      desc: "Social share card style",
+      state: {
+        layout: "spotifycard",
+        theme: "obsidian",
+        transparent: false,
+      },
+    },
+  ];
   const modal = document.createElement("div");
   modal.id = "cfg-presets-modal";
   modal.className = "cfg-presets-modal";
-  modal.innerHTML = `
-    <div class="cfg-presets-dialog">
-      <div class="cfg-presets-header">
-        <div class="cfg-presets-title">Presets</div>
-        <button class="cfg-btn" id="cfg-presets-close">Close</button>
+  const bodySections = uniqueOnly
+    ? `<div class="cfg-presets-section-label">Unique presets</div>
+      <div class="cfg-preset-grid" id="cfg-presets-quick">
+        ${quickPresets
+          .map(
+            (p) => `<button class="cfg-preset-btn" data-preset="${escCfg(p.name)}">
+              <span class="cfg-preset-name">${p.label}</span>
+              <span class="cfg-preset-desc">${p.desc}</span>
+            </button>`
+          )
+          .join("")}
+      </div>`
+    : `<div class="cfg-presets-section-label">Unique presets</div>
+      <div class="cfg-preset-grid" id="cfg-presets-quick">
+        ${quickPresets
+          .map(
+            (p) => `<button class="cfg-preset-btn" data-preset="${escCfg(p.name)}">
+              <span class="cfg-preset-name">${p.label}</span>
+              <span class="cfg-preset-desc">${p.desc}</span>
+            </button>`
+          )
+          .join("")}
       </div>
       <div class="cfg-presets-section-label">Saved presets</div>
       <div class="cfg-presets-list" id="cfg-presets-local"></div>
       <div class="cfg-presets-section-label">Public presets</div>
-      <div class="cfg-presets-list" id="cfg-presets-public"></div>
+      <div class="cfg-presets-list" id="cfg-presets-public"></div>`;
+  modal.innerHTML = `
+    <div class="cfg-presets-dialog">
+      <div class="cfg-presets-header">
+        <div class="cfg-presets-title">${uniqueOnly ? "Unique presets" : "Presets"}</div>
+        <button class="cfg-btn" id="cfg-presets-close">Close</button>
+      </div>
+      ${bodySections}
     </div>
   `;
   shell.appendChild(modal);
@@ -2170,8 +2414,19 @@ async function openPresetsModal() {
   });
   const closeBtn = document.getElementById("cfg-presets-close");
   if (closeBtn) closeBtn.addEventListener("click", () => closePresetsModal());
-  renderLocalPresetList();
-  await renderPublicPresetList();
+  modal.querySelectorAll("[data-preset]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const presetName = btn.getAttribute("data-preset");
+      const preset = quickPresets.find((item) => item.name === presetName);
+      if (!preset) return;
+      update({ ...preset.state });
+      closePresetsModal();
+    });
+  });
+  if (!uniqueOnly) {
+    renderLocalPresetList();
+    await renderPublicPresetList();
+  }
 }
 
 function updateCustomPreview(customState) {
@@ -2215,6 +2470,34 @@ function showCfgToast(message) {
   }, 3200);
 }
 
+async function copyText(text) {
+  const value = String(text || "");
+  if (!value) return false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch (_error) {}
+
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = value;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    ta.style.pointerEvents = "none";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return Boolean(ok);
+  } catch (_error) {
+    return false;
+  }
+}
+
 /** Merges state updates and refreshes preview URL and sidebar UI. */
 function update(newState) {
   const prevLayout = state.layout;
@@ -2255,7 +2538,9 @@ function update(newState) {
   if (state.source === "songify") {
     state.clientId = "";
     state.showBpm = false;
-    state.moodSync = false;
+    if (state.layout !== "vinyl") {
+      state.moodSync = false;
+    }
     if (state.layout !== "custom") {
       state.animBgEnabled = false;
     }
@@ -2276,7 +2561,9 @@ function update(newState) {
   }
   if (state.source === "songify") {
     state.showBpm = false;
-    state.moodSync = false;
+    if (state.layout !== "vinyl") {
+      state.moodSync = false;
+    }
   }
 
   // Animated background (non-custom) uses mood-derived colors; turn mood sync on with Spotify.
@@ -2364,9 +2651,9 @@ export function initConfig() {
           queueDisp ||
           overlayDisp ||
           (queueConfigOpen ? buildQueueFinalUrl(state) : buildOverlayUrl(state));
-        await navigator.clipboard.writeText(activeUrl);
         const previousText = copyButton.textContent;
-        copyButton.textContent = "Copied!";
+        const ok = await copyText(activeUrl);
+        copyButton.textContent = ok ? "Copied!" : "Copy failed";
         window.setTimeout(() => {
           copyButton.textContent = previousText;
         }, 1000);

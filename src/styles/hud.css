@@ -1,0 +1,284 @@
+:root {
+  --hud-color: rgba(48, 209, 88, 0.9);
+  --hud-dim: rgba(48, 209, 88, 0.35);
+  --hud-bg: rgba(0, 0, 0, 0.75);
+  --hud-font: "SF Mono", "Fira Code", "Consolas", monospace;
+}
+
+.hud-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--hud-bg);
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: var(--nw-radius, 12px);
+}
+
+.hud-scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(0, 0, 0, 0.08) 3px,
+    rgba(0, 0, 0, 0.08) 4px
+  );
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0.5;
+}
+
+.hud-corner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-color: var(--hud-color);
+  border-style: solid;
+  z-index: 5;
+}
+
+.hud-tl {
+  top: 8px;
+  left: 8px;
+  border-width: 2px 0 0 2px;
+}
+.hud-tr {
+  top: 8px;
+  right: 8px;
+  border-width: 2px 2px 0 0;
+}
+.hud-bl {
+  bottom: 8px;
+  left: 8px;
+  border-width: 0 0 2px 2px;
+}
+.hud-br {
+  bottom: 8px;
+  right: 8px;
+  border-width: 0 2px 2px 0;
+}
+
+.hud-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+}
+
+.hud-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hud-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hud-readout-label {
+  font-family: var(--hud-font);
+  font-size: 8px;
+  font-weight: 600;
+  color: var(--hud-dim);
+  letter-spacing: 0.12em;
+}
+
+.hud-readout-val {
+  font-family: var(--hud-font);
+  font-size: 10px;
+  color: var(--hud-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.05em;
+}
+
+.hud-dim {
+  opacity: 0.45;
+}
+
+.hud-center {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-reticle {
+  position: relative;
+  width: 100px;
+  height: 100px;
+}
+
+.hud-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid var(--hud-color);
+}
+
+.hud-ring-outer {
+  inset: 0;
+  opacity: 0.6;
+}
+
+.hud-ring-inner {
+  inset: 14px;
+  opacity: 0.4;
+}
+
+.hud-cross {
+  position: absolute;
+  background: var(--hud-color);
+  opacity: 0.4;
+}
+
+.hud-cross-h {
+  width: 100%;
+  height: 1px;
+  top: 50%;
+  left: 0;
+}
+
+.hud-cross-v {
+  width: 1px;
+  height: 100%;
+  left: 50%;
+  top: 0;
+}
+
+.hud-art {
+  position: absolute;
+  inset: 16px;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.7;
+}
+
+.hud-sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 340deg,
+    var(--hud-color) 355deg,
+    transparent 360deg
+  );
+  opacity: 0.3;
+  animation: hud-sweep-rotate 3s linear infinite;
+  animation-play-state: paused;
+}
+
+.hud-playing .hud-sweep {
+  animation-play-state: running;
+}
+
+@keyframes hud-sweep-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.hud-lock {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--hud-font);
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--hud-color);
+  letter-spacing: 0.15em;
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 2;
+}
+
+.hud-lock-visible {
+  opacity: 1;
+}
+
+.hud-gauge {
+  flex-shrink: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--hud-dim);
+}
+
+.hud-gauge-label {
+  font-family: var(--hud-font);
+  font-size: 8px;
+  color: var(--hud-dim);
+  letter-spacing: 0.12em;
+  margin-bottom: 4px;
+}
+
+.hud-gauge-track {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--hud-dim);
+  border-radius: 1px;
+  overflow: visible;
+  margin-bottom: 4px;
+}
+
+.hud-gauge-fill {
+  height: 100%;
+  background: var(--hud-color);
+  transition: width 0.1s linear;
+  box-shadow: 0 0 6px var(--hud-color);
+}
+
+.hud-gauge-markers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hud-gauge-marker {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  top: -2px;
+}
+
+.hud-marker-tick {
+  width: 1px;
+  height: 10px;
+  background: var(--hud-dim);
+}
+
+.hud-marker-label {
+  font-family: var(--hud-font);
+  font-size: 7px;
+  color: var(--hud-dim);
+  margin-top: 2px;
+}
+
+.hud-times {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--hud-font);
+  font-size: 9px;
+  color: var(--hud-dim);
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}

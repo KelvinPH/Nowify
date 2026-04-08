@@ -8,7 +8,6 @@ import {
 } from "../auth/spotify.js";
 import { LAYOUTS, escHtml, fmtTime } from "./layouts.js";
 import { bindOverflowMarquees, disconnectOverflowMarquees } from "./overflow-marquee.js";
-import { initVinyl, setVinylPlaying } from "../visuals/vinyl.js";
 import { applyBeatSync, clearBeatSync } from "../visuals/beatsync.js";
 import { applyMood, clearMood, onMoodColorsUpdated } from "../visuals/mood.js";
 import { removeAllArtBackdrops, syncArtBackdrop } from "../visuals/art-backdrop.js";
@@ -29,6 +28,8 @@ const blockedAudioFeaturesTrackIds = new Set();
 const audioFeaturesBackfillAttempted = new Set();
 let activeSource = "spotify";
 let sourceErrorMessage = "";
+let activeSpecialLayout = null;
+let activeSpecialPreset = null;
 let lastKnownProgress = {
   progressMs: 0,
   durationMs: 0,
@@ -99,6 +100,88 @@ function toCustomBool(value, fallback = false) {
 function toCustomNumber(value, fallback) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
+}
+
+function isSpecialLayout(layout) {
+  return (
+    layout === "vinyl" ||
+    layout === "terminal" ||
+    layout === "cassette" ||
+    layout === "gameboy" ||
+    layout === "hud" ||
+    layout === "stickynote" ||
+    layout === "spotifycard"
+  );
+}
+
+function ensureStylesheet(href) {
+  if (document.querySelector(`link[data-nowify-style="${href}"]`)) {
+    return;
+  }
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  link.setAttribute("data-nowify-style", href);
+  document.head.appendChild(link);
+}
+
+async function getSpecialPreset(layout) {
+  if (layout === "vinyl") {
+    ensureStylesheet("src/styles/vinyl.css");
+    return import("../layouts/vinyl.js");
+  }
+  if (layout === "terminal") {
+    ensureStylesheet("src/styles/terminal.css");
+    return import("../layouts/terminal.js");
+  }
+  if (layout === "cassette") {
+    ensureStylesheet("src/styles/cassette.css");
+    return import("../layouts/cassette.js");
+  }
+  if (layout === "gameboy") {
+    ensureStylesheet("src/styles/gameboy.css");
+    return import("../layouts/gameboy.js");
+  }
+  if (layout === "hud") {
+    ensureStylesheet("src/styles/hud.css");
+    return import("../layouts/hud.js");
+  }
+  if (layout === "stickynote") {
+    ensureStylesheet("src/styles/stickynote.css");
+    return import("../layouts/stickynote.js");
+  }
+  if (layout === "spotifycard") {
+    ensureStylesheet("src/styles/spotifycard.css");
+    return import("../layouts/spotifycard.js");
+  }
+  return null;
+}
+
+async function switchSpecialPreset(layout) {
+  if (activeSpecialLayout === layout && activeSpecialPreset) {
+    return activeSpecialPreset;
+  }
+  if (activeSpecialPreset?.destroy) {
+    activeSpecialPreset.destroy();
+  }
+  activeSpecialLayout = null;
+  activeSpecialPreset = null;
+  const preset = await getSpecialPreset(layout);
+  if (preset?.init) {
+    preset.init(config);
+    activeSpecialLayout = layout;
+    activeSpecialPreset = preset;
+    return preset;
+  }
+  return null;
+}
+
+function destroySpecialPreset() {
+  if (activeSpecialPreset?.destroy) {
+    activeSpecialPreset.destroy();
+  }
+  activeSpecialLayout = null;
+  activeSpecialPreset = null;
 }
 
 function parseCustomConfig(params) {
@@ -629,6 +712,8 @@ export function parseConfig() {
     showBpm: toBool(params.get("showBpm"), false),
     showTimeLeft: toBool(params.get("showTimeLeft"), false),
     showNextTrack: toBool(params.get("showNextTrack"), false),
+    cassetteStyle: params.get("cassetteStyle") || "classic",
+    gameboyArt: params.get("gameboyArt") === "1",
     nextTrackMode: params.get("nextTrackMode") === "perSong" ? "perSong" : "always",
     showAlbum: toBool(params.get("showAlbum"), false),
     showPlayState: toBool(params.get("showPlayState"), false),
@@ -914,6 +999,16 @@ async function render(track, extras, nextTrack = null, options = {}) {
   if (!skipSession) {
     startTrack(track, extras);
   }
+  if (isSpecialLayout(config.layout)) {
+    const preset = await switchSpecialPreset(config.layout);
+    if (preset?.render) {
+      const trackForPreset = { ...(track || {}), nextTrack: nextTrack || null };
+      preset.render(trackForPreset, extras);
+    }
+    window.dispatchEvent(new CustomEvent("nowify:trackchange", { detail: { track } }));
+    return;
+  }
+  destroySpecialPreset();
   const layoutFn = LAYOUTS[config.layout] || LAYOUTS.glasscard;
   app.innerHTML = layoutFn(track, extras, config);
 
@@ -1029,6 +1124,7 @@ function showIdle() {
     return;
   }
 
+  destroySpecialPreset();
   clearPerSongNextPeek();
   disconnectOverflowMarquees();
 
@@ -1188,6 +1284,10 @@ async function initSongifyCustomOverlay() {
 /** Initializes auth, applies config, and starts overlay polling. */
 export async function init() {
   config = parseConfig();
+  if (isSpecialLayout(config.layout)) {
+    destroySpecialPreset();
+    await switchSpecialPreset(config.layout);
+  }
 
   if (config.source === "songify" && config.layout === "custom") {
     await initSongifyCustomOverlay();
