@@ -1231,7 +1231,8 @@ async function initSongifyStandardOverlay() {
     appBoot.innerHTML = '<div class="nw-idle">Connecting to Songify…</div>';
   }
 
-  const { init: initSongifyWs } = await import("../api/songify.js");
+  const { init: initSongifyWs, sendCommand } = await import("../api/songify.js");
+  window.__songifySendCommand = sendCommand;
 
   initSongifyWs({
     port: config.songifyPort || 4002,
@@ -1378,7 +1379,8 @@ async function initSongifyCustomOverlay() {
     appBoot.innerHTML = '<div class="nw-idle">Connecting to Songify…</div>';
   }
 
-  const { init: initSongifyWs } = await import("../api/songify.js");
+  const { init: initSongifyWs, sendCommand } = await import("../api/songify.js");
+  window.__songifySendCommand = sendCommand;
 
   initSongifyWs({
     port: config.songifyPort || 4002,
