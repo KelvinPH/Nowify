@@ -144,12 +144,6 @@ Open [`stats.html`](./stats.html) after sessions for summaries, mood distributio
 - Spotify access is scoped to what the app needs for now playing and related features
 - Source is open for review
 
-## Self-hosting & contributing
-
-Clone the repository and enable **GitHub Pages** (or any static host) pointing at your branch. See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for Workers and production notes.
-
-Pull requests are welcome for fixes, features, and documentation.
-
 ## Acknowledgements
 
 - [Spotify Web API](https://developer.spotify.com/documentation/web-api)
