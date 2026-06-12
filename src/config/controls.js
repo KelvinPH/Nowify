@@ -392,6 +392,43 @@ let cfgTipEscapeBound = false;
 let cfgToastTimer = null;
 const CUSTOM_PRESETS_KEY = "nowify_custom_presets";
 const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
+const PUBLIC_PRESETS_CACHE_KEY = "nowify_public_presets_v1";
+const PUBLIC_PRESETS_CACHE_MS = 5 * 60 * 1000;
+
+function invalidatePublicPresetsCache() {
+  try {
+    sessionStorage.removeItem(PUBLIC_PRESETS_CACHE_KEY);
+  } catch (_error) {
+    /* ignore */
+  }
+}
+
+function readPublicPresetsCache() {
+  try {
+    const raw = sessionStorage.getItem(PUBLIC_PRESETS_CACHE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed?.at || Date.now() - parsed.at > PUBLIC_PRESETS_CACHE_MS) {
+      return null;
+    }
+    return Array.isArray(parsed.presets) ? parsed.presets : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function writePublicPresetsCache(presets) {
+  try {
+    sessionStorage.setItem(
+      PUBLIC_PRESETS_CACHE_KEY,
+      JSON.stringify({ at: Date.now(), presets })
+    );
+  } catch (_error) {
+    /* ignore */
+  }
+}
 const OWNER_KEY_STORAGE = "nowify_owner_key";
 
 function mergeCommandsIntoDefaults(saved) {
@@ -2109,6 +2146,7 @@ async function publishCustomPresetWithPrompt() {
     console.warn("Nowify: Failed to publish custom preset", res.status);
     return;
   }
+  invalidatePublicPresetsCache();
 }
 
 function openSetupWizard() {
@@ -2350,24 +2388,16 @@ function renderLocalPresetList() {
   });
 }
 
-async function renderPublicPresetList() {
-  const listEl = document.getElementById("cfg-presets-public");
-  if (!listEl) return;
-  listEl.innerHTML = '<div class="cfg-presets-empty">Loading presets...</div>';
-  try {
-    const ownerKey = getOrCreateOwnerKey();
-    const res = await fetch(`${WORKER_BASE_URL}/presets`);
-    if (!res.ok) throw new Error(`status ${res.status}`);
-    const data = await res.json();
-    const presets = (data?.presets || []).filter((p) => p?.customState);
-    if (!presets.length) {
-      listEl.innerHTML = '<div class="cfg-presets-empty">No public presets yet.</div>';
-      return;
-    }
-    listEl.innerHTML = presets
-      .slice(0, 32)
-      .map(
-        (p) => `<div class="cfg-presets-row">
+function paintPublicPresetList(listEl, presets) {
+  const ownerKey = getOrCreateOwnerKey();
+  if (!presets.length) {
+    listEl.innerHTML = '<div class="cfg-presets-empty">No public presets yet.</div>';
+    return;
+  }
+  listEl.innerHTML = presets
+    .slice(0, 32)
+    .map(
+      (p) => `<div class="cfg-presets-row">
           <button class="cfg-presets-item" data-public-idx="${p.id}">
             <span>${p.name || "Untitled"} - by ${p.author || "anonymous"}</span>
           </button>
@@ -2377,31 +2407,50 @@ async function renderPublicPresetList() {
               : ""
           }
         </div>`
-      )
-      .join("");
+    )
+    .join("");
 
-    listEl.querySelectorAll("[data-public-idx]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-public-idx");
-        const selected = presets.find((p) => p.id === id);
-        if (!selected?.customState) return;
-        applyCustomState(selected.customState);
-        closePresetsModal();
-      });
+  listEl.querySelectorAll("[data-public-idx]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-public-idx");
+      const selected = presets.find((p) => p.id === id);
+      if (!selected?.customState) return;
+      applyCustomState(selected.customState);
+      closePresetsModal();
     });
-    listEl.querySelectorAll("[data-public-delete]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        const id = btn.getAttribute("data-public-delete");
-        const ownerKey = getOrCreateOwnerKey();
-        const res = await fetch(`${WORKER_BASE_URL}/presets/${id}`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ownerKey }),
-        });
-        if (!res.ok) return;
-        await renderPublicPresetList();
+  });
+  listEl.querySelectorAll("[data-public-delete]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-public-delete");
+      const ownerKey = getOrCreateOwnerKey();
+      const res = await fetch(`${WORKER_BASE_URL}/presets/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerKey }),
       });
+      if (!res.ok) return;
+      invalidatePublicPresetsCache();
+      await renderPublicPresetList();
     });
+  });
+}
+
+async function renderPublicPresetList() {
+  const listEl = document.getElementById("cfg-presets-public");
+  if (!listEl) return;
+  const cached = readPublicPresetsCache();
+  if (cached) {
+    paintPublicPresetList(listEl, cached);
+    return;
+  }
+  listEl.innerHTML = '<div class="cfg-presets-empty">Loading presets...</div>';
+  try {
+    const res = await fetch(`${WORKER_BASE_URL}/presets`);
+    if (!res.ok) throw new Error(`status ${res.status}`);
+    const data = await res.json();
+    const presets = (data?.presets || []).filter((p) => p?.customState);
+    writePublicPresetsCache(presets);
+    paintPublicPresetList(listEl, presets);
   } catch (_error) {
     listEl.innerHTML = '<div class="cfg-presets-empty">Could not load public presets.</div>';
   }

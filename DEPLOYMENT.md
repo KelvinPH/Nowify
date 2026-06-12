@@ -59,12 +59,17 @@ wrangler deploy
 
 ### 7) Update worker base URL in app
 
-After deploy, copy the Worker URL from Wrangler output and set it in:
+After deploy, copy the Worker URL from Wrangler output and set `WORKER_BASE_URL` in all three files:
+
+- `src/api/lastfm.js` — CORS proxy for Last.fm (polled while the overlay runs)
+- `src/config/controls.js` — public custom presets gallery
+- `src/stats/session.js` — optional cloud history export
 
 ```js
-// src/stats/session.js
 const WORKER_BASE_URL = "https://your-worker.workers.dev";
 ```
+
+**Usage note:** Cloudflare’s free Workers plan allows **100,000 requests/day**. A single Last.fm overlay used to poll every 3 seconds (~28,800 requests/day per browser tab). If you host the public configurator, every visitor’s preview iframe counts too. For heavy Last.fm use, deploy **your own** worker (or upgrade the plan) rather than sharing the default `nowify-workers` deployment.
 
 ## Spotify app setup (detailed)
 

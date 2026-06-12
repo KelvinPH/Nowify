@@ -1,9 +1,13 @@
 const API = "https://ws.audioscrobbler.com/2.0";
 const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
+/** Min gap between worker proxy calls (Last.fm scrobbles are not sub-second). */
+const PROXY_MIN_INTERVAL_MS = 10_000;
 
 let apiKey = "";
 let username = "";
 let lastTrackId = "";
+let lastProxyFetchAt = 0;
+let lastCachedTrack = null;
 
 function getLargestImage(imageArray) {
   if (!Array.isArray(imageArray)) return "";
@@ -29,6 +33,8 @@ export function init({ apiKey: key, username: user }) {
   apiKey = String(key || "");
   username = String(user || "");
   lastTrackId = "";
+  lastProxyFetchAt = 0;
+  lastCachedTrack = null;
   return isConfigured();
 }
 
@@ -40,6 +46,11 @@ export function isConfigured() {
 export async function getNowPlaying() {
   try {
     if (!apiKey || !username) return null;
+
+    const now = Date.now();
+    if (lastCachedTrack !== null && now - lastProxyFetchAt < PROXY_MIN_INTERVAL_MS) {
+      return lastCachedTrack;
+    }
 
     const target = new URL(`${API}/`);
     target.searchParams.set("method", "user.getrecenttracks");
@@ -61,14 +72,18 @@ export async function getNowPlaying() {
     if (!track) return null;
 
     const isNowPlaying = String(track?.["@attr"]?.nowplaying || "") === "true";
-    if (!isNowPlaying) return null;
+    if (!isNowPlaying) {
+      lastProxyFetchAt = now;
+      lastCachedTrack = null;
+      return null;
+    }
 
     const artist = String(track?.artist?.["#text"] || track?.artist || "").trim();
     const title = String(track?.name || "").trim();
     const trackId = normalizeTrackId(artist, title);
     lastTrackId = trackId;
 
-    return {
+    const result = {
       isPlaying: true,
       trackId,
       title,
@@ -80,8 +95,11 @@ export async function getNowPlaying() {
       trackUrl: String(track?.url || ""),
       source: "lastfm",
     };
+    lastProxyFetchAt = now;
+    lastCachedTrack = result;
+    return result;
   } catch (_error) {
-    return null;
+    return lastCachedTrack;
   }
 }
 

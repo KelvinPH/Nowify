@@ -56,7 +56,7 @@ export default {
     if (path.startsWith("/presets/")) return handlePresetDelete(request, env, path);
     if (path === "/youtube/events") return handleYouTubeEvents(request, env);
     if (path === "/youtube/webhook") return handleYouTubeWebhook(request, env, url);
-    if (path === "/proxy") return handleProxy(request, env, url);
+    if (path === "/proxy") return handleProxy(request, env, url, ctx);
 
     return errorResponse("Not found", 404, env);
   },
@@ -468,7 +468,9 @@ async function handleYouTubeWebhook(request, env, url) {
   return errorResponse("Method not allowed", 405, env);
 }
 
-async function handleProxy(request, env, url) {
+const PROXY_CACHE_SECONDS = 10;
+
+async function handleProxy(request, env, url, ctx) {
   if (request.method !== "GET") {
     return errorResponse("Method not allowed", 405, env);
   }
@@ -485,13 +487,27 @@ async function handleProxy(request, env, url) {
     return errorResponse("Domain not allowed", 403, env);
   }
 
+  const cache = caches.default;
+  const cacheKey = new Request(target, { method: "GET" });
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const headers = new Headers(cached.headers);
+    Object.entries(corsHeaders(env)).forEach(([k, v]) => headers.set(k, v));
+    return new Response(cached.body, { status: cached.status, headers });
+  }
+
   const upstream = await fetch(target);
   const body = await upstream.text();
-  return new Response(body, {
+  const response = new Response(body, {
     status: upstream.status,
     headers: {
       "Content-Type": upstream.headers.get("Content-Type") || "application/json",
+      "Cache-Control": `public, max-age=${PROXY_CACHE_SECONDS}`,
       ...corsHeaders(env),
     },
   });
+  if (ctx && upstream.ok) {
+    ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  }
+  return response;
 }

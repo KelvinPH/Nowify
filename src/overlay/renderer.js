@@ -29,6 +29,8 @@ import {
 let currentTrackId = null;
 let pollInterval = null;
 let pollingTimer = null;
+let activePollIntervalMs = 3000;
+let pollingPausedForVisibility = false;
 let config = {};
 let progressTimer = null;
 const blockedAudioFeaturesTrackIds = new Set();
@@ -1021,8 +1023,13 @@ async function poll() {
   }
 }
 
+const SPOTIFY_POLL_MS = 3000;
+const LASTFM_POLL_MS = 12_000;
+
 /** Starts immediate polling plus a recurring poll interval. */
-export async function startPolling(intervalMs = 3000) {
+export async function startPolling(intervalMs = SPOTIFY_POLL_MS) {
+  activePollIntervalMs = intervalMs;
+  pollingPausedForVisibility = false;
   stopPolling();
   await poll();
   pollingTimer = window.setInterval(() => {
@@ -1041,6 +1048,29 @@ function stopPolling() {
     clearInterval(pollInterval);
     pollInterval = null;
   }
+}
+
+function bindVisibilityPolling() {
+  if (window.__nowifyVisibilityBound) {
+    return;
+  }
+  window.__nowifyVisibilityBound = true;
+  document.addEventListener("visibilitychange", () => {
+    if (config.demo) {
+      return;
+    }
+    if (document.hidden) {
+      if (pollingTimer) {
+        pollingPausedForVisibility = true;
+        stopPolling();
+      }
+      return;
+    }
+    if (pollingPausedForVisibility) {
+      pollingPausedForVisibility = false;
+      void startPolling(activePollIntervalMs);
+    }
+  });
 }
 
 async function startAuthRedirect() {
@@ -1551,10 +1581,12 @@ export async function init() {
   const hasSpotifySource = Boolean(config.clientId);
   const hasLastfmSource = Boolean(config.lastfmUsername && config.lastfmApiKey);
 
+  const pollIntervalMs = useLastfm ? LASTFM_POLL_MS : SPOTIFY_POLL_MS;
+
   if (callbackHasCode) {
     const callbackHandled = await handleAuthCallback();
     if (callbackHandled) {
-      await startPolling();
+      await startPolling(pollIntervalMs);
       startProgressTimer();
       return;
     }
@@ -1599,7 +1631,7 @@ export async function init() {
     removeAllArtBackdrops();
   }
 
-  await startPolling();
+  await startPolling(pollIntervalMs);
   startProgressTimer();
 
   if (config.twitchChannel && config.twitchToken) {
@@ -1625,4 +1657,6 @@ export async function init() {
       connectEventSub({ broadcasterId, token: config.twitchToken });
     }
   }
+
+  bindVisibilityPolling();
 }
