@@ -1078,9 +1078,41 @@ async function startAuthRedirect() {
   await initiateAuth(config.clientId);
 }
 
-function startDemo() {
-  sourceErrorMessage = "Demo mode";
-  showIdle();
+async function startDemo() {
+  sourceErrorMessage = "";
+  document.documentElement.setAttribute("data-theme", config.theme);
+  if (config.transparent) {
+    document.body.style.background = "transparent";
+  } else {
+    document.body.style.background = "";
+  }
+
+  if (config.animBgEnabled) {
+    registerAnimatedBackgroundMoodHook();
+  } else {
+    removeAnimatedBackground();
+  }
+
+  if (!config.artBackdropEnabled) {
+    removeAllArtBackdrops();
+  }
+
+  const { buildDemoTrack, buildDemoNextTrack, buildDemoExtras } = await import("./demo.js");
+  const track = buildDemoTrack();
+  const wantNext =
+    config.showNextTrack || (config.layout === "custom" && config.custom?.showNextTrack);
+  const nextTrack = wantNext ? buildDemoNextTrack() : null;
+  const wantExtras = config.showBpm || config.moodSync;
+  const extras = wantExtras ? buildDemoExtras() : null;
+
+  if (isSpecialLayout(config.layout)) {
+    await switchSpecialPreset(config.layout);
+  }
+
+  currentTrackId = track.trackId;
+  await render(track, extras, nextTrack, { skipSession: true });
+  updateProgress(track);
+  startProgressTimer();
 }
 
 /** Renders a track using the selected layout and transition class. */
@@ -1550,6 +1582,11 @@ async function initSongifyCustomOverlay() {
 export async function init() {
   config = parseConfig();
 
+  if (config.demo) {
+    await startDemo();
+    return;
+  }
+
   if (config.source === "songify") {
     if (config.layout === "custom") {
       await initSongifyCustomOverlay();
@@ -1592,8 +1629,8 @@ export async function init() {
     }
   }
 
-  if (config.demo || (!config.clientId && !hasLastfmSource)) {
-    startDemo();
+  if (!config.clientId && !hasLastfmSource) {
+    await startDemo();
     return;
   }
 

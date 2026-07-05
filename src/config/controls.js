@@ -1,690 +1,101 @@
 import { initWizard, isSetupComplete, showWizard } from "./wizard.js";
+import {
+  ANIM_BG_STYLE_TIPS,
+  CUSTOM_PRESETS_KEY,
+  LAYOUT_CONTENT,
+  LAYOUT_HINTS_SHORT,
+  LAYOUT_LABELS,
+  LAYOUT_OPTIONS,
+  LAYOUT_TOOLTIPS,
+  OWNER_KEY_STORAGE,
+  SOURCE_TOOLTIPS,
+  THEME_TOOLTIPS,
+  TOGGLE_KEY_TIPS,
+  TWITCH_COMMAND_ORDER,
+  WORKER_BASE_URL,
+} from "./constants.js";
+import {
+  applyLayoutOverlayConstraints,
+  getExpandedCommands,
+  getOpenSections,
+  getPreviousLayout,
+  getState,
+  isUniqueLayout,
+  readAnimBgForEditor,
+  readArtBackdropForEditor,
+  readSongifyArtFlags,
+  readTransitionsForEditor,
+  resetState,
+  setPreviousLayout,
+  setQueueConfigOpen,
+  isQueueConfigOpen,
+  getQueueConfigSidebarTab,
+  setQueueConfigSidebarTab,
+} from "./state.js";
+import {
+  checkSongifyStatus,
+  clearConfigDraft,
+  invalidatePublicPresetsCache,
+  invalidateSongifyStatusCache,
+  loadConfigDraft,
+  loadPlatformState,
+  readPublicPresetsCache,
+  saveConfigDraft,
+  savePlatformState,
+  writePublicPresetsCache,
+} from "./storage.js";
+import { buildPreviewUrl, setPreviewIframe } from "./preview.js";
+import {
+  buildOverlayUrl,
+  buildQueueFinalUrl,
+  buildQueueUrl,
+  getRedirectUri,
+  queuePreviewIframeSrc,
+} from "./url.js";
+import {
+  attachCfgTooltips,
+  clampByte,
+  compactToggle,
+  copyText,
+  escAttr,
+  escCfg,
+  extractAlphaFromCss,
+  hexToRgba,
+  parseColorToHexForPicker,
+  renderSection,
+  rgbToHex,
+  showCfgToast,
+  themeLabel,
+  wheelHexToQueueColorValue,
+} from "./ui.js";
+import {
+  initMainSidebarEvents,
+  needsSidebarRebuild,
+  patchSidebarValues,
+} from "./sidebar-events.js";
 
-const DEFAULT_STATE = {
-  layout: "glasscard",
-  theme: "obsidian",
-  source: "spotify",
-  songifyPort: 4002,
-  clientId: "",
-  showProgress: true,
-  showTimeLeft: false,
-  showNextTrack: false,
-  cassetteStyle: "classic",
-  gameboyArt: false,
-  /** Spotify queue label: "always" = every poll; "perSong" = hold last title until track changes */
-  nextTrackMode: "always",
-  showBpm: false,
-  showAlbum: false,
-  showPlayState: false,
-  /** “Nothing playing” / Last.fm idle text (off by default) */
-  showIdleMessage: false,
-  transparent: false,
-  moodSync: true,
-  stackDir: "row",
-  artPosition: "left",
-  maxCardWidth: 900,
-  twitchChannel: "",
-  twitchToken: "",
-  lastfmUsername: "",
-  lastfmApiKey: "",
-  queueSource: "queue",
-  queueMaxItems: 5,
-  queueShowPosition: true,
-  queueShowArt: true,
-  queueShowTitle: true,
-  queueShowArtist: true,
-  queueShowDuration: true,
-  queueShowRequester: true,
-  queueShowAvatar: true,
-  queueShowLiked: true,
-  queueHighlightRequests: false,
-  queueTransparent: false,
-  queueAnimateIn: "slide",
-  queueFontSize: 13,
-  queueItemRadius: 10,
-  queueItemPadding: 10,
-  queueItemOpacity: 80,
-  queueArtSize: 40,
-  queueGap: 6,
-  queueDemoPreview: false,
-  queueLayout: "glasscard",
-  queueArtPosition: "left",
-  queueShowAlbum: false,
-  queueShowTimeLeft: false,
-  queueShowNextTrack: false,
-  queueShowPlayState: false,
-  queueShowProgress: false,
-  queueBlur: 24,
-  queueMaxWidth: 480,
-  queueCustomColors: false,
-  queueColorAccent: "#ffffff",
-  queueColorTitle: "#ffffff",
-  queueColorMuted: "rgba(255,255,255,0.45)",
-  queueColorCard: "rgba(10,10,10,0.85)",
-  canvasEnabled: false,
-  enterAnim: "fade",
-  exitAnim: "fade",
-  enterDuration: 400,
-  exitDuration: 400,
-  exitDelay: 2500,
-  commands: {
-    sr: {
-      enabled: true,
-      minRole: "everyone",
-      sessionLimit: 0,
-      roleLimits: {
-        everyone: 3,
-        subscriber: 5,
-        vip: 10,
-        moderator: 0,
-        broadcaster: 0,
-      },
-      cooldown: 30,
-    },
-    skip: {
-      enabled: true,
-      minRole: "moderator",
-      sessionLimit: 0,
-      roleLimits: {
-        everyone: 0,
-        subscriber: 0,
-        vip: 0,
-        moderator: 0,
-        broadcaster: 0,
-      },
-      cooldown: 0,
-    },
-    prev: {
-      enabled: true,
-      minRole: "moderator",
-      sessionLimit: 0,
-      roleLimits: {
-        everyone: 0,
-        subscriber: 0,
-        vip: 0,
-        moderator: 0,
-        broadcaster: 0,
-      },
-      cooldown: 0,
-    },
-    queue: {
-      enabled: true,
-      minRole: "everyone",
-      sessionLimit: 0,
-      roleLimits: {
-        everyone: 0,
-        subscriber: 0,
-        vip: 0,
-        moderator: 0,
-        broadcaster: 0,
-      },
-      cooldown: 10,
-    },
-    vol: {
-      enabled: false,
-      minRole: "moderator",
-      sessionLimit: 0,
-      roleLimits: {
-        everyone: 0,
-        subscriber: 0,
-        vip: 0,
-        moderator: 0,
-        broadcaster: 0,
-      },
-      cooldown: 5,
-    },
-  },
-  animBgEnabled: false,
-  animBgStyle: "aurora",
-  animBgSpeed: 12,
-  animBgColorMode: "mood",
-  animBgColor1: "rgba(145,70,255,0.6)",
-  animBgColor2: "rgba(30,30,80,0.8)",
-  artBackdropEnabled: false,
-  artBackdropBlur: 48,
+export {
+  readAnimBgForEditor,
+  readArtBackdropForEditor,
+  readSongifyArtFlags,
+  readTransitionsForEditor,
+  buildOverlayUrl,
+  buildQueueUrl,
 };
 
-/** Seeds custom editor from sidebar state (custom layout). */
-export function readAnimBgForEditor() {
-  return {
-    animBgEnabled: Boolean(state.animBgEnabled),
-    animBgColorMode: state.animBgColorMode || "mood",
-    animBgColor1: state.animBgColor1,
-    animBgColor2: state.animBgColor2,
-    animBgStyle: state.animBgStyle || "aurora",
-    animBgSpeed: Number(state.animBgSpeed) || 12,
-  };
-}
+let state = getState();
 
-/** Songify-only controls mirrored in the custom editor Art tab. */
-export function readSongifyArtFlags() {
-  return {
-    source: state.source,
-    canvasEnabled: Boolean(state.canvasEnabled),
-  };
-}
-
-export function readArtBackdropForEditor() {
-  return {
-    artBackdropEnabled: Boolean(state.artBackdropEnabled),
-    artBackdropBlur: Number(state.artBackdropBlur) || 48,
-  };
-}
-
-/** Overlay enter/exit animation settings (URL params, not c_* custom layout). */
-export function readTransitionsForEditor() {
-  const enterDurationRaw = Number(state.enterDuration);
-  const exitDurationRaw = Number(state.exitDuration);
-  const exitDelayRaw = Number(state.exitDelay);
-  return {
-    enterAnim: state.enterAnim || "fade",
-    exitAnim: state.exitAnim || "fade",
-    enterDuration: Number.isFinite(enterDurationRaw) ? enterDurationRaw : 400,
-    exitDuration: Number.isFinite(exitDurationRaw) ? exitDurationRaw : 400,
-    exitDelay: Number.isFinite(exitDelayRaw) ? exitDelayRaw : 2500,
-  };
-}
-
-const LAYOUT_LABELS = {
-  glasscard: "Glass",
-  pill: "Pill",
-  island: "Island",
-  strip: "Strip",
-  albumfocus: "Album",
-  sidebar: "Side",
-  vinyl: "Vinyl",
-  terminal: "Terminal",
-  cassette: "Cassette",
-  gameboy: "Game Boy",
-  hud: "HUD",
-  stickynote: "Sticky Note",
-  spotifycard: "Spotify Card",
-  custom: "Custom",
-};
-
-const LAYOUT_HINTS_SHORT = {
-  glasscard: "Art, title, and progress",
-  pill: "Compact corner chip",
-  island: "Larger square widget",
-  strip: "Thin bottom bar",
-  albumfocus: "Art-first layout",
-  sidebar: "Fixed column",
-  vinyl: "Turntable player preset",
-  terminal: "Retro CLI preset",
-  cassette: "Tape deck preset",
-  gameboy: "Retro handheld preset",
-  hud: "Fighter HUD preset",
-  stickynote: "Pinned note preset",
-  spotifycard: "Social share card preset",
-  custom: "Full custom editor",
-};
-
-const CFG_TIP_SHOW_MS = 550;
-
-const LAYOUT_TOOLTIPS = {
-  glasscard: "Album art with title, artist, and optional progress and extras.",
-  pill: "Compact pill for corners and minimal footprint.",
-  island: "Square card with emphasis on album art.",
-  strip: "Very thin horizontal bar.",
-  albumfocus: "Large art-first layout for music-focused scenes.",
-  sidebar: "Vertical strip for side-mounted scenes.",
-  vinyl: "Turntable scene with spinning disc and tonearm.",
-  terminal: "Retro command-line interface with scan lines.",
-  cassette: "Compact cassette with animated reels.",
-  gameboy: "Game Boy Color style handheld console.",
-  hud: "Heads-up display with targeting reticle.",
-  stickynote: "Handwritten note with pin.",
-  spotifycard: "Spotify social share card style.",
-  custom: "Full visual editor for colors, sizing, and advanced layout.",
-};
-
-const THEME_TOOLTIPS = {
-  obsidian: "Neutral light-on-dark base.",
-  midnight: "Cool blue highlights.",
-  aurora: "Purple and magenta accents.",
-  forest: "Green accent palette.",
-  amber: "Warm orange highlights.",
-  glass: "Soft translucent look.",
-};
-
-const SOURCE_TOOLTIPS = {
-  spotify: "Spotify login and Web API for live playback and rich metadata.",
-  lastfm: "Uses your Last.fm recent tracks API.",
-  songify: "Reads playback from Songify over localhost WebSocket.",
-};
-
-const TOGGLE_KEY_TIPS = {
-  showProgress: "Track position when the layout supports a progress bar.",
-  showTimeLeft: "Show remaining time instead of elapsed.",
-  showNextTrack: "Next in queue when Spotify queue data is available.",
-  nextTrackMode:
-    "Always refresh: update every poll. Per song: show the next title for ~10s after each new track, then hide until the next song.",
-  showBpm: "Tempo from Spotify audio features (Spotify source only).",
-  showAlbum: "Album name alongside track and artist.",
-  showPlayState: "Small indicator when playback is active.",
-  showIdleMessage: "Message when nothing is playing or when setup needs attention.",
-  moodSync: "Background reacts to track energy using colors from album art.",
-  animBgEnabled: "Animated gradient behind the card.",
-  artBackdropEnabled: "Blurred cover art fills the area behind the glass card.",
-  canvasEnabled: "Uses Spotify Canvas video for art when Songify supplies it.",
-  transparent: "Transparent background for layering in OBS or over gameplay.",
-};
-
-const ANIM_BG_STYLE_TIPS = {
-  aurora: "Organic blobs that drift and blend.",
-  flow: "Gradient slowly moves across the background.",
-  pulse: "Colors expand and contract from the center.",
-  breathe: "Gentle fade between tones.",
-};
-
-const LAYOUT_OPTIONS = {
-  glasscard: { showProgress: true, showBpm: false, transparent: true, moodSync: true },
-  pill: { showProgress: false, showBpm: false, transparent: true, moodSync: true },
-  island: { showProgress: true, showBpm: false, transparent: true, moodSync: true },
-  strip: { showProgress: false, showBpm: false, transparent: true, moodSync: false },
-  albumfocus: { showProgress: false, showBpm: true, transparent: true, moodSync: true },
-  sidebar: { showProgress: true, showBpm: false, transparent: true, moodSync: true },
-  vinyl: { showProgress: true, showBpm: true, transparent: true, moodSync: true },
-  terminal: { showProgress: true, showBpm: true, transparent: false, moodSync: false },
-  cassette: { showProgress: true, showBpm: false, transparent: false, moodSync: false },
-  gameboy: { showProgress: true, showBpm: true, transparent: false, moodSync: false },
-  hud: { showProgress: true, showBpm: true, transparent: true, moodSync: false },
-  stickynote: { showProgress: true, showBpm: false, transparent: true, moodSync: false },
-  spotifycard: { showProgress: true, showBpm: false, transparent: false, moodSync: false },
-  custom: { showProgress: true, showBpm: true, transparent: true, moodSync: true },
-};
-
-const LAYOUT_CONTENT = {
-  glasscard: {
-    showProgress: true, showTimeLeft: true, showNextTrack: true,
-    showBpm: true, showAlbum: true, showPlayState: true,
-    stackDir: true, artPosition: true,
-  },
-  pill: {
-    showProgress: false, showTimeLeft: false, showNextTrack: false,
-    showBpm: false, showAlbum: false, showPlayState: true,
-    stackDir: false, artPosition: false,
-  },
-  island: {
-    showProgress: true, showTimeLeft: true, showNextTrack: false,
-    showBpm: true, showAlbum: true, showPlayState: true,
-    stackDir: false, artPosition: false,
-  },
-  strip: {
-    showProgress: false, showTimeLeft: true, showNextTrack: false,
-    showBpm: false, showAlbum: false, showPlayState: false,
-    stackDir: false, artPosition: true,
-  },
-  albumfocus: {
-    showProgress: true, showTimeLeft: true, showNextTrack: false,
-    showBpm: true, showAlbum: true, showPlayState: true,
-    stackDir: false, artPosition: false,
-  },
-  sidebar: {
-    showProgress: true, showTimeLeft: false, showNextTrack: false,
-    showBpm: false, showAlbum: false, showPlayState: false,
-    stackDir: false, artPosition: false,
-  },
-};
-
-function isUniqueLayout(layout) {
-  return (
-    layout === "vinyl" ||
-    layout === "terminal" ||
-    layout === "cassette" ||
-    layout === "gameboy" ||
-    layout === "hud" ||
-    layout === "stickynote" ||
-    layout === "spotifycard"
-  );
-}
-
-/** Turn off overlay toggles the current layout does not support (sidebar UI hides them but URL/state could still be on). */
-function applyLayoutOverlayConstraints(layout) {
-  if (layout === "custom") return;
-  const lc = LAYOUT_CONTENT[layout];
-  if (!lc) return;
-  if (lc.showProgress === false) state.showProgress = false;
-  if (lc.showTimeLeft === false) state.showTimeLeft = false;
-  if (lc.showNextTrack === false) state.showNextTrack = false;
-  if (lc.showBpm === false) state.showBpm = false;
-  if (lc.showAlbum === false) state.showAlbum = false;
-  if (lc.showPlayState === false) state.showPlayState = false;
-}
-
-const DEFAULT_OPEN = new Set(["source", "layout"]);
-let openSections = new Set(DEFAULT_OPEN);
-
-const TWITCH_COMMAND_ORDER = ["sr", "skip", "prev", "queue", "vol"];
-let expandedCommands = new Set();
-let twitchCmdSliderDebounceTimer = null;
-let queueConfigOpen = false;
-let queueConfigSidebarTab = "look";
 let queueRangeDebounceTimer = null;
 let queueColorDebounceTimer = null;
 
 function exitQueueDesignerMode() {
-  if (!queueConfigOpen && !document.body.classList.contains("cfg-queue-mode")) {
+  if (!isQueueConfigOpen() && !document.body.classList.contains("cfg-queue-mode")) {
     return;
   }
-  queueConfigOpen = false;
-  queueConfigSidebarTab = "look";
+  setQueueConfigOpen(false);
+  setQueueConfigSidebarTab("look");
   document.body.classList.remove("cfg-queue-mode");
   restoreConfiguratorPreviewShell();
-}
-
-let state = {
-  ...DEFAULT_STATE,
-  commands: JSON.parse(JSON.stringify(DEFAULT_STATE.commands)),
-};
-let inputDebounceTimer = null;
-let previousLayout = "glasscard";
-let animBgSpeedDebounceTimer = null;
-let artBackdropBlurDebounceTimer = null;
-let transitionEnterDurDebounceTimer = null;
-let transitionExitDurDebounceTimer = null;
-let transitionExitDelayDebounceTimer = null;
-let cfgTipEl = null;
-let cfgTipShowTimer = null;
-let cfgTipHideTimer = null;
-let cfgSidebarScrollBound = false;
-let cfgTipEscapeBound = false;
-let cfgToastTimer = null;
-const CUSTOM_PRESETS_KEY = "nowify_custom_presets";
-const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
-const PUBLIC_PRESETS_CACHE_KEY = "nowify_public_presets_v1";
-const PUBLIC_PRESETS_CACHE_MS = 5 * 60 * 1000;
-
-function invalidatePublicPresetsCache() {
-  try {
-    sessionStorage.removeItem(PUBLIC_PRESETS_CACHE_KEY);
-  } catch (_error) {
-    /* ignore */
-  }
-}
-
-function readPublicPresetsCache() {
-  try {
-    const raw = sessionStorage.getItem(PUBLIC_PRESETS_CACHE_KEY);
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw);
-    if (!parsed?.at || Date.now() - parsed.at > PUBLIC_PRESETS_CACHE_MS) {
-      return null;
-    }
-    return Array.isArray(parsed.presets) ? parsed.presets : null;
-  } catch (_error) {
-    return null;
-  }
-}
-
-function writePublicPresetsCache(presets) {
-  try {
-    sessionStorage.setItem(
-      PUBLIC_PRESETS_CACHE_KEY,
-      JSON.stringify({ at: Date.now(), presets })
-    );
-  } catch (_error) {
-    /* ignore */
-  }
-}
-const OWNER_KEY_STORAGE = "nowify_owner_key";
-
-function mergeCommandsIntoDefaults(saved) {
-  const base = JSON.parse(JSON.stringify(DEFAULT_STATE.commands));
-  for (const name of Object.keys(base)) {
-    const sc = saved[name];
-    if (sc && typeof sc === "object") {
-      base[name] = {
-        ...base[name],
-        ...sc,
-        roleLimits: { ...base[name].roleLimits, ...(sc.roleLimits || {}) },
-      };
-    }
-  }
-  return base;
-}
-
-function loadPlatformState() {
-  const savedTwitch = localStorage.getItem("nowify_twitch");
-  if (savedTwitch) {
-    try {
-      const tw = JSON.parse(savedTwitch || "{}");
-      state.twitchChannel = tw.channel || "";
-      state.twitchToken = tw.token || "";
-    } catch (_e) {}
-  }
-
-  try {
-    const saved = JSON.parse(localStorage.getItem("nowify_commands") || "null");
-    if (saved && typeof saved === "object") {
-      state.commands = mergeCommandsIntoDefaults(saved);
-    }
-  } catch (_e) {}
-
-  state.clientId = localStorage.getItem("nowify_client_id") || "";
-
-  const savedLastfm = localStorage.getItem("nowify_lastfm");
-  if (savedLastfm) {
-    try {
-      const parsed = JSON.parse(savedLastfm);
-      state.lastfmUsername = parsed.username || "";
-      state.lastfmApiKey = parsed.apiKey || "";
-    } catch (_error) {}
-  }
-
-  const savedSongify = localStorage.getItem("nowify_songify");
-  if (savedSongify) {
-    try {
-      const parsed = JSON.parse(savedSongify);
-      state.songifyPort = Number(parsed.port) || 4002;
-    } catch (_error) {}
-  }
-
-  try {
-    const qSaved = JSON.parse(localStorage.getItem("nowify_queue") || "null");
-    if (qSaved && typeof qSaved === "object") {
-      Object.keys(qSaved).forEach((k) => {
-        if (k.startsWith("queue") && qSaved[k] !== undefined) {
-          state[k] = qSaved[k];
-        }
-      });
-    }
-  } catch (_e) {}
-}
-
-function savePlatformState(newState) {
-  if (newState.twitchChannel !== undefined || newState.twitchToken !== undefined) {
-    localStorage.setItem(
-      "nowify_twitch",
-      JSON.stringify({
-        channel: state.twitchChannel,
-        token: state.twitchToken,
-      })
-    );
-  }
-
-  if (newState.lastfmUsername !== undefined || newState.lastfmApiKey !== undefined) {
-    localStorage.setItem(
-      "nowify_lastfm",
-      JSON.stringify({
-        username: state.lastfmUsername,
-        apiKey: state.lastfmApiKey,
-      })
-    );
-  }
-
-  if (newState.songifyPort !== undefined) {
-    localStorage.setItem(
-      "nowify_songify",
-      JSON.stringify({
-        port: state.songifyPort,
-      })
-    );
-  }
-
-  try {
-    localStorage.setItem("nowify_commands", JSON.stringify(state.commands));
-  } catch (_e) {}
-
-  try {
-    const qSnap = {};
-    Object.keys(state).forEach((k) => {
-      if (k.startsWith("queue")) {
-        qSnap[k] = state[k];
-      }
-    });
-    localStorage.setItem("nowify_queue", JSON.stringify(qSnap));
-  } catch (_e) {}
-}
-
-/** Builds the full overlay URL from the current configurator state. */
-export function buildOverlayUrl(currentState) {
-  const base = `${window.location.origin}${window.location.pathname.replace("config.html", "")}overlay.html`;
-  const params = new URLSearchParams();
-
-  Object.entries(currentState).forEach(([key, value]) => {
-    if (key === "commands") {
-      return;
-    }
-    if (key.startsWith("queue")) {
-      return;
-    }
-    if (value !== null && typeof value === "object") {
-      return;
-    }
-    if (typeof value === "boolean") {
-      params.set(key, value ? "1" : "0");
-      return;
-    }
-    params.set(key, String(value));
-  });
-
-  return `${base}?${params.toString()}`;
-}
-
-function buildQueueSearchParams(inputState, forConfiguratorPreview) {
-  const params = new URLSearchParams({
-    songifyPort: String(inputState.songifyPort || 4002),
-    theme: inputState.theme || "obsidian",
-    layout:
-      inputState.queueLayout === "sidebar"
-        ? "glasscard"
-        : inputState.queueLayout || "glasscard",
-    artPosition: inputState.queueArtPosition || "left",
-    maxItems: String(inputState.queueMaxItems || 5),
-    queueSource: inputState.queueSource || "queue",
-    showPosition: inputState.queueShowPosition ? "1" : "0",
-    showArt: inputState.queueShowArt ? "1" : "0",
-    showTitle: inputState.queueShowTitle ? "1" : "0",
-    showArtist: inputState.queueShowArtist ? "1" : "0",
-    showAlbum: inputState.queueShowAlbum ? "1" : "0",
-    showDuration: inputState.queueShowDuration ? "1" : "0",
-    showRequester: inputState.queueShowRequester ? "1" : "0",
-    showRequesterAvatar: inputState.queueShowAvatar ? "1" : "0",
-    showLiked: inputState.queueShowLiked ? "1" : "0",
-    highlightRequests: inputState.queueHighlightRequests ? "1" : "0",
-    showTimeLeft: inputState.queueShowTimeLeft ? "1" : "0",
-    showNextTrack: inputState.queueShowNextTrack ? "1" : "0",
-    showPlayState: inputState.queueShowPlayState ? "1" : "0",
-    showProgress: inputState.queueShowProgress ? "1" : "0",
-    transparent: inputState.queueTransparent ? "1" : "0",
-    animateIn: inputState.queueAnimateIn || "slide",
-    fontSize: String(inputState.queueFontSize || 13),
-    itemRadius: String(inputState.queueItemRadius || 10),
-    itemPadding: String(inputState.queueItemPadding || 10),
-    itemOpacity: String(inputState.queueItemOpacity || 80),
-    artSize: String(inputState.queueArtSize || 40),
-    gap: String(inputState.queueGap || 6),
-    blurStrength: String(inputState.queueBlur ?? 24),
-    maxWidth: String(inputState.queueMaxWidth ?? 480),
-  });
-  if (forConfiguratorPreview && inputState.queueDemoPreview) {
-    params.set("demo", "1");
-  }
-  if (inputState.queueCustomColors) {
-    params.set("customColors", "1");
-    if (inputState.queueColorAccent) params.set("colorAccent", inputState.queueColorAccent);
-    if (inputState.queueColorTitle) params.set("colorTitle", inputState.queueColorTitle);
-    if (inputState.queueColorMuted) params.set("colorMuted", inputState.queueColorMuted);
-    if (inputState.queueColorCard) params.set("colorCard", inputState.queueColorCard);
-  }
-  return params;
-}
-
-/** Queue overlay URL (preview uses demo when queueDemoPreview is on). */
-export function buildQueueUrl(inputState) {
-  const base =
-    window.location.origin + window.location.pathname.replace("config.html", "") + "queue.html";
-  return `${base}?${buildQueueSearchParams(inputState, true).toString()}`;
-}
-
-function queuePreviewIframeSrc(inputState) {
-  const url = buildQueueUrl(inputState);
-  const u = new URL(url);
-  u.searchParams.set("nwPv", String(Date.now()));
-  return u.toString();
-}
-
-function buildQueueFinalUrl(inputState) {
-  const base =
-    window.location.origin + window.location.pathname.replace("config.html", "") + "queue.html";
-  return `${base}?${buildQueueSearchParams(inputState, false).toString()}`;
-}
-
-function clampByte(n) {
-  return Math.max(0, Math.min(255, Math.round(Number(n) || 0)));
-}
-
-function rgbToHex(r, g, b) {
-  return `#${[r, g, b]
-    .map((x) => clampByte(x).toString(16).padStart(2, "0"))
-    .join("")}`;
-}
-
-function parseColorToHexForPicker(css) {
-  const s = String(css || "").trim();
-  if (/^#[0-9a-f]{6}$/i.test(s)) return s.toLowerCase();
-  const hex3 = s.match(/^#([0-9a-f]{3})$/i);
-  if (hex3) {
-    const h = hex3[1];
-    return `#${h[0]}${h[0]}${h[1]}${h[1]}${h[2]}${h[2]}`.toLowerCase();
-  }
-  const rgb = s.match(
-    /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*[,\/]\s*([\d.]+%?))?\s*\)/i
-  );
-  if (rgb) return rgbToHex(rgb[1], rgb[2], rgb[3]);
-  return "#ffffff";
-}
-
-function extractAlphaFromCss(css) {
-  const s = String(css || "");
-  const m = s.match(/rgba\s*\([\d\s,]+,\s*([\d.]+)\s*\)/i);
-  if (m) {
-    const a = parseFloat(m[1]);
-    return Number.isFinite(a) ? Math.min(1, Math.max(0, a)) : 1;
-  }
-  return 1;
-}
-
-function hexToRgba(hex, a) {
-  const h = String(hex).replace("#", "");
-  if (h.length !== 6) return hex;
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  const alpha = Math.min(1, Math.max(0, Number(a) || 1));
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
-function wheelHexToQueueColorValue(key, hex) {
-  if (key === "queueColorMuted" || key === "queueColorCard") {
-    const alpha =
-      extractAlphaFromCss(state[key]) || (key === "queueColorMuted" ? 0.45 : 0.85);
-    return hexToRgba(hex, alpha);
-  }
-  return hex;
 }
 
 function restoreConfiguratorPreviewShell() {
@@ -700,7 +111,7 @@ function restoreConfiguratorPreviewShell() {
   `;
   const url = buildOverlayUrl(state);
   const iframe = document.getElementById("cfg-iframe");
-  if (iframe) iframe.src = url;
+  if (iframe) iframe.src = buildPreviewUrl(state, url);
   const urlDisplay = document.getElementById("cfg-url-display");
   if (urlDisplay) urlDisplay.textContent = url;
 }
@@ -794,8 +205,9 @@ function attachQueueSidebarListeners(sidebar) {
   sidebar.querySelectorAll("[data-queue-tab]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const id = btn.getAttribute("data-queue-tab");
-      queueConfigSidebarTab =
-        id === "queue" || id === "style" || id === "colors" || id === "obs" ? id : "look";
+      setQueueConfigSidebarTab(
+        id === "queue" || id === "style" || id === "colors" || id === "obs" ? id : "look"
+      );
       renderQueueSidebar();
     });
   });
@@ -1031,7 +443,7 @@ function renderQueueSidebar() {
 }
 
 function renderQueueConfig() {
-  queueConfigOpen = true;
+  setQueueConfigOpen(true);
   const customContainer = document.getElementById("cfg-custom-editor");
   if (customContainer) customContainer.style.display = "none";
   const sidebarEl = document.getElementById("cfg-sidebar");
@@ -1091,148 +503,6 @@ function renderQueueConfig() {
       btn.textContent = prev;
     }, 1200);
   });
-}
-
-function getRedirectUri() {
-  return `${window.location.origin}${window.location.pathname.replace("config.html", "")}overlay.html`;
-}
-
-function escCfg(str) {
-  return String(str || "").replace(/"/g, "&quot;");
-}
-
-function escAttr(str) {
-  return String(str || "")
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;");
-}
-
-function ensureCfgTipElement() {
-  if (cfgTipEl && document.body.contains(cfgTipEl)) {
-    return cfgTipEl;
-  }
-  cfgTipEl = document.createElement("div");
-  cfgTipEl.id = "cfg-tip-floater";
-  cfgTipEl.className = "cfg-tip-floater";
-  cfgTipEl.setAttribute("role", "tooltip");
-  document.body.appendChild(cfgTipEl);
-  if (!cfgTipEscapeBound) {
-    cfgTipEscapeBound = true;
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        hideCfgTip();
-      }
-    });
-  }
-  return cfgTipEl;
-}
-
-function hideCfgTip() {
-  window.clearTimeout(cfgTipShowTimer);
-  cfgTipShowTimer = null;
-  if (cfgTipEl) {
-    cfgTipEl.classList.remove("cfg-tip-visible");
-    cfgTipEl.textContent = "";
-    cfgTipEl.style.left = "";
-    cfgTipEl.style.top = "";
-  }
-}
-
-function positionCfgTip(anchor, tip) {
-  tip.classList.add("cfg-tip-visible");
-  window.requestAnimationFrame(() => {
-    const tr = tip.getBoundingClientRect();
-    const ar = anchor.getBoundingClientRect();
-    const pad = 8;
-    let top = ar.bottom + pad;
-    let left = ar.left + ar.width / 2 - tr.width / 2;
-    left = Math.max(pad, Math.min(left, window.innerWidth - tr.width - pad));
-    if (top + tr.height > window.innerHeight - pad) {
-      top = ar.top - tr.height - pad;
-    }
-    top = Math.max(pad, top);
-    tip.style.left = `${Math.round(left)}px`;
-    tip.style.top = `${Math.round(top)}px`;
-  });
-}
-
-function scheduleShowCfgTip(anchor, text) {
-  window.clearTimeout(cfgTipHideTimer);
-  cfgTipHideTimer = null;
-  window.clearTimeout(cfgTipShowTimer);
-  const tip = ensureCfgTipElement();
-  cfgTipShowTimer = window.setTimeout(() => {
-    cfgTipShowTimer = null;
-    tip.textContent = text;
-    positionCfgTip(anchor, tip);
-  }, CFG_TIP_SHOW_MS);
-}
-
-function bindCfgSidebarScrollOnce() {
-  const sb = document.getElementById("cfg-sidebar");
-  if (!sb || cfgSidebarScrollBound) {
-    return;
-  }
-  cfgSidebarScrollBound = true;
-  sb.addEventListener("scroll", hideCfgTip);
-}
-
-function attachCfgTooltips(container) {
-  if (!container) {
-    return;
-  }
-  ensureCfgTipElement();
-  bindCfgSidebarScrollOnce();
-  container.querySelectorAll("[data-cfg-tip]").forEach((el) => {
-    const raw = el.getAttribute("data-cfg-tip");
-    if (!raw) {
-      return;
-    }
-    const onEnter = () => scheduleShowCfgTip(el, raw);
-    const onLeave = () => {
-      window.clearTimeout(cfgTipShowTimer);
-      cfgTipShowTimer = null;
-      cfgTipHideTimer = window.setTimeout(hideCfgTip, 80);
-    };
-    el.addEventListener("mouseenter", onEnter);
-    el.addEventListener("mouseleave", onLeave);
-  });
-}
-
-function renderSection(id, label, content) {
-  const open = openSections.has(id);
-  return `<div class="cfg-section-block${open ? " cfg-section-open" : ""}" data-section-id="${id}">
-    <button type="button" class="cfg-section-header" data-toggle-section="${id}">
-      <span class="cfg-section-header-label">${label}</span>
-      <span class="cfg-section-header-chevron" aria-hidden="true">›</span>
-    </button>
-    <div class="cfg-section-body">
-      ${content}
-    </div>
-  </div>`;
-}
-
-function compactToggle(label, key, visible = true, desc = "", tooltip = "") {
-  if (!visible) return "";
-  const descHtml = desc
-    ? `<span class="cfg-toggle-desc">${desc}</span>`
-    : "";
-  const tipAttr = tooltip ? ` data-cfg-tip="${escAttr(tooltip)}"` : "";
-  return `<label class="cfg-toggle-row cfg-toggle-row-compact"${tipAttr}>
-    <span class="cfg-toggle-label-wrap">
-      <span class="cfg-toggle-label">${label}</span>
-      ${descHtml}
-    </span>
-    <span class="cfg-toggle">
-      <input type="checkbox" data-toggle-key="${key}" ${state[key] ? "checked" : ""} />
-      <span class="cfg-toggle-track"></span>
-      <span class="cfg-toggle-thumb"></span>
-    </span>
-  </label>`;
-}
-
-function themeLabel(id) {
-  return id.charAt(0).toUpperCase() + id.slice(1);
 }
 
 function renderSongifyStatus() {
@@ -1613,7 +883,7 @@ function renderCommandRow(cmd) {
           .join("")}
       `
       : "";
-  const expanded = expandedCommands.has(cmd);
+  const expanded = getExpandedCommands().has(cmd);
   return `<div class="cfg-cmd-block${expanded ? " cfg-cmd-expanded" : ""}"
        data-cmd="${escAttr(cmd)}">
 
@@ -1690,116 +960,11 @@ function renderTwitchContent() {
     ${badge}`;
 }
 
-function attachSidebarListeners(sidebar) {
-  if (!sidebar) {
-    return;
-  }
-
-  sidebar.querySelectorAll("[data-toggle-cmd]").forEach((el) => {
-    el.addEventListener("click", () => {
-      const cmd = el.dataset.toggleCmd;
-      if (!cmd) {
-        return;
-      }
-      if (expandedCommands.has(cmd)) {
-        expandedCommands.delete(cmd);
-      } else {
-        expandedCommands.add(cmd);
-      }
-      const block = el.closest(".cfg-cmd-block");
-      block?.classList.toggle("cfg-cmd-expanded", expandedCommands.has(cmd));
-    });
-  });
-
-  sidebar.querySelectorAll("[data-cmd-set]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const cmd = btn.dataset.cmdSet;
-      const key = btn.dataset.cmdKey;
-      const val = btn.dataset.cmdValue;
-      if (!cmd || !key || val === undefined || !state.commands[cmd]) {
-        return;
-      }
-      state.commands[cmd][key] = val;
-      savePlatformState({});
-      sidebar.querySelectorAll(`[data-cmd-set="${cmd}"][data-cmd-key="${key}"]`).forEach((b) => {
-        b.classList.toggle("cfg-active", b.dataset.cmdValue === val);
-      });
-      const badge = sidebar.querySelector(`[data-cmd="${cmd}"] .cfg-cmd-role-badge`);
-      if (badge) {
-        badge.textContent = getRoleLabel(val);
-        badge.className = `cfg-cmd-role-badge cfg-role-${val}`;
-      }
-    });
-  });
-
-  sidebar.querySelectorAll("[data-cmd-enabled]").forEach((input) => {
-    input.addEventListener("change", () => {
-      const id = input.dataset.cmdEnabled;
-      if (!id) {
-        return;
-      }
-      const cmd = id.replace(/^cmd_/, "").replace(/_enabled$/, "");
-      if (state.commands[cmd]) {
-        state.commands[cmd].enabled = input.checked;
-        savePlatformState({});
-      }
-    });
-  });
-
-  sidebar.querySelectorAll("[data-cmd-slider]").forEach((input) => {
-    input.addEventListener("input", () => {
-      const cmd = input.dataset.cmdSlider;
-      const key = input.dataset.cmdKey;
-      if (!cmd || !key || !state.commands[cmd]) {
-        return;
-      }
-      const val = Number(input.value);
-      const label = document.getElementById(`val-cmd-${cmd}-${key}`);
-      if (label) {
-        const unit = key === "cooldown" ? "s" : "";
-        let note = "";
-        if (key === "cooldown" && val === 0) {
-          note = ' <span class="cfg-val-note">none</span>';
-        } else if (key === "sessionLimit" && val === 0) {
-          note = ' <span class="cfg-val-note">unlimited</span>';
-        }
-        label.innerHTML = `${val}${unit}${note}`;
-      }
-      window.clearTimeout(twitchCmdSliderDebounceTimer);
-      twitchCmdSliderDebounceTimer = window.setTimeout(() => {
-        state.commands[cmd][key] = val;
-        savePlatformState({});
-      }, 300);
-    });
-  });
-
-  sidebar.querySelectorAll("[data-cmd-role-limit]").forEach((input) => {
-    input.addEventListener("input", () => {
-      const cmd = input.dataset.cmdRoleLimit;
-      const role = input.dataset.role;
-      if (!cmd || !role || !state.commands[cmd]) {
-        return;
-      }
-      const val = Number(input.value);
-      const label = document.getElementById(`val-cmd-${cmd}-${role}`);
-      if (label) {
-        label.innerHTML =
-          val === 0 ? `0 <span class="cfg-val-note">∞</span>` : String(val);
-      }
-      window.clearTimeout(twitchCmdSliderDebounceTimer);
-      twitchCmdSliderDebounceTimer = window.setTimeout(() => {
-        state.commands[cmd].roleLimits[role] = val;
-        savePlatformState({});
-      }, 300);
-    });
-  });
-}
-
-/** Renders all sidebar controls and re-attaches listeners. */
+/** Renders all sidebar controls (event handlers live in sidebar-events.js). */
 function renderSidebar() {
   const sidebar = document.getElementById("cfg-sidebar");
   if (!sidebar) return;
-  if (queueConfigOpen) {
+  if (isQueueConfigOpen()) {
     renderQueueSidebar();
     return;
   }
@@ -1848,216 +1013,14 @@ function renderSidebar() {
     `;
   }
 
-  sidebar.querySelectorAll("[data-toggle-section]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.dataset.toggleSection;
-      if (!id) return;
-      if (openSections.has(id)) {
-        openSections.delete(id);
-      } else {
-        openSections.add(id);
-      }
-      const block = btn.closest(".cfg-section-block");
-      if (block) {
-        block.classList.toggle("cfg-section-open", openSections.has(id));
-      }
-    });
-  });
-
-  sidebar.querySelectorAll("[data-set-key]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const key = button.getAttribute("data-set-key");
-      const value = button.getAttribute("data-set-value");
-      update({ [key]: value });
-    });
-  });
-
-  sidebar.querySelectorAll("[data-toggle-key]").forEach((input) => {
-    input.addEventListener("change", () => {
-      const key = input.getAttribute("data-toggle-key");
-      update({ [key]: input.checked });
-    });
-  });
-
-  const lastfmDisconnect = document.getElementById("btn-lastfm-disconnect");
-  if (lastfmDisconnect) {
-    lastfmDisconnect.addEventListener("click", () => {
-      localStorage.removeItem("nowify_lastfm");
-      update({ lastfmUsername: "", lastfmApiKey: "" });
-    });
-  }
-
-  const bindDebouncedInput = (id, key) => {
-    const input = document.getElementById(id);
-    if (!input) return;
-    input.addEventListener("input", () => {
-      window.clearTimeout(inputDebounceTimer);
-      inputDebounceTimer = window.setTimeout(() => {
-        update({ [key]: input.value.trim() });
-      }, 600);
-    });
-  };
-
-  const inputMap = {
-    "ctrl-clientId": "clientId",
-    "ctrl-lastfmUsername": "lastfmUsername",
-    "ctrl-lastfmApiKey": "lastfmApiKey",
-    "ctrl-twitchChannel": "twitchChannel",
-    "ctrl-twitchToken": "twitchToken",
-  };
-  Object.entries(inputMap).forEach(([id, key]) => {
-    bindDebouncedInput(id, key);
-  });
-
-  const songifyPortInput = document.getElementById("ctrl-songifyPort");
-  if (songifyPortInput) {
-    songifyPortInput.addEventListener("change", () => {
-      const val = Number(songifyPortInput.value);
-      if (Number.isInteger(val) && val >= 1024 && val <= 65535) {
-        update({ songifyPort: val });
-      }
-    });
-  }
-
-  const btnOpenQueue = document.getElementById("btn-open-queue-config");
-  if (btnOpenQueue) {
-    btnOpenQueue.addEventListener("click", () => {
-      renderQueueConfig();
-    });
-  }
-
-  const openCustomEditor = document.getElementById("btn-open-custom-editor");
-  if (openCustomEditor) {
-    openCustomEditor.addEventListener("click", () => update({ layout: "custom" }));
-  }
-  const openUniquePresets = document.getElementById("btn-layout-unique-presets");
-  if (openUniquePresets) {
-    openUniquePresets.addEventListener("click", () => {
-      openPresetsModal({ uniqueOnly: true });
-    });
-  }
-
-  const animSpeedInput = document.getElementById("ctrl-anim-bg-speed");
-  if (animSpeedInput) {
-    animSpeedInput.addEventListener("input", () => {
-      const val = Number(animSpeedInput.value);
-      const label = document.getElementById("ctrl-anim-bg-speed-label");
-      if (label && Number.isFinite(val)) {
-        label.textContent = `Speed (${val}s)`;
-      }
-      window.clearTimeout(animBgSpeedDebounceTimer);
-      animBgSpeedDebounceTimer = window.setTimeout(() => {
-        if (Number.isFinite(val)) {
-          update({ animBgSpeed: val });
-        }
-      }, 250);
-    });
-  }
-
-  const artBackdropBlurInput = document.getElementById("ctrl-art-backdrop-blur");
-  if (artBackdropBlurInput) {
-    artBackdropBlurInput.addEventListener("input", () => {
-      const val = Number(artBackdropBlurInput.value);
-      const label = document.getElementById("ctrl-art-backdrop-blur-label");
-      if (label && Number.isFinite(val)) {
-        label.textContent = `Backdrop blur (${val}px)`;
-      }
-      window.clearTimeout(artBackdropBlurDebounceTimer);
-      artBackdropBlurDebounceTimer = window.setTimeout(() => {
-        if (Number.isFinite(val)) {
-          update({ artBackdropBlur: val });
-        }
-      }, 250);
-    });
-  }
-
-  const enterDurInput = document.getElementById("ctrl-enter-duration");
-  if (enterDurInput) {
-    enterDurInput.addEventListener("input", () => {
-      const val = Number(enterDurInput.value);
-      const label = document.getElementById("ctrl-enter-duration-label");
-      if (label && Number.isFinite(val)) {
-        label.textContent = `Duration (${val}ms)`;
-      }
-      window.clearTimeout(transitionEnterDurDebounceTimer);
-      transitionEnterDurDebounceTimer = window.setTimeout(() => {
-        if (Number.isFinite(val)) {
-          update({ enterDuration: val });
-        }
-      }, 200);
-    });
-  }
-  const exitDurInput = document.getElementById("ctrl-exit-duration");
-  if (exitDurInput) {
-    exitDurInput.addEventListener("input", () => {
-      const val = Number(exitDurInput.value);
-      const label = document.getElementById("ctrl-exit-duration-label");
-      if (label && Number.isFinite(val)) {
-        label.textContent = `Duration (${val}ms)`;
-      }
-      window.clearTimeout(transitionExitDurDebounceTimer);
-      transitionExitDurDebounceTimer = window.setTimeout(() => {
-        if (Number.isFinite(val)) {
-          update({ exitDuration: val });
-        }
-      }, 200);
-    });
-  }
-  const exitDelayInput = document.getElementById("ctrl-exit-delay");
-  if (exitDelayInput) {
-    exitDelayInput.addEventListener("input", () => {
-      const val = Number(exitDelayInput.value);
-      const label = document.getElementById("ctrl-exit-delay-label");
-      if (label && Number.isFinite(val)) {
-        label.textContent = `Pause delay (${val}ms)`;
-      }
-      window.clearTimeout(transitionExitDelayDebounceTimer);
-      transitionExitDelayDebounceTimer = window.setTimeout(() => {
-        if (Number.isFinite(val)) {
-          update({ exitDelay: val });
-        }
-      }, 200);
-    });
-  }
+  sidebar.dataset.sidebarLayout = `${state.source}:${state.layout}:${isUniqueLayout(state.layout)}`;
 
   if (state.source === "songify") {
     const statusEl = document.getElementById("cfg-songify-status");
     if (statusEl) {
-      statusEl.textContent = "Checking...";
-      statusEl.classList.remove("cfg-status-connected", "cfg-status-error");
-      try {
-        const testWs = new WebSocket(`ws://localhost:${state.songifyPort}/ws/data`);
-        let settled = false;
-        const finalize = (ok) => {
-          if (settled) return;
-          settled = true;
-          if (ok) {
-            statusEl.textContent = "Connected";
-            statusEl.classList.add("cfg-status-connected");
-            statusEl.classList.remove("cfg-status-error");
-          } else {
-            statusEl.textContent = "Not connected";
-            statusEl.classList.remove("cfg-status-connected");
-            statusEl.classList.add("cfg-status-error");
-          }
-          try {
-            testWs.close();
-          } catch (_error) {}
-        };
-        testWs.addEventListener("open", () => finalize(true));
-        testWs.addEventListener("error", () => finalize(false));
-        testWs.addEventListener("close", () => {
-          if (!settled) finalize(false);
-        });
-        window.setTimeout(() => finalize(false), 2000);
-      } catch (_error) {
-        statusEl.textContent = "Error";
-        statusEl.classList.remove("cfg-status-connected");
-        statusEl.classList.add("cfg-status-error");
-      }
+      checkSongifyStatus(statusEl, state.songifyPort);
     }
   }
-  attachSidebarListeners(sidebar);
   attachCfgTooltips(sidebar);
   sidebar.scrollTop = scrollTop;
 }
@@ -2083,19 +1046,22 @@ function checkCustomMode() {
     customContainer.style.flex = "0 0 320px";
     customContainer.style.width = "320px";
     import("./custom-editor.js").then(({ initCustomEditor }) => {
-      initCustomEditor(customContainer, previousLayout, (customState) => {
+      initCustomEditor(customContainer, getPreviousLayout(), (customState) => {
         updateCustomPreview(customState);
       });
     });
     renderHeaderDynamic();
   } else {
     normalSidebar.style.display = "";
+    if (!normalSidebar.querySelector(".cfg-section-block")) {
+      renderSidebar();
+    }
     if (customContainer) {
       customContainer.style.display = "none";
       customContainer.style.flex = "";
       customContainer.style.width = "";
     }
-    previousLayout = state.layout;
+    setPreviousLayout(state.layout);
     renderHeaderDynamic();
     document.getElementById("cfg-custom-transitions-rail")?.remove();
   }
@@ -2197,7 +1163,7 @@ function renderHeaderDynamic() {
 
   if (isCustom) {
     addButton("btn-exit-custom", "Exit custom", "cfg-nav-btn", () => {
-      update({ layout: previousLayout || "glasscard" });
+      update({ layout: getPreviousLayout() || "glasscard" });
     });
     addButton("btn-publish-custom-preset", "Publish preset", "cfg-nav-btn", () => {
       publishCustomPresetWithPrompt();
@@ -2205,6 +1171,12 @@ function renderHeaderDynamic() {
   }
 
   addButton("btn-setup", "Setup", "cfg-nav-btn", () => openSetupWizard());
+  addButton(
+    "btn-preview-mode",
+    state.previewDemo ? "Live preview" : "Demo preview",
+    state.previewDemo ? "cfg-nav-btn cfg-nav-btn--accent" : "cfg-nav-btn",
+    () => update({ previewDemo: !state.previewDemo })
+  );
   addButton("btn-presets", "Presets", "cfg-nav-btn", () => openPresetsModal());
   addButton("btn-clear-cache", "Clear cache", "cfg-nav-btn cfg-nav-btn--danger", () => {
     const ok = window.confirm(
@@ -2620,61 +1592,10 @@ function updateCustomPreview(customState) {
   state.artBackdropBlur = customState.artBackdropBlur;
   import("./custom-editor.js").then(({ buildCustomUrl }) => {
     const url = buildCustomUrl(state, customState);
-    const iframe = document.getElementById("cfg-iframe");
     const urlDisplay = document.getElementById("cfg-url-display");
-    if (iframe) iframe.src = url;
     if (urlDisplay) urlDisplay.textContent = url;
+    setPreviewIframe(url, false, state);
   });
-}
-
-function showCfgToast(message) {
-  const shell = document.getElementById("cfg-shell");
-  if (!shell) {
-    return;
-  }
-  let el = document.getElementById("cfg-toast");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "cfg-toast";
-    el.className = "cfg-toast";
-    el.setAttribute("role", "status");
-    el.setAttribute("aria-live", "polite");
-    shell.appendChild(el);
-  }
-  el.textContent = message;
-  el.classList.add("cfg-toast-visible");
-  window.clearTimeout(cfgToastTimer);
-  cfgToastTimer = window.setTimeout(() => {
-    el.classList.remove("cfg-toast-visible");
-  }, 3200);
-}
-
-async function copyText(text) {
-  const value = String(text || "");
-  if (!value) return false;
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(value);
-      return true;
-    }
-  } catch (_error) {}
-
-  try {
-    const ta = document.createElement("textarea");
-    ta.value = value;
-    ta.setAttribute("readonly", "");
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    ta.style.pointerEvents = "none";
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    const ok = document.execCommand("copy");
-    ta.remove();
-    return Boolean(ok);
-  } catch (_error) {
-    return false;
-  }
 }
 
 /** Merges state updates and refreshes preview URL and sidebar UI. */
@@ -2769,25 +1690,53 @@ function update(newState) {
     showCfgToast("Mood sync turned off so your theme can apply.");
   }
 
-  savePlatformState(newState);
+  savePlatformState(state, newState);
+  saveConfigDraft(state);
   const url = buildOverlayUrl(state);
-  const iframe = document.getElementById("cfg-iframe");
   const urlDisplay = document.getElementById("cfg-url-display");
-  if (queueConfigOpen) {
+  const previewImmediate =
+    Object.keys(newState).length === 0 ||
+    newState.source !== undefined ||
+    newState.layout !== undefined ||
+    newState.songifyPort !== undefined ||
+    newState.previewDemo !== undefined;
+  if (newState.songifyPort !== undefined) {
+    invalidateSongifyStatusCache();
+  }
+  if (isQueueConfigOpen()) {
     refreshQueueConfiguratorPreview();
   } else {
-    if (iframe) iframe.src = url;
     if (urlDisplay) urlDisplay.textContent = url;
+    setPreviewIframe(url, previewImmediate, state);
   }
   renderHeaderDynamic();
-  renderSidebar();
+  const sidebar = document.getElementById("cfg-sidebar");
+  const layoutKey = `${state.layout}:${state.source}:${isUniqueLayout(state.layout)}`;
+  const sidebarHidden = sidebar?.style.display === "none";
+  if (
+    state.layout !== "custom" &&
+    (needsSidebarRebuild(newState) ||
+      sidebarHidden ||
+      !sidebar?.querySelector(".cfg-section-block") ||
+      sidebar?.dataset.sidebarLayout !== layoutKey)
+  ) {
+    renderSidebar();
+  } else if (!isQueueConfigOpen() && state.layout !== "custom") {
+    patchSidebarValues();
+  }
   checkCustomMode();
 }
 
 /** Initializes configurator controls, preview syncing, and header actions. */
 export function initConfig() {
   function finishInit() {
-    loadPlatformState();
+    loadPlatformState(state);
+    loadConfigDraft(state);
+
+    initMainSidebarEvents(update, {
+      onOpenQueueConfig: () => renderQueueConfig(),
+      onOpenUniquePresets: () => openPresetsModal({ uniqueOnly: true }),
+    });
 
     if (state.animBgStyle === "conic") {
       state.animBgStyle = "aurora";
@@ -2829,7 +1778,7 @@ export function initConfig() {
         const activeUrl =
           queueDisp ||
           overlayDisp ||
-          (queueConfigOpen ? buildQueueFinalUrl(state) : buildOverlayUrl(state));
+          (isQueueConfigOpen() ? buildQueueFinalUrl(state) : buildOverlayUrl(state));
         const previousText = copyButton.textContent;
         const ok = await copyText(activeUrl);
         copyButton.textContent = ok ? "Copied!" : "Copy failed";
@@ -2846,7 +1795,7 @@ export function initConfig() {
         const activeUrl =
           queueDisp ||
           overlayDisp ||
-          (queueConfigOpen ? buildQueueFinalUrl(state) : buildOverlayUrl(state));
+          (isQueueConfigOpen() ? buildQueueFinalUrl(state) : buildOverlayUrl(state));
         window.open(activeUrl, "_blank");
       });
     }
@@ -2854,10 +1803,9 @@ export function initConfig() {
     if (resetButton) {
       resetButton.addEventListener("click", () => {
         exitQueueDesignerMode();
-        state = {
-          ...DEFAULT_STATE,
-          commands: JSON.parse(JSON.stringify(DEFAULT_STATE.commands)),
-        };
+        clearConfigDraft();
+        resetState();
+        state = getState();
         update({});
       });
     }
