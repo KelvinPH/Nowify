@@ -137,9 +137,9 @@ function fitMinimapCanvas() {
   const canvas = document.getElementById("cfg-obs-canvas");
   if (!scaler || !canvas) return;
 
-  const pad = 16;
-  const maxW = Math.max(240, scaler.clientWidth - pad * 2);
-  const maxH = Math.max(120, scaler.clientHeight - pad * 2);
+  const pad = 12;
+  const maxW = Math.max(160, scaler.clientWidth - pad * 2);
+  const maxH = Math.max(72, scaler.clientHeight - pad * 2);
   const { width: cw, height: ch } = getCanvasSize();
   const scale = Math.min(maxW / cw, maxH / ch);
   const displayW = Math.max(1, Math.round(cw * scale));
