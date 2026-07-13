@@ -5,8 +5,21 @@
 .idea/
 .vscode/
 
+# Environment and secrets (never commit)
+.env
+.env.local
+.env.*.local
+.dev.vars
+*.secrets.*
+*.secret.*
+secrets.json
+credentials.json
+
 # Cloudflare / Wrangler local state
 .wrangler/
+
+# Local Wrangler config with account-specific namespace IDs (use wrangler.toml.example)
+wrangler.toml
 
 # Logs
 *.log

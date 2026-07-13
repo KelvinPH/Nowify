@@ -1,0 +1,20 @@
+# Copy to .dev.vars for local `wrangler dev` (never commit .dev.vars).
+# Production vars: use wrangler.toml [vars] and `wrangler secret put` for secrets.
+
+# CORS origin for your GitHub Pages (or local) frontend URL
+ALLOWED_ORIGIN=https://YOUR_USERNAME.github.io
+
+# Apple Music signing (optional) — set in production via:
+#   wrangler secret put APPLE_TEAM_ID
+#   wrangler secret put APPLE_KEY_ID
+#   wrangler secret put APPLE_PRIVATE_KEY
+# For local dev only, you may uncomment and fill (do not commit):
+# APPLE_TEAM_ID=
+# APPLE_KEY_ID=
+# APPLE_PRIVATE_KEY=
+
+# After deploying your Worker, set WORKER_BASE_URL in these frontend files
+# (public URL, not a Wrangler secret):
+#   src/config/constants.js
+#   src/api/lastfm.js
+#   src/stats/session.js

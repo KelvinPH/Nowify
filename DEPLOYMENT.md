@@ -31,7 +31,7 @@ wrangler kv:namespace create "HISTORY"
 wrangler kv:namespace create "THEMES"
 ```
 
-Copy the namespace IDs from the output and add them to `wrangler.toml`.
+Copy the namespace IDs from the output and add them to your local `wrangler.toml` (start from [`wrangler.toml.example`](./wrangler.toml.example)). **Do not commit real namespace IDs** — they are tied to your Cloudflare account.
 
 ### 4) Set Apple Music secrets (optional)
 
@@ -43,9 +43,9 @@ wrangler secret put APPLE_KEY_ID
 wrangler secret put APPLE_PRIVATE_KEY
 ```
 
-### 5) Update `wrangler.toml`
+### 5) Configure `wrangler.toml`
 
-Set `ALLOWED_ORIGIN` to your GitHub Pages URL, for example:
+The committed template is [`wrangler.toml.example`](./wrangler.toml.example). Copy it to `wrangler.toml` locally (that file is gitignored).
 
 ```toml
 ALLOWED_ORIGIN = "https://{username}.github.io"

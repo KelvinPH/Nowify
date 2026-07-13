@@ -143,6 +143,26 @@ Open [`stats.html`](./stats.html) after sessions for summaries, mood distributio
 - Spotify uses OAuth 2.0 PKCE; tokens stay in browser / OBS storage as designed
 - Spotify access is scoped to what the app needs for now playing and related features
 
+## Security / secrets
+
+**Forks and clones do not inherit the maintainer’s Cloudflare account, KV data, or API access.**
+
+If you fork this repository, you must use your own:
+
+- [Cloudflare account](https://dash.cloudflare.com/) and `wrangler login`
+- **KV namespace IDs** — create `HISTORY` and `THEMES` namespaces and put the IDs in your local `wrangler.toml` (see [`wrangler.toml.example`](./wrangler.toml.example))
+- **`ALLOWED_ORIGIN`** — your GitHub Pages URL (or local dev origin) in `wrangler.toml` / [`.dev.vars`](./.dev.vars.example)
+- **Worker URL** — after `wrangler deploy`, set `WORKER_BASE_URL` in `src/config/constants.js`, `src/api/lastfm.js`, and `src/stats/session.js` (see [DEPLOYMENT.md](./DEPLOYMENT.md))
+- **Apple Music** (optional) — `wrangler secret put` for `APPLE_TEAM_ID`, `APPLE_KEY_ID`, and `APPLE_PRIVATE_KEY`; never commit these
+
+**Never commit:** `.env`, `.dev.vars`, `.wrangler/`, or files matching `*.secrets.*`. Copy [`.dev.vars.example`](./.dev.vars.example) for local development.
+
+The committed template is [`wrangler.toml.example`](./wrangler.toml.example). Copy it to `wrangler.toml` locally (gitignored; never commit real namespace IDs).
+
+**CI/CD:** This repository has no GitHub Actions workflow that deploys to Cloudflare. If you add one, store `CF_API_TOKEN` (and any account ID) in **GitHub repository secrets** (`${{ secrets.CF_API_TOKEN }}`), never in the workflow file. GitHub does **not** pass repository secrets to workflows from forked pull requests by default — fork PRs will fail deploy steps unless you use a maintainer-only approval flow (e.g. `pull_request_target`, used carefully).
+
+Official project: [github.com/KelvinPH/Nowify](https://github.com/KelvinPH/Nowify)
+
 ## License
 
 Copyright (c) 2026 [KelvinPH](https://github.com/KelvinPH). All rights reserved.

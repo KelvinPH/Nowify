@@ -1,0 +1,22 @@
+# Copyright (c) 2026 KelvinPH. All rights reserved.
+# https://github.com/KelvinPH/Nowify
+#
+# Copy this file to wrangler.toml and replace every YOUR_* placeholder with
+# values from your own Cloudflare account. Do not commit real namespace IDs.
+
+name = "nowify-workers-YOUR_NAME"
+main = "workers/index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://YOUR_USERNAME.github.io"
+
+[[kv_namespaces]]
+binding = "HISTORY"
+id = "YOUR_HISTORY_KV_NAMESPACE_ID"
+preview_id = "YOUR_HISTORY_KV_PREVIEW_ID"
+
+[[kv_namespaces]]
+binding = "THEMES"
+id = "YOUR_THEMES_KV_NAMESPACE_ID"
+preview_id = "YOUR_THEMES_KV_PREVIEW_ID"
