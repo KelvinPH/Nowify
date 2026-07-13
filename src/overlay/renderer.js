@@ -2,6 +2,8 @@
  * https://github.com/KelvinPH/Nowify
  */
 
+import { applyWidgetPositionFromConfig } from "./position.js";
+
 import { getAudioFeatures, getNextTrack, getNowPlaying } from "../api/spotify.js";
 import { getLastfmNowPlaying } from "../api/lastfm.js";
 import {
@@ -769,6 +771,11 @@ export function parseConfig() {
   const exitDelayRaw = Number(params.get("exitDelay"));
   const exitDelay = Number.isFinite(exitDelayRaw) ? exitDelayRaw : 2500;
 
+  const hasPosition = params.has("positionAnchor");
+  const positionAnchor = hasPosition ? params.get("positionAnchor") : null;
+  const positionOffsetX = hasPosition ? Number(params.get("positionOffsetX")) || 40 : 40;
+  const positionOffsetY = hasPosition ? Number(params.get("positionOffsetY")) || 40 : 40;
+
   return {
     layout,
     theme: params.get("theme") || "spotify",
@@ -776,6 +783,7 @@ export function parseConfig() {
     songifyPort: Number(params.get("songifyPort")) || 4002,
     clientId: params.get("clientId") || "",
     demo: toBool(params.get("demo"), false),
+    cfgPreview: toBool(params.get("cfgPreview"), false),
     canvasEnabled: params.get("canvasEnabled") === "1",
     animBgEnabled,
     animBgStyle,
@@ -790,6 +798,9 @@ export function parseConfig() {
     enterDuration,
     exitDuration,
     exitDelay,
+    positionAnchor,
+    positionOffsetX,
+    positionOffsetY,
     showBpm: toBool(params.get("showBpm"), false),
     showTimeLeft: toBool(params.get("showTimeLeft"), false),
     showNextTrack: toBool(params.get("showNextTrack"), false),
@@ -1210,6 +1221,7 @@ async function render(track, extras, nextTrack = null, options = {}) {
       const trackForPreset = { ...(track || {}), nextTrack: nextTrack || null };
       preset.render(trackForPreset, extras);
     }
+    applyWidgetPositionFromConfig(config);
     applyPlaybackTransitions(track);
     window.dispatchEvent(new CustomEvent("nowify:trackchange", { detail: { track } }));
     return;
@@ -1268,6 +1280,7 @@ async function render(track, extras, nextTrack = null, options = {}) {
   }
 
   bindOverflowMarquees(rootEl);
+  applyWidgetPositionFromConfig(config);
 
   rootEl.classList.add("nw-animate-in");
   window.setTimeout(() => {

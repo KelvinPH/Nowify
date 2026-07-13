@@ -20,19 +20,59 @@
   <div id="cfg-shell">
     <header id="cfg-header">
       <div class="cfg-header-brand">
+        <span class="cfg-waveform-mark" aria-hidden="true">
+          <svg viewBox="0 0 20 16" width="20" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="1" y="9" width="3" height="6" rx="1" fill="currentColor"/>
+            <rect x="6" y="5" width="3" height="10" rx="1" fill="currentColor"/>
+            <rect x="11" y="7" width="3" height="8" rx="1" fill="currentColor"/>
+            <rect x="16" y="2" width="3" height="13" rx="1" fill="currentColor"/>
+          </svg>
+        </span>
         <img class="cfg-logo" src="assets/logo/logo.png" alt="Nowify" />
         <span class="cfg-header-product">Configurator</span>
       </div>
       <nav class="cfg-header-nav" aria-label="Configurator actions">
+        <div id="cfg-nav-tools" class="cfg-nav-tools" aria-label="Configuration tools"></div>
         <div class="cfg-nav-actions">
-          <button type="button" id="btn-copy" class="cfg-nav-btn cfg-nav-btn--accent">Copy URL</button>
-          <button type="button" id="btn-obs-guide" class="cfg-nav-btn">Add to OBS</button>
-          <span class="cfg-nav-sep" aria-hidden="true"></span>
-          <div id="cfg-header-dynamic" class="cfg-nav-dynamic"></div>
-          <span class="cfg-nav-sep" aria-hidden="true"></span>
-          <a href="stats.html" class="cfg-nav-btn cfg-nav-btn--link">Stats</a>
-          <button type="button" id="btn-open" class="cfg-nav-btn">Preview</button>
-          <button type="button" id="btn-reset" class="cfg-nav-btn cfg-nav-btn--danger">Reset</button>
+          <button type="button" id="btn-obs-guide" class="cfg-nav-btn cfg-nav-btn--ghost">
+            <i class="fa-solid fa-display" aria-hidden="true"></i>
+            <span>Add to OBS</span>
+          </button>
+          <button type="button" id="btn-open" class="cfg-nav-btn cfg-nav-btn--ghost">
+            <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+            <span>Preview</span>
+          </button>
+          <button type="button" id="btn-copy" class="cfg-nav-btn cfg-nav-btn--primary">
+            <i class="fa-regular fa-copy" aria-hidden="true"></i>
+            <span>Copy URL</span>
+          </button>
+          <div class="cfg-nav-overflow">
+            <button
+              type="button"
+              id="btn-nav-more"
+              class="cfg-nav-btn cfg-nav-btn--icon"
+              aria-label="More actions"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="cfg-nav-overflow-menu"
+            >
+              <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
+            </button>
+            <div id="cfg-nav-overflow-menu" class="cfg-nav-overflow-menu" role="menu" hidden>
+              <a href="stats.html" class="cfg-nav-overflow-item" role="menuitem">
+                <i class="fa-solid fa-chart-simple" aria-hidden="true"></i>
+                <span>Stats</span>
+              </a>
+              <button type="button" id="btn-reset" class="cfg-nav-overflow-item" role="menuitem">
+                <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                <span>Reset settings</span>
+              </button>
+              <button type="button" id="btn-clear-cache" class="cfg-nav-overflow-item cfg-nav-overflow-item--danger" role="menuitem">
+                <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+                <span>Clear cache</span>
+              </button>
+            </div>
+          </div>
         </div>
       </nav>
     </header>
@@ -42,13 +82,19 @@
 
       <main id="cfg-preview">
         <div id="cfg-preview-primary" class="cfg-preview-primary">
+          <div class="cfg-preview-panel-head">
+            <span class="cfg-preview-panel-label">Card design · zoomed</span>
+          </div>
           <div id="cfg-preview-frame-wrap">
             <iframe id="cfg-iframe" src="./overlay.html" frameborder="0" title="Overlay preview"></iframe>
           </div>
         </div>
         <section id="cfg-obs-minimap" class="cfg-obs-minimap" aria-label="OBS canvas placement">
           <div class="cfg-obs-minimap-head">
-            <span class="cfg-obs-minimap-title">Canvas placement</span>
+            <div class="cfg-obs-minimap-head-top">
+              <span class="cfg-obs-minimap-title">Canvas placement</span>
+              <span id="cfg-obs-size-label" class="cfg-obs-size-label"></span>
+            </div>
             <div id="cfg-obs-canvas-toolbar" class="cfg-obs-canvas-toolbar">
               <div class="cfg-obs-canvas-presets">
                 <button type="button" class="cfg-btn cfg-sm-btn cfg-active" data-canvas-preset="1080p">1920×1080</button>
@@ -61,20 +107,38 @@
                 <input id="cfg-obs-canvas-h" class="cfg-input cfg-obs-canvas-input" type="number" min="180" max="4320" value="1080" aria-label="Canvas height" />
               </div>
             </div>
-            <span id="cfg-obs-size-label" class="cfg-obs-size-label"></span>
           </div>
-          <div id="cfg-obs-minimap-scaler" class="cfg-obs-minimap-scaler">
-            <div id="cfg-obs-canvas" class="cfg-obs-canvas">
-              <span class="cfg-obs-canvas-tag">1920×1080</span>
-              <div id="cfg-obs-overlay-block" class="cfg-obs-overlay-block" tabindex="0" role="img" aria-label="Overlay footprint on stream canvas"></div>
+          <div class="cfg-obs-placement-body">
+            <div id="cfg-obs-minimap-scaler" class="cfg-obs-minimap-scaler">
+              <div id="cfg-obs-canvas" class="cfg-obs-canvas">
+                <div id="cfg-obs-overlay-block" class="cfg-obs-overlay-block" tabindex="0" role="img" aria-label="Overlay footprint on stream canvas"></div>
+              </div>
+            </div>
+            <div class="cfg-obs-placement-controls">
+              <p class="cfg-placement-controls-label">Position on stream</p>
+              <div class="cfg-placement-controls-inner">
+                <div class="cfg-anchor-grid" role="group" aria-label="Overlay anchor on stream canvas"></div>
+                <div id="cfg-position-offsets" class="cfg-position-offsets" hidden>
+                  <label class="cfg-position-offset-field">
+                    <span class="cfg-position-offset-label">X offset</span>
+                    <input type="number" id="ctrl-positionOffsetX" class="cfg-input-inline cfg-value-mono cfg-position-offset-input" min="0" max="2000" value="40" aria-label="Horizontal offset in pixels" />
+                  </label>
+                  <label class="cfg-position-offset-field">
+                    <span class="cfg-position-offset-label">Y offset</span>
+                    <input type="number" id="ctrl-positionOffsetY" class="cfg-input-inline cfg-value-mono cfg-position-offset-input" min="0" max="2000" value="40" aria-label="Vertical offset in pixels" />
+                  </label>
+                </div>
+              </div>
             </div>
           </div>
         </section>
-        <p id="cfg-obs-workflow-hint" class="cfg-obs-workflow-hint">
-          Copy URL and paste into an OBS Browser Source at the size shown in the canvas placement minimap.
-        </p>
         <div id="cfg-preview-bar">
-          <span id="cfg-url-display"></span>
+          <div class="cfg-preview-url-wrap">
+            <span id="cfg-url-display" class="cfg-preview-url-text"></span>
+          </div>
+          <button type="button" id="btn-copy-bar" class="cfg-preview-copy-btn" aria-label="Copy URL" title="Copy URL">
+            <i class="fa-regular fa-copy" aria-hidden="true"></i>
+          </button>
         </div>
       </main>
     </div>

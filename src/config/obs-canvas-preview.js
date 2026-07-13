@@ -5,31 +5,27 @@
 import {
   estimateObsBrowserSourceSize,
   formatObsSizeLabel,
+  layoutSupportsCanvasPlacement,
   OBS_CANVAS_PRESETS,
 } from "./obs-layout-sizes.js";
+import {
+  computeBlockPosition,
+  isCenterAnchor,
+  POSITION_ANCHOR_ICONS,
+  POSITION_ANCHOR_LABELS,
+  POSITION_ANCHORS,
+} from "../overlay/position.js";
 
 const STORAGE_KEY = "nowify_obs_canvas";
 const PRIMARY_PREVIEW_WIDTH = 900;
-const PRIMARY_PREVIEW_HEIGHT = 300;
+const PRIMARY_PREVIEW_HEIGHT = 360;
 
 let canvasState = { presetId: "1080p", width: 1920, height: 1080 };
-let resizeObserver = null;
+let minimapResizeObserver = null;
 let boundState = null;
 let linkBound = false;
-
-const THEME_BLOCK_COLORS = {
-  obsidian: "rgba(200,200,200,0.85)",
-  midnight: "rgba(74,158,255,0.85)",
-  aurora: "rgba(180,100,255,0.85)",
-  forest: "rgba(80,200,120,0.85)",
-  amber: "rgba(255,170,70,0.85)",
-  glass: "rgba(255,255,255,0.55)",
-  spotify: "rgba(29,185,84,0.85)",
-  minimal: "rgba(255,255,255,0.7)",
-  neon: "rgba(0,255,200,0.75)",
-  lofi: "rgba(220,180,140,0.8)",
-  dark: "rgba(160,160,160,0.8)",
-};
+let placementBound = false;
+let onPositionChange = null;
 
 function loadCanvasState() {
   try {
@@ -60,16 +56,45 @@ function getCanvasSize() {
   return { width: canvasState.width, height: canvasState.height };
 }
 
-function blockColorForState(state) {
-  const theme = state?.theme || "obsidian";
-  return THEME_BLOCK_COLORS[theme] || "rgba(29,185,84,0.85)";
-}
-
 function blockRadiusForLayout(layout) {
   if (layout === "pill") return "999px";
   if (layout === "spotifycard") return "2px";
   if (layout === "stickynote") return "2px 12px 12px 2px";
   return "6px";
+}
+
+function getPositionFromState(state) {
+  return {
+    anchor: state?.positionAnchor || "bottom-left",
+    offsetX: Number(state?.positionOffsetX) || 40,
+    offsetY: Number(state?.positionOffsetY) || 40,
+  };
+}
+
+function styleFootprintBlock(block, state, canvasDisplayW, canvasDisplayH, canvasW, canvasH) {
+  if (!block) return;
+
+  const obsSize = estimateObsBrowserSourceSize(state || boundState || {});
+  const { anchor, offsetX, offsetY } = getPositionFromState(state || boundState || {});
+
+  const blockDisplayW = (obsSize.width / canvasW) * canvasDisplayW;
+  const blockDisplayH = (obsSize.height / canvasH) * canvasDisplayH;
+  const { left, top } = computeBlockPosition(
+    anchor,
+    offsetX,
+    offsetY,
+    canvasDisplayW,
+    canvasDisplayH,
+    blockDisplayW,
+    blockDisplayH
+  );
+
+  block.style.width = `${Math.max(4, blockDisplayW)}px`;
+  block.style.height = `${Math.max(3, blockDisplayH)}px`;
+  block.style.left = `${left}px`;
+  block.style.top = `${top}px`;
+  block.style.borderRadius = blockRadiusForLayout(boundState?.layout || "glasscard");
+  block.title = `Overlay footprint ≈ ${obsSize.width}×${obsSize.height} px`;
 }
 
 function setPreviewLink(active) {
@@ -97,7 +122,6 @@ function bindPreviewLink() {
 
 function applyPrimaryPreview() {
   const iframe = document.getElementById("cfg-iframe");
-  const wrap = document.getElementById("cfg-preview-frame-wrap");
   if (!iframe) return;
 
   iframe.style.width = `${PRIMARY_PREVIEW_WIDTH}px`;
@@ -106,11 +130,6 @@ function applyPrimaryPreview() {
   iframe.style.position = "relative";
   iframe.style.top = "";
   iframe.style.left = "";
-
-  if (wrap) {
-    wrap.style.width = "";
-    wrap.style.height = "";
-  }
 }
 
 function fitMinimapCanvas() {
@@ -118,9 +137,9 @@ function fitMinimapCanvas() {
   const canvas = document.getElementById("cfg-obs-canvas");
   if (!scaler || !canvas) return;
 
-  const pad = 12;
-  const maxW = Math.max(100, scaler.clientWidth - pad * 2);
-  const maxH = Math.max(60, scaler.clientHeight - pad * 2);
+  const pad = 16;
+  const maxW = Math.max(240, scaler.clientWidth - pad * 2);
+  const maxH = Math.max(120, scaler.clientHeight - pad * 2);
   const { width: cw, height: ch } = getCanvasSize();
   const scale = Math.min(maxW / cw, maxH / ch);
   const displayW = Math.max(1, Math.round(cw * scale));
@@ -130,37 +149,111 @@ function fitMinimapCanvas() {
   canvas.style.height = `${displayH}px`;
 }
 
+function patchPlacementVisibility(state) {
+  const supported = layoutSupportsCanvasPlacement(state?.layout);
+  const controls = document.querySelector(".cfg-obs-placement-controls");
+  const minimap = document.getElementById("cfg-obs-minimap");
+
+  controls?.toggleAttribute("hidden", !supported);
+  minimap?.classList.toggle("cfg-obs-minimap--no-placement", !supported);
+}
+function hydratePlacementControls(state) {
+  patchPlacementVisibility(state);
+  if (!layoutSupportsCanvasPlacement(state?.layout)) {
+    return;
+  }
+  const grid = document.querySelector("#cfg-obs-minimap .cfg-anchor-grid");
+  if (grid && !grid.querySelector("[data-set-key='positionAnchor']")) {
+    grid.innerHTML = renderAnchorGrid(state);
+  }
+  patchPositionPanel(state);
+}
+
+function patchPositionPanel(state) {
+  const anchor = state?.positionAnchor || "bottom-left";
+  document.querySelectorAll("#cfg-obs-minimap [data-set-key='positionAnchor']").forEach((btn) => {
+    btn.classList.toggle("cfg-active", btn.getAttribute("data-set-value") === anchor);
+  });
+
+  const offsetWrap = document.getElementById("cfg-position-offsets");
+  if (offsetWrap) {
+    offsetWrap.hidden = isCenterAnchor(anchor);
+  }
+
+  const ox = document.getElementById("ctrl-positionOffsetX");
+  const oy = document.getElementById("ctrl-positionOffsetY");
+  if (ox && document.activeElement !== ox) {
+    ox.value = String(state?.positionOffsetX ?? 40);
+  }
+  if (oy && document.activeElement !== oy) {
+    oy.value = String(state?.positionOffsetY ?? 40);
+  }
+}
+
 function applyMinimapLayout(state) {
   const block = document.getElementById("cfg-obs-overlay-block");
   const label = document.getElementById("cfg-obs-size-label");
   const canvas = document.getElementById("cfg-obs-canvas");
-  const tag = document.querySelector(".cfg-obs-canvas-tag");
   if (!block || !canvas) return;
 
   const canvasSize = getCanvasSize();
   const obsSize = estimateObsBrowserSourceSize(state || boundState || {});
   boundState = state || boundState;
 
-  if (tag) {
-    tag.textContent = `${canvasSize.width}×${canvasSize.height}`;
-  }
-
   fitMinimapCanvas();
 
-  const blockDisplayW = (obsSize.width / canvasSize.width) * canvas.clientWidth;
-  const blockDisplayH = (obsSize.height / canvasSize.height) * canvas.clientHeight;
+  styleFootprintBlock(
+    block,
+    boundState,
+    canvas.clientWidth,
+    canvas.clientHeight,
+    canvasSize.width,
+    canvasSize.height
+  );
 
-  block.style.width = `${Math.max(4, blockDisplayW)}px`;
-  block.style.height = `${Math.max(3, blockDisplayH)}px`;
-  block.style.left = "0";
-  block.style.top = "0";
-  block.style.background = `linear-gradient(135deg, ${blockColorForState(boundState)}, rgba(0,0,0,0.25))`;
-  block.style.borderRadius = blockRadiusForLayout(boundState?.layout || "glasscard");
-  block.title = `Overlay footprint ≈ ${obsSize.width}×${obsSize.height} px`;
+  if (!layoutSupportsCanvasPlacement(boundState?.layout)) {
+    block.style.left = `${Math.round((canvas.clientWidth - block.offsetWidth) / 2)}px`;
+    block.style.top = `${Math.round((canvas.clientHeight - block.offsetHeight) / 2)}px`;
+  }
 
   if (label) {
     label.textContent = formatObsSizeLabel(obsSize, canvasSize);
   }
+
+  patchPositionPanel(boundState);
+}
+
+function bindPlacementPanel() {
+  const panel = document.getElementById("cfg-obs-minimap");
+  if (!panel || placementBound) return;
+  placementBound = true;
+
+  panel.addEventListener("click", (event) => {
+    const btn = event.target.closest('[data-set-key="positionAnchor"]');
+    if (!btn || !panel.contains(btn)) return;
+    const value = btn.getAttribute("data-set-value");
+    if (!value) return;
+    const next = { ...(boundState || {}), positionAnchor: value };
+    patchPositionPanel(next);
+    applyMinimapLayout(next);
+    onPositionChange?.({ positionAnchor: value });
+  });
+
+  panel.addEventListener("change", (event) => {
+    const target = event.target;
+    if (target.id === "ctrl-positionOffsetX") {
+      const offset = Math.max(0, Number(target.value) || 0);
+      const next = { ...(boundState || {}), positionOffsetX: offset };
+      applyMinimapLayout(next);
+      onPositionChange?.({ positionOffsetX: offset });
+    }
+    if (target.id === "ctrl-positionOffsetY") {
+      const offset = Math.max(0, Number(target.value) || 0);
+      const next = { ...(boundState || {}), positionOffsetY: offset };
+      applyMinimapLayout(next);
+      onPositionChange?.({ positionOffsetY: offset });
+    }
+  });
 }
 
 function setCustomFieldsVisible(show) {
@@ -217,15 +310,41 @@ function bindToolbar() {
 
 function observeMinimap() {
   const scaler = document.getElementById("cfg-obs-minimap-scaler");
-  if (!scaler || resizeObserver) return;
-  resizeObserver = new ResizeObserver(() => {
-    applyMinimapLayout(boundState);
-  });
-  resizeObserver.observe(scaler);
+  if (!scaler) return;
+  if (!minimapResizeObserver) {
+    minimapResizeObserver = new ResizeObserver(() => {
+      applyMinimapLayout(boundState);
+    });
+  }
+  minimapResizeObserver.disconnect();
+  minimapResizeObserver.observe(scaler);
+}
+
+function renderAnchorGrid(state) {
+  const anchor = state?.positionAnchor || "bottom-left";
+  return POSITION_ANCHORS.map((id) => {
+    const label = POSITION_ANCHOR_LABELS[id] || id;
+    const icon = POSITION_ANCHOR_ICONS[id] || "fa-solid fa-circle";
+    return `<button type="button" class="cfg-anchor-cell ${anchor === id ? "cfg-active" : ""}" data-set-key="positionAnchor" data-set-value="${id}" aria-label="${label}" title="${label}"><i class="${icon}" aria-hidden="true"></i></button>`;
+  }).join("");
+}
+
+function renderOffsetControls(state) {
+  const hidden = isCenterAnchor(state?.positionAnchor || "bottom-left");
+  return `<div id="cfg-position-offsets" class="cfg-position-offsets"${hidden ? " hidden" : ""}>
+    <label class="cfg-position-offset-field">
+      <span class="cfg-position-offset-label">X offset</span>
+      <input type="number" id="ctrl-positionOffsetX" class="cfg-input-inline cfg-value-mono cfg-position-offset-input" min="0" max="2000" value="${state?.positionOffsetX ?? 40}" aria-label="Horizontal offset in pixels" />
+    </label>
+    <label class="cfg-position-offset-field">
+      <span class="cfg-position-offset-label">Y offset</span>
+      <input type="number" id="ctrl-positionOffsetY" class="cfg-input-inline cfg-value-mono cfg-position-offset-input" min="0" max="2000" value="${state?.positionOffsetY ?? 40}" aria-label="Vertical offset in pixels" />
+    </label>
+  </div>`;
 }
 
 /** HTML for the configurator preview column (primary preview + canvas minimap). */
-export function getConfiguratorPreviewHtml() {
+export function getConfiguratorPreviewHtml(state = {}) {
   const presetButtons = OBS_CANVAS_PRESETS.map(
     (p) =>
       `<button type="button" class="cfg-btn cfg-sm-btn${p.id === "1080p" ? " cfg-active" : ""}" data-canvas-preset="${p.id}">${p.label}</button>`
@@ -233,13 +352,19 @@ export function getConfiguratorPreviewHtml() {
 
   return `
     <div id="cfg-preview-primary" class="cfg-preview-primary">
+      <div class="cfg-preview-panel-head">
+        <span class="cfg-preview-panel-label">Card design · zoomed</span>
+      </div>
       <div id="cfg-preview-frame-wrap">
         <iframe id="cfg-iframe" src="./overlay.html" frameborder="0" title="Overlay preview"></iframe>
       </div>
     </div>
     <section id="cfg-obs-minimap" class="cfg-obs-minimap" aria-label="OBS canvas placement">
       <div class="cfg-obs-minimap-head">
-        <span class="cfg-obs-minimap-title">Canvas placement</span>
+        <div class="cfg-obs-minimap-head-top">
+          <span class="cfg-obs-minimap-title">Canvas placement</span>
+          <span id="cfg-obs-size-label" class="cfg-obs-size-label"></span>
+        </div>
         <div id="cfg-obs-canvas-toolbar" class="cfg-obs-canvas-toolbar">
           <div class="cfg-obs-canvas-presets">${presetButtons}</div>
           <div id="cfg-obs-canvas-custom" class="cfg-obs-canvas-custom" hidden>
@@ -248,32 +373,43 @@ export function getConfiguratorPreviewHtml() {
             <input id="cfg-obs-canvas-h" class="cfg-input cfg-obs-canvas-input" type="number" min="180" max="4320" value="1080" aria-label="Canvas height" />
           </div>
         </div>
-        <span id="cfg-obs-size-label" class="cfg-obs-size-label"></span>
       </div>
-      <div id="cfg-obs-minimap-scaler" class="cfg-obs-minimap-scaler">
-        <div id="cfg-obs-canvas" class="cfg-obs-canvas">
-          <span class="cfg-obs-canvas-tag">1920×1080</span>
-          <div id="cfg-obs-overlay-block" class="cfg-obs-overlay-block" tabindex="0" role="img" aria-label="Overlay footprint on stream canvas"></div>
+      <div class="cfg-obs-placement-body">
+        <div id="cfg-obs-minimap-scaler" class="cfg-obs-minimap-scaler">
+          <div id="cfg-obs-canvas" class="cfg-obs-canvas">
+            <div id="cfg-obs-overlay-block" class="cfg-obs-overlay-block" tabindex="0" role="img" aria-label="Overlay footprint on stream canvas"></div>
+          </div>
+        </div>
+        <div class="cfg-obs-placement-controls">
+          <p class="cfg-placement-controls-label">Position on stream</p>
+          <div class="cfg-placement-controls-inner">
+            <div class="cfg-anchor-grid" role="group" aria-label="Overlay anchor on stream canvas">${renderAnchorGrid(state)}</div>
+            ${renderOffsetControls(state)}
+          </div>
         </div>
       </div>
     </section>
-    <p id="cfg-obs-workflow-hint" class="cfg-obs-workflow-hint">
-      Copy URL and paste into an OBS Browser Source at the size shown in the canvas placement minimap.
-    </p>
     <div id="cfg-preview-bar">
-      <span id="cfg-url-display"></span>
+      <div class="cfg-preview-url-wrap">
+        <span id="cfg-url-display" class="cfg-preview-url-text"></span>
+      </div>
+      <button type="button" id="btn-copy-bar" class="cfg-preview-copy-btn" aria-label="Copy URL" title="Copy URL">
+        <i class="fa-regular fa-copy" aria-hidden="true"></i>
+      </button>
     </div>
   `;
 }
 
-export function initObsCanvasPreview(state) {
-  if (resizeObserver) {
-    resizeObserver.disconnect();
-    resizeObserver = null;
+export function initObsCanvasPreview(state, options = {}) {
+  if (minimapResizeObserver) {
+    minimapResizeObserver.disconnect();
   }
   linkBound = false;
+  placementBound = false;
+  onPositionChange = options.onPositionChange || null;
   loadCanvasState();
   boundState = state;
+  hydratePlacementControls(state);
   setCustomFieldsVisible(canvasState.presetId === "custom");
 
   const toolbar = document.getElementById("cfg-obs-canvas-toolbar");
@@ -295,11 +431,12 @@ export function initObsCanvasPreview(state) {
   bindToolbar();
   observeMinimap();
   bindPreviewLink();
+  bindPlacementPanel();
   applyMinimapLayout(state);
 }
 
 export function updateObsCanvasPreview(state) {
   boundState = state;
-  applyPrimaryPreview();
+  hydratePlacementControls(state);
   applyMinimapLayout(state);
 }

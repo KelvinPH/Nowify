@@ -22,6 +22,41 @@ export function escAttr(str) {
     .replace(/"/g, "&quot;");
 }
 
+export const CFG_WAVEFORM_MARK_HTML = `<span class="cfg-waveform-mark cfg-waveform-mark--sm" aria-hidden="true"><svg viewBox="0 0 20 16" width="14" height="11" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="9" width="3" height="6" rx="1" fill="currentColor"/><rect x="6" y="5" width="3" height="10" rx="1" fill="currentColor"/><rect x="11" y="7" width="3" height="8" rx="1" fill="currentColor"/><rect x="16" y="2" width="3" height="13" rx="1" fill="currentColor"/></svg></span>`;
+
+const SECTION_ICONS = {
+  source: "fa-solid fa-broadcast-tower",
+  layout: "fa-solid fa-grip",
+  theme: "fa-solid fa-palette",
+  content: "fa-solid fa-font",
+  visuals: "fa-solid fa-eye",
+  transitions: "fa-solid fa-right-left",
+  style: "fa-solid fa-paintbrush",
+  twitch: "fa-brands fa-twitch",
+};
+
+const SOURCE_SECTION_ICONS = {
+  spotify: "fa-brands fa-spotify",
+  lastfm: "fa-brands fa-lastfm",
+  songify: "fa-solid fa-tower-broadcast",
+};
+
+export function getSectionIcon(sectionId, source) {
+  if (sectionId === "source" && source && SOURCE_SECTION_ICONS[source]) {
+    return SOURCE_SECTION_ICONS[source];
+  }
+  return SECTION_ICONS[sectionId] || "fa-solid fa-sliders";
+}
+
+export function renderSidebarSearch() {
+  return `<div class="cfg-sidebar-search">
+    <div class="cfg-sidebar-search-wrap">
+      <input id="cfg-sidebar-filter" type="search" placeholder="Filter settings" autocomplete="off" spellcheck="false" aria-label="Filter settings" />
+      <kbd class="cfg-sidebar-search-kbd" aria-hidden="true">/</kbd>
+    </div>
+  </div>`;
+}
+
 export function ensureCfgTipElement() {
   if (cfgTipEl && document.body.contains(cfgTipEl)) {
     return cfgTipEl;
@@ -114,15 +149,23 @@ export function attachCfgTooltips(container) {
   });
 }
 
-export function renderSection(id, label, content) {
+export function renderSection(id, label, content, options = {}) {
   const open = getOpenSections().has(id);
+  const icon = options.icon || getSectionIcon(id, options.source);
+  const body =
+    content && content.trim()
+      ? content
+      : `<div class="cfg-section-empty">${CFG_WAVEFORM_MARK_HTML}<span>Nothing configured yet</span></div>`;
   return `<div class="cfg-section-block${open ? " cfg-section-open" : ""}" data-section-id="${id}">
-    <button type="button" class="cfg-section-header" data-toggle-section="${id}">
-      <span class="cfg-section-header-label">${label}</span>
+    <button type="button" class="cfg-section-header" data-toggle-section="${id}" data-label="${escAttr(label)}">
+      <span class="cfg-section-header-left">
+        <i class="cfg-section-header-icon ${icon}" aria-hidden="true"></i>
+        <span class="cfg-section-header-label">${label}</span>
+      </span>
       <span class="cfg-section-header-chevron" aria-hidden="true">›</span>
     </button>
     <div class="cfg-section-body">
-      ${content}
+      ${body}
     </div>
   </div>`;
 }
@@ -134,7 +177,7 @@ export function compactToggle(label, key, visible = true, desc = "", tooltip = "
     ? `<span class="cfg-toggle-desc">${desc}</span>`
     : "";
   const tipAttr = tooltip ? ` data-cfg-tip="${escAttr(tooltip)}"` : "";
-  return `<label class="cfg-toggle-row cfg-toggle-row-compact"${tipAttr}>
+  return `<label class="cfg-toggle-row cfg-toggle-row-compact" data-label="${escAttr(label)}"${tipAttr}>
     <span class="cfg-toggle-label-wrap">
       <span class="cfg-toggle-label">${label}</span>
       ${descHtml}

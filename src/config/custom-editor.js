@@ -117,15 +117,23 @@ function renderTabButton(name, label, svg, active = false) {
   </button>`;
 }
 
+function normalizeCardWidths(state = customState) {
+  const max = Math.max(80, Number(state.maxCardWidth) || CUSTOM_DEFAULTS.maxCardWidth);
+  const width = Math.max(80, Number(state.cardWidth) || CUSTOM_DEFAULTS.cardWidth);
+  state.maxCardWidth = max;
+  state.cardWidth = Math.min(width, max);
+}
+
 function sliderRow(label, key, min, max, value, unit = "", step = "1", conditional = "") {
   const classes = conditional ? "ce-slider-row ce-conditional" : "ce-slider-row";
   const condAttr = conditional ? `data-condition="${conditional}"` : "";
+  const displayValue = formatSliderValue(key, value, unit);
   return `<div class="${classes}" ${condAttr}>
-    <span class="ce-slider-label">${label}</span>
-    <div class="ce-slider-right">
-      <input type="range" data-custom-key="${key}" data-unit="${unit}" min="${min}" max="${max}" step="${step}" value="${value}" />
-      <span class="ce-slider-value">${formatSliderValue(key, value, unit)}</span>
+    <div class="ce-slider-head">
+      <span class="ce-slider-label">${label}</span>
+      <span class="ce-slider-value">${displayValue}</span>
     </div>
+    <input type="range" class="ce-range" data-custom-key="${key}" data-unit="${unit}" min="${min}" max="${max}" step="${step}" value="${value}" />
   </div>`;
 }
 
@@ -180,7 +188,7 @@ function renderContainerPanel() {
         { label: "Right", value: "right" },
         { label: "Hidden", value: "hidden" },
       ])}
-      ${sliderRow("Card width", "cardWidth", 80, 900, customState.cardWidth, "px")}
+      ${sliderRow("Card width", "cardWidth", 80, customState.maxCardWidth, customState.cardWidth, "px")}
       ${sliderRow("Max card width", "maxCardWidth", 80, 900, customState.maxCardWidth, "px")}
       ${sliderRow("Card height", "cardHeight", 40, 400, customState.cardHeight, "px")}
       ${sliderRow("Corner radius", "cardRadius", 0, 60, customState.cardRadius, "px")}
@@ -552,11 +560,11 @@ function transitionAnimButtonRow(stateKey, activeVal) {
 
 function transitionSliderRow(label, key, min, max, step, value, unit) {
   return `<div class="ce-slider-row">
-    <span class="ce-slider-label">${label}</span>
-    <div class="ce-slider-right">
-      <input type="range" data-cfg-patch-slider="${key}" data-unit="${unit}" min="${min}" max="${max}" step="${step}" value="${value}" />
+    <div class="ce-slider-head">
+      <span class="ce-slider-label">${label}</span>
       <span class="ce-slider-value">${value}${unit}</span>
     </div>
+    <input type="range" class="ce-range" data-cfg-patch-slider="${key}" data-unit="${unit}" min="${min}" max="${max}" step="${step}" value="${value}" />
   </div>`;
 }
 
@@ -597,14 +605,14 @@ function renderEditor(containerEl, activePanel) {
       <div class="ce-header-brand">
         <span class="ce-header-title">Custom layout</span>
       </div>
-      <button type="button" id="ce-reset-custom" class="cfg-nav-btn cfg-nav-btn--danger ce-header-reset">Reset</button>
+      <button type="button" id="ce-reset-custom" class="ce-header-reset">Reset</button>
     </div>
     <div class="ce-tabs">
       ${renderTabButton("container", "Container", '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="currentColor"/></svg>', panel === "container")}
-      ${renderTabButton("typography", "Typography", '<svg viewBox="0 0 24 24"><path d="M4 6h16v2h-7v10h-2V8H4z" fill="currentColor"/></svg>', panel === "typography")}
+      ${renderTabButton("typography", "Type", '<svg viewBox="0 0 24 24"><path d="M4 6h16v2h-7v10h-2V8H4z" fill="currentColor"/></svg>', panel === "typography")}
       ${renderTabButton("art", "Art", '<svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" fill="currentColor"/></svg>', panel === "art")}
       ${renderTabButton("content", "Content", '<svg viewBox="0 0 24 24"><path d="M6 7h12v2H6zm0 4h12v2H6zm0 4h8v2H6z" fill="currentColor"/></svg>', panel === "content")}
-      ${renderTabButton("transitions", "Transitions", '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>', panel === "transitions")}
+      ${renderTabButton("transitions", "Motion", '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>', panel === "transitions")}
       ${renderTabButton("colours", "Colours", '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="currentColor"/></svg>', panel === "colours")}
     </div>
     <div class="ce-panels">
@@ -645,6 +653,7 @@ function saveCustomState() {
 function resetCustomState(containerEl) {
   const seed = LAYOUT_SEEDS[activeSeedLayout] || {};
   customState = { ...CUSTOM_DEFAULTS, ...seed, maxCardWidth: seed.cardWidth || CUSTOM_DEFAULTS.maxCardWidth };
+  normalizeCardWidths();
   activeColorKey = pickDefaultActiveColorKey();
   activeEditorPanel = "container";
   saveCustomState();
@@ -713,6 +722,7 @@ export function initCustomEditor(containerEl, seedLayout, onChange) {
   if (!saved || saved.maxCardWidth === undefined) {
     customState.maxCardWidth = customState.cardWidth;
   }
+  normalizeCardWidths();
   onChangeCallback = onChange;
   renderEditor(containerEl);
   triggerChange();
@@ -803,7 +813,26 @@ function attachListeners(containerEl) {
   containerEl.querySelectorAll('input[type="range"][data-custom-key]').forEach((input) => {
     input.addEventListener("input", () => {
       const key = input.dataset.customKey;
-      customState[key] = Number(input.value);
+      const raw = Number(input.value);
+      if (key === "maxCardWidth") {
+        customState.maxCardWidth = raw;
+        if (customState.cardWidth > raw) {
+          customState.cardWidth = raw;
+        }
+        const cardWidthInput = containerEl.querySelector('[data-custom-key="cardWidth"]');
+        if (cardWidthInput) {
+          cardWidthInput.max = String(raw);
+          if (Number(cardWidthInput.value) > raw) {
+            cardWidthInput.value = String(customState.cardWidth);
+            updateSliderLabel(cardWidthInput);
+          }
+        }
+      } else if (key === "cardWidth") {
+        customState.cardWidth = Math.min(raw, customState.maxCardWidth);
+        input.value = String(customState.cardWidth);
+      } else {
+        customState[key] = raw;
+      }
       updateSliderLabel(input);
       triggerChange();
     });
@@ -925,7 +954,8 @@ function formatSliderValue(key, value, unit) {
 }
 
 function updateSliderLabel(input) {
-  const valueEl = input.closest(".ce-slider-right")?.querySelector(".ce-slider-value");
+  const row = input.closest(".ce-slider-row");
+  const valueEl = row?.querySelector(".ce-slider-value");
   if (!valueEl) return;
   const unit = input.dataset.unit || "";
   if (input.dataset.cfgPatchSlider) {

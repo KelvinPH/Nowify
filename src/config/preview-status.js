@@ -18,12 +18,14 @@ export function initOverlaySourceStatusIndicator() {
   }
 
   let wrap = document.getElementById("cfg-source-status-wrap");
+  const urlWrap = bar.querySelector(".cfg-preview-url-wrap");
+  const mount = urlWrap || bar;
   if (!wrap) {
     wrap = document.createElement("div");
     wrap.id = "cfg-source-status-wrap";
     wrap.className = "cfg-source-status-wrap";
     wrap.innerHTML = `<span id="cfg-source-status" class="cfg-source-status cfg-source-status--reconnecting" aria-hidden="true"></span><span id="cfg-source-status-label" class="cfg-source-status-label">Reconnecting</span>`;
-    bar.insertBefore(wrap, bar.firstChild);
+    mount.insertBefore(wrap, mount.firstChild);
   }
 
   if (messageBound) {

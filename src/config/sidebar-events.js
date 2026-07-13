@@ -20,6 +20,115 @@ let transitionExitDelayDebounceTimer = null;
 let twitchCmdSliderDebounceTimer = null;
 let mainSidebarBound = false;
 let queueSidebarBound = false;
+let sidebarFilterBound = false;
+
+export function applySidebarFilter(query) {
+  const sidebar = document.getElementById("cfg-sidebar");
+  if (!sidebar || isQueueConfigOpen()) {
+    return;
+  }
+
+  const filter = String(query || "").trim().toLowerCase();
+  const openSections = getOpenSections();
+
+  if (!filter) {
+    sidebar
+      .querySelectorAll(
+        "[data-label], .cfg-slider-row, .cfg-toggle-row, .cfg-row, .cfg-btn-group, .cfg-cmd-block, .cfg-visual-sub"
+      )
+      .forEach((row) => {
+        row.classList.remove("cfg-filter-hidden");
+      });
+    sidebar.querySelectorAll(".cfg-section-block").forEach((block) => {
+      const id = block.getAttribute("data-section-id");
+      block.classList.remove("cfg-filter-no-match");
+      block.classList.toggle("cfg-section-open", Boolean(id && openSections.has(id)));
+    });
+    return;
+  }
+
+  sidebar.querySelectorAll(".cfg-section-block").forEach((block) => {
+    const sectionLabel =
+      block.querySelector(".cfg-section-header-label")?.textContent?.toLowerCase() || "";
+    const headerMatch = sectionLabel.includes(filter);
+
+    let rowMatch = false;
+    block.querySelectorAll("[data-label]").forEach((row) => {
+      const label = (row.getAttribute("data-label") || "").toLowerCase();
+      const match = label.includes(filter) || headerMatch;
+      row.classList.toggle("cfg-filter-hidden", !match);
+      if (match) {
+        rowMatch = true;
+      }
+    });
+
+    block
+      .querySelectorAll(".cfg-slider-label, .cfg-toggle-label, .cfg-row-label, .cfg-sub-label")
+      .forEach((el) => {
+        const label = (el.textContent || "").toLowerCase();
+        const match = label.includes(filter) || headerMatch;
+        const row = el.closest(
+          ".cfg-slider-row, .cfg-toggle-row, .cfg-row, .cfg-btn-group, .cfg-cmd-block, .cfg-visual-sub"
+        );
+        if (row) {
+          row.classList.toggle("cfg-filter-hidden", !match);
+          if (match) {
+            rowMatch = true;
+          }
+        }
+      });
+
+    if (!rowMatch && !headerMatch) {
+      block.querySelectorAll(".cfg-input, .cfg-copy-box, .cfg-cmd-block").forEach((el) => {
+        const placeholder = (el.getAttribute("placeholder") || "").toLowerCase();
+        const elLabel = (el.getAttribute("data-label") || "").toLowerCase();
+        const text = (el.textContent || "").toLowerCase();
+        if (placeholder.includes(filter) || elLabel.includes(filter) || text.includes(filter)) {
+          rowMatch = true;
+          el.classList.remove("cfg-filter-hidden");
+        }
+      });
+    }
+
+    const hasMatch = headerMatch || rowMatch;
+    block.classList.toggle("cfg-filter-no-match", !hasMatch);
+    block.classList.toggle("cfg-section-open", hasMatch);
+  });
+}
+
+export function initSidebarFilter(sidebarEl) {
+  const sidebar = sidebarEl || document.getElementById("cfg-sidebar");
+  const input = sidebar?.querySelector("#cfg-sidebar-filter");
+  if (!input) {
+    return;
+  }
+
+  if (!sidebarFilterBound) {
+    sidebarFilterBound = true;
+    input.addEventListener("input", () => applySidebarFilter(input.value));
+
+    document.addEventListener("keydown", (event) => {
+      if (isQueueConfigOpen()) {
+        return;
+      }
+      const tag = event.target?.tagName?.toLowerCase();
+      const editable = event.target?.isContentEditable;
+      const filterInput = document.getElementById("cfg-sidebar-filter");
+
+      if (event.key === "/" && tag !== "input" && tag !== "textarea" && !editable) {
+        event.preventDefault();
+        filterInput?.focus();
+        return;
+      }
+
+      if (event.key === "Escape" && event.target === filterInput) {
+        filterInput.value = "";
+        applySidebarFilter("");
+        filterInput.blur();
+      }
+    });
+  }
+}
 
 /** Keys that change which sidebar controls exist (full rebuild required). */
 const SIDEBAR_STRUCTURAL_KEYS = new Set([

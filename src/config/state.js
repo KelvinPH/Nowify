@@ -27,6 +27,9 @@ export const DEFAULT_STATE = {
   stackDir: "row",
   artPosition: "left",
   maxCardWidth: 900,
+  positionAnchor: "bottom-left",
+  positionOffsetX: 40,
+  positionOffsetY: 40,
   /** Configurator iframe only — sample track vs live source */
   previewDemo: true,
   twitchChannel: "",

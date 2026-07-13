@@ -76,5 +76,24 @@ export function estimateObsBrowserSourceSize(state) {
 }
 
 export function formatObsSizeLabel(obsSize, canvasSize) {
-  return `Browser source ≈ ${obsSize.width}×${obsSize.height} px on a ${canvasSize.width}×${canvasSize.height} canvas`;
+  return `${obsSize.width}×${obsSize.height} source · ${canvasSize.width}×${canvasSize.height} canvas`;
+}
+
+/** Compact widget layouts where stream-canvas anchor placement is meaningful in OBS. */
+const CANVAS_PLACEMENT_LAYOUTS = new Set([
+  "pill",
+  "island",
+  "albumfocus",
+  "sidebar",
+  "vinyl",
+  "terminal",
+  "cassette",
+  "gameboy",
+  "hud",
+  "stickynote",
+  "custom",
+]);
+
+export function layoutSupportsCanvasPlacement(layout) {
+  return CANVAS_PLACEMENT_LAYOUTS.has(layout || "glasscard");
 }

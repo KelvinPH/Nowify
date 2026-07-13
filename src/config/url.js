@@ -2,13 +2,22 @@
  * https://github.com/KelvinPH/Nowify
  */
 
+import { layoutSupportsCanvasPlacement } from "./obs-layout-sizes.js";
+
+const PLACEMENT_URL_KEYS = new Set(["positionAnchor", "positionOffsetX", "positionOffsetY"]);
+
 /** Builds the full overlay URL from the current configurator state. */
 export function buildOverlayUrl(currentState) {
   const base = `${window.location.origin}${window.location.pathname.replace("config.html", "")}overlay.html`;
   const params = new URLSearchParams();
 
+  const placementSupported = layoutSupportsCanvasPlacement(currentState.layout);
+
   Object.entries(currentState).forEach(([key, value]) => {
     if (key === "commands" || key === "previewDemo") {
+      return;
+    }
+    if (!placementSupported && PLACEMENT_URL_KEYS.has(key)) {
       return;
     }
     if (key.startsWith("queue")) {

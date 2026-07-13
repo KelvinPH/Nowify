@@ -46,13 +46,14 @@ import {
   saveConfigDraft,
   savePlatformState,
 } from "./storage.js";
-import { buildPreviewUrl, setPreviewIframe } from "./preview.js";
+import { buildPreviewUrl, getConfiguratorUrlForCopy, setConfiguratorUrlDisplay, setPreviewIframe } from "./preview.js";
 import { initOverlaySourceStatusIndicator } from "./preview-status.js";
 import {
   getConfiguratorPreviewHtml,
   initObsCanvasPreview,
   updateObsCanvasPreview,
 } from "./obs-canvas-preview.js";
+import { layoutSupportsCanvasPlacement } from "./obs-layout-sizes.js";
 import {
   buildOverlayUrl,
   buildQueueFinalUrl,
@@ -71,6 +72,7 @@ import {
   hexToRgba,
   parseColorToHexForPicker,
   renderSection,
+  renderSidebarSearch,
   rgbToHex,
   showCfgToast,
   themeLabel,
@@ -78,10 +80,19 @@ import {
 } from "./ui.js";
 import {
   initMainSidebarEvents,
+  initSidebarFilter,
+  applySidebarFilter,
   needsSidebarRebuild,
   patchSidebarValues,
 } from "./sidebar-events.js";
 import { mountPublicPresetGallery, openPublishPresetModal } from "./gallery.js";
+import { formatPositionGuide } from "../overlay/position.js";
+
+function initCanvasPreviewWithPosition() {
+  initObsCanvasPreview(state, {
+    onPositionChange: (patch) => update(patch),
+  });
+}
 
 export {
   readAnimBgForEditor,
@@ -110,13 +121,12 @@ function exitQueueDesignerMode() {
 function restoreConfiguratorPreviewShell() {
   const preview = document.getElementById("cfg-preview");
   if (!preview) return;
-  preview.innerHTML = getConfiguratorPreviewHtml();
+  preview.innerHTML = getConfiguratorPreviewHtml(state);
   const url = buildOverlayUrl(state);
   const iframe = document.getElementById("cfg-iframe");
   if (iframe) iframe.src = buildPreviewUrl(state, url);
-  const urlDisplay = document.getElementById("cfg-url-display");
-  if (urlDisplay) urlDisplay.textContent = url;
-  initObsCanvasPreview(state);
+  setConfiguratorUrlDisplay(url);
+  initCanvasPreviewWithPosition();
   initOverlaySourceStatusIndicator();
 }
 
@@ -515,15 +525,15 @@ function renderSongifyStatus() {
 
 function renderSourceContent() {
   const pills = `<div class="cfg-source-pills">
-    <button class="cfg-source-pill ${state.source === "spotify" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="spotify" type="button" data-cfg-tip="${escAttr(SOURCE_TOOLTIPS.spotify)}">Spotify</button>
-    <button class="cfg-source-pill ${state.source === "lastfm" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="lastfm" type="button" data-cfg-tip="${escAttr(SOURCE_TOOLTIPS.lastfm)}">Last.fm</button>
-    <button class="cfg-source-pill ${state.source === "songify" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="songify" type="button" data-cfg-tip="${escAttr(SOURCE_TOOLTIPS.songify)}">Songify</button>
+    <button class="cfg-source-pill ${state.source === "spotify" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="spotify" data-label="Spotify" type="button" data-cfg-tip="${escAttr(SOURCE_TOOLTIPS.spotify)}">Spotify</button>
+    <button class="cfg-source-pill ${state.source === "lastfm" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="lastfm" data-label="Last.fm" type="button" data-cfg-tip="${escAttr(SOURCE_TOOLTIPS.lastfm)}">Last.fm</button>
+    <button class="cfg-source-pill ${state.source === "songify" ? "cfg-pill-active" : ""}" data-set-key="source" data-set-value="songify" data-label="Songify" type="button" data-cfg-tip="${escAttr(SOURCE_TOOLTIPS.songify)}">Songify</button>
   </div>`;
 
   if (state.source === "spotify") {
     return `${pills}
-      <input id="ctrl-clientId" class="cfg-input" placeholder="Client ID" value="${escCfg(state.clientId)}" data-cfg-tip="${escAttr("From the Spotify Developer Dashboard. Used for the overlay login flow.")}" />
-      <div class="cfg-copy-box" id="cfg-redirect-uri" data-cfg-tip="${escAttr("Add this redirect URI to your Spotify app settings.")}">${getRedirectUri()}</div>`;
+      <input id="ctrl-clientId" class="cfg-input" data-label="Client ID" placeholder="Client ID" value="${escCfg(state.clientId)}" data-cfg-tip="${escAttr("From the Spotify Developer Dashboard. Used for the overlay login flow.")}" />
+      <div class="cfg-copy-box" id="cfg-redirect-uri" data-label="Redirect URI" data-cfg-tip="${escAttr("Add this redirect URI to your Spotify app settings.")}">${getRedirectUri()}</div>`;
   }
 
   if (state.source === "lastfm") {
@@ -555,7 +565,7 @@ function renderSourceContent() {
     : "";
   return `${pills}
     ${renderSongifyStatus()}
-    <div class="cfg-row" data-cfg-tip="${escAttr("WebSocket port from Songify → Settings → Web Server (default 4002).")}">
+    <div class="cfg-row" data-label="Port" data-cfg-tip="${escAttr("WebSocket port from Songify → Settings → Web Server (default 4002).")}">
       <span class="cfg-row-label">Port</span>
       <input type="number" id="ctrl-songifyPort" class="cfg-input-inline" value="${escCfg(String(state.songifyPort))}" min="1024" max="65535" />
     </div>
@@ -566,10 +576,10 @@ function renderLayoutContent(layoutOptions) {
   const grid = layoutOptions
     .map((opt) =>
       opt === "custom"
-        ? `<button class="cfg-layout-btn cfg-layout-btn-custom ${state.layout === "custom" ? "cfg-active" : ""}" data-set-key="layout" data-set-value="custom" type="button" data-cfg-tip="${escAttr(LAYOUT_TOOLTIPS.custom)}">
+        ? `<button class="cfg-layout-btn cfg-layout-btn-custom ${state.layout === "custom" ? "cfg-active" : ""}" data-set-key="layout" data-set-value="custom" data-label="${escAttr(LAYOUT_LABELS.custom)}" type="button" data-cfg-tip="${escAttr(LAYOUT_TOOLTIPS.custom)}">
             <div class="cfg-layout-icon cfg-layout-icon-custom"></div><span>${LAYOUT_LABELS.custom}</span>
           </button>`
-        : `<button class="cfg-layout-btn ${state.layout === opt ? "cfg-active" : ""}" data-set-key="layout" data-set-value="${opt}" type="button" data-cfg-tip="${escAttr(LAYOUT_TOOLTIPS[opt] || "")}">
+        : `<button class="cfg-layout-btn ${state.layout === opt ? "cfg-active" : ""}" data-set-key="layout" data-set-value="${opt}" data-label="${escAttr(LAYOUT_LABELS[opt] || opt)}" type="button" data-cfg-tip="${escAttr(LAYOUT_TOOLTIPS[opt] || "")}">
             <div class="cfg-layout-icon cfg-layout-icon-${opt}"></div><span>${LAYOUT_LABELS[opt] || opt}</span>
           </button>`
     )
@@ -591,7 +601,7 @@ function renderThemeContent(themeOptions) {
   const grid = themeOptions
     .map(
       (opt) =>
-        `<button class="cfg-theme-btn ${state.theme === opt ? "cfg-active" : ""}" data-set-key="theme" data-set-value="${opt}" type="button" data-cfg-tip="${escAttr(THEME_TOOLTIPS[opt] || "")}">
+        `<button class="cfg-theme-btn ${state.theme === opt ? "cfg-active" : ""}" data-set-key="theme" data-set-value="${opt}" data-label="${escAttr(themeLabel(opt))}" type="button" data-cfg-tip="${escAttr(THEME_TOOLTIPS[opt] || "")}">
           <div class="cfg-theme-dot cfg-theme-dot-${opt}"></div><span>${themeLabel(opt)}</span>
         </button>`
     )
@@ -974,6 +984,7 @@ function renderSidebar() {
   }
   sidebar.classList.remove("cfg-queue-sidebar-mode");
   const scrollTop = sidebar.scrollTop;
+  const filterValue = sidebar.querySelector("#cfg-sidebar-filter")?.value || "";
   const layoutOptions = [
     "glasscard",
     "pill",
@@ -996,7 +1007,8 @@ function renderSidebar() {
     const uniqueStyle = renderStyleContent();
     const showThemeSection = state.layout !== "spotifycard";
     sidebar.innerHTML = `
-      ${renderSection("source", "Source", renderSourceContent())}
+      ${renderSidebarSearch()}
+      ${renderSection("source", "Source", renderSourceContent(), { source: state.source })}
       ${renderSection("layout", "Layout", renderLayoutContent(layoutOptions))}
       ${showThemeSection ? renderSection("theme", "Theme", renderThemeContent(themeOptions)) : ""}
       ${uniqueContent ? renderSection("content", "Content", uniqueContent) : ""}
@@ -1006,7 +1018,8 @@ function renderSidebar() {
     `;
   } else {
     sidebar.innerHTML = `
-      ${renderSection("source", "Source", renderSourceContent())}
+      ${renderSidebarSearch()}
+      ${renderSection("source", "Source", renderSourceContent(), { source: state.source })}
       ${renderSection("layout", "Layout", renderLayoutContent(layoutOptions))}
       ${renderSection("theme", "Theme", renderThemeContent(themeOptions))}
       ${renderSection("content", "Content", renderContentContent())}
@@ -1026,6 +1039,14 @@ function renderSidebar() {
     }
   }
   attachCfgTooltips(sidebar);
+  initSidebarFilter(sidebar);
+  if (filterValue) {
+    const filterInput = document.getElementById("cfg-sidebar-filter");
+    if (filterInput) {
+      filterInput.value = filterValue;
+    }
+    applySidebarFilter(filterValue);
+  }
   sidebar.scrollTop = scrollTop;
 }
 
@@ -1134,14 +1155,64 @@ function openSetupWizard() {
   });
 }
 
+function clearNowifyCache() {
+  const ok = window.confirm(
+    "Are you sure? Everything will go back to default and your saved Nowify settings will be removed."
+  );
+  if (!ok) return;
+  const keysToRemove = [];
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith("nowify_")) {
+      keysToRemove.push(key);
+    }
+  }
+  keysToRemove.forEach((key) => localStorage.removeItem(key));
+  window.location.reload();
+}
+
+function initHeaderOverflowMenu() {
+  const trigger = document.getElementById("btn-nav-more");
+  const menu = document.getElementById("cfg-nav-overflow-menu");
+  if (!trigger || !menu) return;
+
+  const closeMenu = () => {
+    menu.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+  };
+
+  trigger.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const willOpen = menu.hidden;
+    menu.hidden = !willOpen;
+    trigger.setAttribute("aria-expanded", willOpen ? "true" : "false");
+  });
+
+  menu.addEventListener("click", (event) => {
+    if (event.target.closest(".cfg-nav-overflow-item")) {
+      closeMenu();
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (menu.hidden) return;
+    if (event.target.closest(".cfg-nav-overflow")) return;
+    closeMenu();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeMenu();
+  });
+}
+
 /** Setup, Presets, and custom-layout actions (kept out of static HTML for ordering). */
 function renderHeaderDynamic() {
-  const wrap = document.getElementById("cfg-header-dynamic");
+  const wrap = document.getElementById("cfg-nav-tools");
   if (!wrap) return;
   wrap.replaceChildren();
   const isCustom = state.layout === "custom";
 
-  function addButton(id, label, className, handler) {
+  function addToolButton(id, label, className, handler) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.id = id;
@@ -1152,37 +1223,22 @@ function renderHeaderDynamic() {
   }
 
   if (isCustom) {
-    addButton("btn-exit-custom", "Exit custom", "cfg-nav-btn", () => {
+    addToolButton("btn-exit-custom", "Exit custom", "cfg-nav-tool-btn", () => {
       update({ layout: getPreviousLayout() || "glasscard" });
     });
-    addButton("btn-publish-custom-preset", "Publish preset", "cfg-nav-btn", () => {
+    addToolButton("btn-publish-custom-preset", "Publish", "cfg-nav-tool-btn", () => {
       publishCustomPresetWithPrompt();
     });
   }
 
-  addButton("btn-setup", "Setup", "cfg-nav-btn", () => openSetupWizard());
-  addButton(
+  addToolButton("btn-setup", "Setup", "cfg-nav-tool-btn", () => openSetupWizard());
+  addToolButton("btn-presets", "Presets", "cfg-nav-tool-btn", () => openPresetsModal());
+  addToolButton(
     "btn-preview-mode",
-    state.previewDemo ? "Live preview" : "Demo preview",
-    state.previewDemo ? "cfg-nav-btn cfg-nav-btn--accent" : "cfg-nav-btn",
+    state.previewDemo ? "Live" : "Demo",
+    state.previewDemo ? "cfg-nav-tool-btn cfg-nav-tool-btn--demo cfg-active" : "cfg-nav-tool-btn",
     () => update({ previewDemo: !state.previewDemo })
   );
-  addButton("btn-presets", "Presets", "cfg-nav-btn", () => openPresetsModal());
-  addButton("btn-clear-cache", "Clear cache", "cfg-nav-btn cfg-nav-btn--danger", () => {
-    const ok = window.confirm(
-      "Are you sure? Everything will go back to default and your saved Nowify settings will be removed."
-    );
-    if (!ok) return;
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i += 1) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith("nowify_")) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach((key) => localStorage.removeItem(key));
-    window.location.reload();
-  });
 }
 
 let obsGuideEscCleanup = null;
@@ -1200,7 +1256,10 @@ function openObsGuideModal() {
   const shell = document.getElementById("cfg-shell");
   if (!shell) return;
   const url =
-    document.getElementById("cfg-url-display")?.textContent?.trim() || buildOverlayUrl(state);
+    getConfiguratorUrlForCopy() || buildOverlayUrl(state);
+  const positionLine = layoutSupportsCanvasPlacement(state.layout)
+    ? formatPositionGuide(state.positionAnchor, state.positionOffsetX, state.positionOffsetY)
+    : "";
   const modal = document.createElement("div");
   modal.id = "cfg-obs-modal";
   modal.className = "cfg-obs-modal";
@@ -1213,6 +1272,7 @@ function openObsGuideModal() {
       <p class="cfg-obs-lead">
         Use a <strong>Browser</strong> source so the overlay can update in real time. Paste the URL below and match the browser source size shown in the configurator preview.
       </p>
+      ${positionLine ? `<p class="cfg-obs-lead cfg-obs-position-note">${positionLine}</p>` : ""}
       <div class="cfg-obs-url-block">
         <label class="cfg-obs-label" for="cfg-obs-url-field">Overlay URL</label>
         <div class="cfg-obs-url-row">
@@ -1523,8 +1583,7 @@ function updateCustomPreview(customState) {
   state.artBackdropBlur = customState.artBackdropBlur;
   import("./custom-editor.js").then(({ buildCustomUrl }) => {
     const url = buildCustomUrl(state, customState);
-    const urlDisplay = document.getElementById("cfg-url-display");
-    if (urlDisplay) urlDisplay.textContent = url;
+    setConfiguratorUrlDisplay(url);
     setPreviewIframe(url, false, state);
     updateObsCanvasPreview(state);
   });
@@ -1625,7 +1684,6 @@ function update(newState) {
   savePlatformState(state, newState);
   saveConfigDraft(state);
   const url = buildOverlayUrl(state);
-  const urlDisplay = document.getElementById("cfg-url-display");
   const previewImmediate =
     Object.keys(newState).length === 0 ||
     newState.source !== undefined ||
@@ -1638,7 +1696,7 @@ function update(newState) {
   if (isQueueConfigOpen()) {
     refreshQueueConfiguratorPreview();
   } else {
-    if (urlDisplay) urlDisplay.textContent = url;
+    setConfiguratorUrlDisplay(url);
     setPreviewIframe(url, previewImmediate, state);
     updateObsCanvasPreview(state);
   }
@@ -1698,35 +1756,68 @@ export function initConfig() {
     renderHeaderDynamic();
     checkCustomMode();
     initOverlaySourceStatusIndicator();
-    initObsCanvasPreview(state);
+    initCanvasPreviewWithPosition();
+    initHeaderOverflowMenu();
     update({});
 
     const copyButton = document.getElementById("btn-copy");
     const openButton = document.getElementById("btn-open");
     const resetButton = document.getElementById("btn-reset");
+    const clearCacheButton = document.getElementById("btn-clear-cache");
     document.getElementById("btn-obs-guide")?.addEventListener("click", openObsGuideModal);
 
-    if (copyButton) {
-      copyButton.addEventListener("click", async () => {
-        const queueDisp = document.getElementById("cfg-queue-url-display")?.textContent?.trim();
-        const overlayDisp = document.getElementById("cfg-url-display")?.textContent?.trim();
-        const activeUrl =
-          queueDisp ||
-          overlayDisp ||
-          (isQueueConfigOpen() ? buildQueueFinalUrl(state) : buildOverlayUrl(state));
-        const previousText = copyButton.textContent;
-        const ok = await copyText(activeUrl);
-        copyButton.textContent = ok ? "Copied!" : "Copy failed";
+    const runCopy = async (btn) => {
+      const queueDisp = document.getElementById("cfg-queue-url-display")?.textContent?.trim();
+      const overlayDisp = getConfiguratorUrlForCopy();
+      const activeUrl =
+        queueDisp ||
+        overlayDisp ||
+        (isQueueConfigOpen() ? buildQueueFinalUrl(state) : buildOverlayUrl(state));
+      const ok = await copyText(activeUrl);
+      if (btn.id === "btn-copy-bar") {
+        btn.innerHTML = ok
+          ? '<i class="fa-solid fa-check" aria-hidden="true"></i>'
+          : '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
         window.setTimeout(() => {
-          copyButton.textContent = previousText;
+          btn.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i>';
         }, 1000);
-      });
+        return;
+      }
+      if (btn.id === "btn-copy") {
+        const icon = btn.querySelector("i");
+        const label = btn.querySelector("span");
+        if (icon && label) {
+          icon.className = ok ? "fa-solid fa-check" : "fa-solid fa-xmark";
+          label.textContent = ok ? "Copied!" : "Copy failed";
+          window.setTimeout(() => {
+            icon.className = "fa-regular fa-copy";
+            label.textContent = "Copy URL";
+          }, 1000);
+        }
+        return;
+      }
+      const previousText = btn.textContent;
+      btn.textContent = ok ? "Copied!" : "Copy failed";
+      window.setTimeout(() => {
+        btn.textContent = previousText;
+      }, 1000);
+    };
+
+    if (copyButton) {
+      copyButton.addEventListener("click", () => runCopy(copyButton));
     }
+
+    document.addEventListener("click", (event) => {
+      const barBtn = event.target.closest("#btn-copy-bar");
+      if (barBtn) {
+        runCopy(barBtn);
+      }
+    });
 
     if (openButton) {
       openButton.addEventListener("click", () => {
         const queueDisp = document.getElementById("cfg-queue-url-display")?.textContent?.trim();
-        const overlayDisp = document.getElementById("cfg-url-display")?.textContent?.trim();
+        const overlayDisp = getConfiguratorUrlForCopy();
         const activeUrl =
           queueDisp ||
           overlayDisp ||
@@ -1744,6 +1835,8 @@ export function initConfig() {
         update({});
       });
     }
+
+    clearCacheButton?.addEventListener("click", clearNowifyCache);
   }
 
   if (!isSetupComplete()) {

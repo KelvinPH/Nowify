@@ -43,78 +43,70 @@
   font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.02em;
-  color: var(--cfg-muted);
+  color: var(--cfg-text-secondary);
 }
 
-#cfg-custom-editor .cfg-nav-btn.ce-header-reset {
+#cfg-custom-editor .ce-header-reset {
   min-width: 0;
-  min-height: 32px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 4px 8px;
   font-size: 12px;
   font-weight: 500;
+  font-family: inherit;
   flex-shrink: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--cfg-text-muted);
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+
+#cfg-custom-editor .ce-header-reset:hover {
+  color: var(--cfg-danger);
+  background: color-mix(in srgb, var(--cfg-danger) 10%, transparent);
 }
 
 .ce-tabs {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 6px;
-  padding: 10px 12px 6px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 8px 10px 10px;
   border-bottom: 0.5px solid var(--cfg-border2);
   flex-shrink: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  /* Thin bar so Windows / mouse users can drag sideways (wheel won’t scroll X). */
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.32) rgba(255, 255, 255, 0.06);
-  -webkit-overflow-scrolling: touch;
-}
-
-.ce-tabs::-webkit-scrollbar {
-  height: 6px;
-}
-
-.ce-tabs::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
-  margin: 0 4px;
-}
-
-.ce-tabs::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.28);
-  border-radius: 3px;
-}
-
-.ce-tabs::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.42);
 }
 
 .ce-tab {
-  flex: 0 0 auto;
+  flex: initial;
   display: inline-flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 40px;
-  padding: 0 10px;
-  font-size: 11px;
+  gap: 4px;
+  min-height: 52px;
+  padding: 6px 4px;
+  font-size: 10px;
   font-weight: 500;
   font-family: inherit;
   color: var(--cfg-muted);
   background: var(--cfg-bg);
   border: 0.5px solid var(--cfg-border2);
-  border-radius: var(--cfg-radius);
+  border-radius: 8px;
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
   letter-spacing: 0.01em;
 }
 
 .ce-tab svg {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
   opacity: 0.72;
+}
+
+.ce-tab span {
+  line-height: 1.1;
+  text-align: center;
 }
 
 .ce-tab:hover {
@@ -130,23 +122,23 @@
 .ce-tab.ce-tab-active {
   background: var(--cfg-accent);
   border-color: var(--cfg-accent);
-  color: #0b0d10;
+  color: var(--cfg-accent-ink);
   font-weight: 600;
 }
 
 .ce-tab.ce-tab-active svg {
   opacity: 0.9;
-  color: #0b0d10;
+  color: var(--cfg-accent-ink);
 }
 
 .ce-tab.ce-tab-active:hover {
   background: color-mix(in srgb, var(--cfg-accent) 88%, #ffffff);
   border-color: color-mix(in srgb, var(--cfg-accent) 88%, #ffffff);
-  color: #0a0c0f;
+  color: var(--cfg-accent-ink);
 }
 
 .ce-tab.ce-tab-active:hover svg {
-  color: #0a0c0f;
+  color: var(--cfg-accent-ink);
 }
 
 .ce-panels {
@@ -320,24 +312,98 @@
   color: var(--cfg-muted);
 }
 .ce-section-label {
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: var(--cfg-text);
-  margin-bottom: 10px;
-  text-transform: none;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cfg-text-muted);
+  margin-bottom: 8px;
 }
 
-.ce-slider-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.ce-slider-label { font-size: 12px; color: var(--cfg-text); min-width: 100px; }
-.ce-slider-right { display: flex; align-items: center; gap: 8px; flex: 1; }
-.ce-slider-right input[type=range] { flex: 1; }
+.ce-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.ce-slider-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ce-slider-label {
+  font-size: 12px;
+  color: var(--cfg-text);
+  min-width: 0;
+}
+
 .ce-slider-value {
   font-size: 11px;
-  color: var(--cfg-muted);
-  min-width: 36px;
-  text-align: right;
+  color: var(--cfg-text-muted);
+  font-family: var(--cfg-font-mono);
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.ce-range {
+  width: 100%;
+  height: 4px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  cursor: pointer;
+  accent-color: var(--cfg-accent);
+}
+
+.ce-range:focus {
+  outline: none;
+}
+
+.ce-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cfg-accent) 30%, transparent);
+}
+
+.ce-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cfg-text) 12%, transparent);
+}
+
+.ce-range::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cfg-text) 12%, transparent);
+}
+
+.ce-range::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--cfg-accent);
+}
+
+.ce-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  border: 2px solid var(--cfg-bg);
+  background: var(--cfg-accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.ce-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--cfg-bg);
+  background: var(--cfg-accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .ce-btn-group {
@@ -371,7 +437,7 @@
 .ce-btn.ce-btn-active {
   background: var(--cfg-accent);
   border-color: var(--cfg-accent);
-  color: #0b0d10;
+  color: var(--cfg-accent-ink);
   font-weight: 600;
 }
 
@@ -379,7 +445,7 @@
 .ce-btn.ce-btn-active:hover {
   background: color-mix(in srgb, var(--cfg-accent) 88%, #ffffff);
   border-color: color-mix(in srgb, var(--cfg-accent) 88%, #ffffff);
-  color: #0a0c0f;
+  color: var(--cfg-accent-ink);
 }
 
 .ce-toggle-row {
@@ -487,7 +553,7 @@
   border: 0.5px solid var(--cfg-border2);
 }
 .ce-wheel-lightness { width: 200px; display: flex; align-items: center; gap: 8px; }
-.ce-wheel-lightness input { flex: 1; }
+.ce-wheel-lightness input { flex: 1; accent-color: var(--cfg-accent); }
 .ce-wheel-active-label { font-size: 11px; color: var(--cfg-muted); text-align: center; }
 
 .ce-art-extract { margin-top: 16px; }
