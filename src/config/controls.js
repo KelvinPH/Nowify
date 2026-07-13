@@ -43,12 +43,16 @@ import {
   invalidateSongifyStatusCache,
   loadConfigDraft,
   loadPlatformState,
-  readPublicPresetsCache,
   saveConfigDraft,
   savePlatformState,
-  writePublicPresetsCache,
 } from "./storage.js";
 import { buildPreviewUrl, setPreviewIframe } from "./preview.js";
+import { initOverlaySourceStatusIndicator } from "./preview-status.js";
+import {
+  getConfiguratorPreviewHtml,
+  initObsCanvasPreview,
+  updateObsCanvasPreview,
+} from "./obs-canvas-preview.js";
 import {
   buildOverlayUrl,
   buildQueueFinalUrl,
@@ -77,6 +81,7 @@ import {
   needsSidebarRebuild,
   patchSidebarValues,
 } from "./sidebar-events.js";
+import { mountPublicPresetGallery, openPublishPresetModal } from "./gallery.js";
 
 export {
   readAnimBgForEditor,
@@ -105,19 +110,14 @@ function exitQueueDesignerMode() {
 function restoreConfiguratorPreviewShell() {
   const preview = document.getElementById("cfg-preview");
   if (!preview) return;
-  preview.innerHTML = `
-    <div id="cfg-preview-frame-wrap">
-      <iframe id="cfg-iframe" frameborder="0"></iframe>
-    </div>
-    <div id="cfg-preview-bar">
-      <span id="cfg-url-display"></span>
-    </div>
-  `;
+  preview.innerHTML = getConfiguratorPreviewHtml();
   const url = buildOverlayUrl(state);
   const iframe = document.getElementById("cfg-iframe");
   if (iframe) iframe.src = buildPreviewUrl(state, url);
   const urlDisplay = document.getElementById("cfg-url-display");
   if (urlDisplay) urlDisplay.textContent = url;
+  initObsCanvasPreview(state);
+  initOverlaySourceStatusIndicator();
 }
 
 function refreshQueueConfiguratorPreview() {
@@ -1091,32 +1091,18 @@ function getOrCreateOwnerKey() {
 }
 
 async function publishCustomPresetWithPrompt() {
-  const presetName = window.prompt("Name for public preset:");
-  if (!presetName || !presetName.trim()) return;
-  const authorName = window.prompt("Author name (optional):") || "anonymous";
-  const name = presetName.trim();
   const ownerKey = getOrCreateOwnerKey();
-
   const { loadCustomState } = await import("./custom-editor.js");
   const customState = loadCustomState();
   if (!customState) return;
 
-  const res = await fetch(`${WORKER_BASE_URL}/presets`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name,
-      author: authorName.trim() || "anonymous",
-      customState,
-      ownerKey,
-    }),
+  openPublishPresetModal({
+    customState,
+    ownerKey,
+    onPublished: () => {
+      invalidatePublicPresetsCache();
+    },
   });
-
-  if (!res.ok) {
-    console.warn("Nowify: Failed to publish custom preset", res.status);
-    return;
-  }
-  invalidatePublicPresetsCache();
 }
 
 function openSetupWizard() {
@@ -1225,7 +1211,7 @@ function openObsGuideModal() {
         <button type="button" class="cfg-btn cfg-btn-ghost" id="cfg-obs-close">Close</button>
       </div>
       <p class="cfg-obs-lead">
-        Use a <strong>Browser</strong> source so the overlay can update in real time. Paste the same URL you use in the preview below.
+        Use a <strong>Browser</strong> source so the overlay can update in real time. Paste the URL below and match the browser source size shown in the configurator preview.
       </p>
       <div class="cfg-obs-url-block">
         <label class="cfg-obs-label" for="cfg-obs-url-field">Overlay URL</label>
@@ -1239,23 +1225,9 @@ function openObsGuideModal() {
         <ol class="cfg-obs-steps">
           <li>In OBS, add a source → <strong>Browser</strong>.</li>
           <li>Name it (e.g. &quot;Nowify&quot;), then paste the URL above into <strong>URL</strong>.</li>
-          <li>Set <strong>Width</strong> and <strong>Height</strong> to fit your scene (see sizing tips below).</li>
+          <li>Set <strong>Width</strong> and <strong>Height</strong> to the browser source size shown in the preview (top of the preview pane).</li>
           <li>Click <strong>OK</strong>, then drag and crop the source in your scene as needed.</li>
         </ol>
-      </div>
-      <div class="cfg-obs-section">
-        <h3 class="cfg-obs-h3">Sizing (starting points)</h3>
-        <ul class="cfg-obs-bullets">
-          <li><strong>Glass card / island</strong> — about <strong>520 × 200</strong> px; increase height if you show album, BPM, or extra rows.</li>
-          <li><strong>Strip</strong> — wide and short, e.g. <strong>720 × 80</strong> px.</li>
-          <li><strong>Album focus</strong> — fixed width (~168px content + padding); about <strong>210 × 280</strong> px in OBS.</li>
-          <li>If the overlay looks clipped, raise width/height in OBS or reduce <strong>Max card width</strong> in the sidebar so it fits.</li>
-        </ul>
-        ${
-          state.layout === "spotifycard"
-            ? `<p class="cfg-obs-p"><strong>Spotify Card preset:</strong> Recommended size is <strong>900 × 394 px</strong>. It has no border radius and is designed to fill the entire browser source.</p>`
-            : ""
-        }
       </div>
       <div class="cfg-obs-section">
         <h3 class="cfg-obs-h3">OBS browser settings</h3>
@@ -1364,72 +1336,27 @@ function renderLocalPresetList() {
   });
 }
 
-function paintPublicPresetList(listEl, presets) {
+async function renderPublicPresetGallery() {
+  const container = document.getElementById("cfg-presets-public");
+  if (!container) return;
   const ownerKey = getOrCreateOwnerKey();
-  if (!presets.length) {
-    listEl.innerHTML = '<div class="cfg-presets-empty">No public presets yet.</div>';
-    return;
-  }
-  listEl.innerHTML = presets
-    .slice(0, 32)
-    .map(
-      (p) => `<div class="cfg-presets-row">
-          <button class="cfg-presets-item" data-public-idx="${p.id}">
-            <span>${p.name || "Untitled"} - by ${p.author || "anonymous"}</span>
-          </button>
-          ${
-            p.ownerKey === ownerKey
-              ? `<button class="cfg-presets-delete" data-public-delete="${p.id}">Delete</button>`
-              : ""
-          }
-        </div>`
-    )
-    .join("");
-
-  listEl.querySelectorAll("[data-public-idx]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const id = btn.getAttribute("data-public-idx");
-      const selected = presets.find((p) => p.id === id);
+  await mountPublicPresetGallery(container, {
+    ownerKey,
+    onApply: (selected) => {
       if (!selected?.customState) return;
       applyCustomState(selected.customState);
       closePresetsModal();
-    });
-  });
-  listEl.querySelectorAll("[data-public-delete]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const id = btn.getAttribute("data-public-delete");
-      const ownerKey = getOrCreateOwnerKey();
+    },
+    onDelete: async (id) => {
       const res = await fetch(`${WORKER_BASE_URL}/presets/${id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ownerKey }),
       });
-      if (!res.ok) return;
+      if (!res.ok) throw new Error(`status ${res.status}`);
       invalidatePublicPresetsCache();
-      await renderPublicPresetList();
-    });
+    },
   });
-}
-
-async function renderPublicPresetList() {
-  const listEl = document.getElementById("cfg-presets-public");
-  if (!listEl) return;
-  const cached = readPublicPresetsCache();
-  if (cached) {
-    paintPublicPresetList(listEl, cached);
-    return;
-  }
-  listEl.innerHTML = '<div class="cfg-presets-empty">Loading presets...</div>';
-  try {
-    const res = await fetch(`${WORKER_BASE_URL}/presets`);
-    if (!res.ok) throw new Error(`status ${res.status}`);
-    const data = await res.json();
-    const presets = (data?.presets || []).filter((p) => p?.customState);
-    writePublicPresetsCache(presets);
-    paintPublicPresetList(listEl, presets);
-  } catch (_error) {
-    listEl.innerHTML = '<div class="cfg-presets-empty">Could not load public presets.</div>';
-  }
 }
 
 async function openPresetsModal(options = {}) {
@@ -1553,7 +1480,7 @@ async function openPresetsModal(options = {}) {
       <div class="cfg-presets-section-label">Saved presets</div>
       <div class="cfg-presets-list" id="cfg-presets-local"></div>
       <div class="cfg-presets-section-label">Public presets</div>
-      <div class="cfg-presets-list" id="cfg-presets-public"></div>`;
+      <div id="cfg-presets-public" class="cfg-gallery-host"></div>`;
   modal.innerHTML = `
     <div class="cfg-presets-dialog">
       <div class="cfg-presets-header">
@@ -1580,7 +1507,7 @@ async function openPresetsModal(options = {}) {
   });
   if (!uniqueOnly) {
     renderLocalPresetList();
-    await renderPublicPresetList();
+    await renderPublicPresetGallery();
   }
 }
 
@@ -1599,6 +1526,7 @@ function updateCustomPreview(customState) {
     const urlDisplay = document.getElementById("cfg-url-display");
     if (urlDisplay) urlDisplay.textContent = url;
     setPreviewIframe(url, false, state);
+    updateObsCanvasPreview(state);
   });
 }
 
@@ -1712,6 +1640,7 @@ function update(newState) {
   } else {
     if (urlDisplay) urlDisplay.textContent = url;
     setPreviewIframe(url, previewImmediate, state);
+    updateObsCanvasPreview(state);
   }
   renderHeaderDynamic();
   const sidebar = document.getElementById("cfg-sidebar");
@@ -1768,6 +1697,8 @@ export function initConfig() {
     renderSidebar();
     renderHeaderDynamic();
     checkCustomMode();
+    initOverlaySourceStatusIndicator();
+    initObsCanvasPreview(state);
     update({});
 
     const copyButton = document.getElementById("btn-copy");

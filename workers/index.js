@@ -42,6 +42,52 @@ function generateCode() {
   return Array.from(arr, (b) => chars[b % chars.length]).join("");
 }
 
+const PRESET_CATEGORY_IDS = new Set([
+  "minimal",
+  "retro",
+  "gaming",
+  "aesthetic",
+  "high-contrast",
+  "uncategorized",
+]);
+
+function normalizePresetTags(input) {
+  const raw = Array.isArray(input)
+    ? input
+    : typeof input === "string"
+      ? input.split(",")
+      : [];
+  const seen = new Set();
+  const out = [];
+  for (const item of raw) {
+    const tag = String(item || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+    if (!tag || seen.has(tag)) continue;
+    seen.add(tag);
+    out.push(tag);
+    if (out.length >= 5) break;
+  }
+  return out;
+}
+
+function normalizePresetCategory(input) {
+  const id = String(input || "uncategorized")
+    .trim()
+    .toLowerCase();
+  return PRESET_CATEGORY_IDS.has(id) ? id : "uncategorized";
+}
+
+function normalizeStoredPreset(preset) {
+  if (!preset || typeof preset !== "object") return preset;
+  return {
+    ...preset,
+    tags: normalizePresetTags(preset.tags),
+    category: normalizePresetCategory(preset.category),
+  };
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -263,6 +309,8 @@ async function handlePresets(request, env) {
       author: String(body.author || "anonymous").slice(0, 40),
       customState: body.customState,
       ownerKey: String(body.ownerKey || "").slice(0, 120),
+      tags: normalizePresetTags(body.tags),
+      category: normalizePresetCategory(body.category),
       createdAt: new Date().toISOString(),
     };
     await env.THEMES.put(`publicPreset:${id}`, JSON.stringify(preset), {
@@ -355,7 +403,7 @@ async function handlePresets(request, env) {
       const raw = await env.THEMES.get(key.name);
       if (!raw) continue;
       try {
-        publicPresets.push(JSON.parse(raw));
+        publicPresets.push(normalizeStoredPreset(JSON.parse(raw)));
       } catch (_error) {
         // ignore invalid entries
       }

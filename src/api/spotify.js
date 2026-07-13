@@ -3,8 +3,84 @@
  */
 
 import { getValidToken } from "../auth/spotify.js";
+import { fetchWithTimeout, parseRetryAfterMs } from "../overlay/source-resilience.js";
 
 const BASE_URL = "https://api.spotify.com/v1";
+const SPOTIFY_FETCH_TIMEOUT_MS = 15_000;
+
+function apiError(message, status, retryAfterMs = null) {
+  const error = new Error(message);
+  error.status = status;
+  if (retryAfterMs != null) {
+    error.retryAfterMs = retryAfterMs;
+  }
+  return error;
+}
+
+/** Makes an authenticated GET request to the Spotify API. */
+async function spotifyFetch(endpoint) {
+  const token = await getValidToken();
+  const response = await fetchWithTimeout(
+    `${BASE_URL}${endpoint}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+    SPOTIFY_FETCH_TIMEOUT_MS
+  );
+
+  if (response.status === 204) {
+    return null;
+  }
+
+  if (response.status === 401) {
+    throw apiError("Spotify token invalid or expired", 401);
+  }
+
+  if (response.status === 429) {
+    const retryAfterMs = parseRetryAfterMs(response.headers.get("Retry-After"));
+    throw apiError("Spotify API rate limited (429)", 429, retryAfterMs);
+  }
+
+  if (!response.ok) {
+    const bodyText = await response.text();
+    throw apiError(`Spotify API error ${response.status}: ${bodyText}`, response.status);
+  }
+
+  return response.json();
+}
+
+/** Makes an authenticated POST request to the Spotify API. */
+async function spotifyPost(endpoint) {
+  const token = await getValidToken();
+  const response = await fetchWithTimeout(
+    `${BASE_URL}${endpoint}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+    SPOTIFY_FETCH_TIMEOUT_MS
+  );
+
+  if (response.status === 204) {
+    return true;
+  }
+
+  if (response.status === 429) {
+    const retryAfterMs = parseRetryAfterMs(response.headers.get("Retry-After"));
+    throw apiError("Spotify API rate limited (429)", 429, retryAfterMs);
+  }
+
+  if (!response.ok) {
+    const bodyText = await response.text();
+    throw apiError(`Spotify API error ${response.status}: ${bodyText}`, response.status);
+  }
+
+  return true;
+}
 
 /** Maps Spotify track payloads to a simplified track shape. */
 function mapTrack(track) {
@@ -18,53 +94,6 @@ function mapTrack(track) {
     artist: (track.artists || []).map((artist) => artist.name).join(", "),
     albumArt: (track.album?.images || [])[0]?.url || "",
   };
-}
-
-/** Makes an authenticated GET request to the Spotify API. */
-async function spotifyFetch(endpoint) {
-  const token = await getValidToken();
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (response.status === 204) {
-    return null;
-  }
-
-  if (response.status === 401) {
-    throw new Error("Spotify token invalid or expired");
-  }
-
-  if (!response.ok) {
-    const bodyText = await response.text();
-    throw new Error(`Spotify API error ${response.status}: ${bodyText}`);
-  }
-
-  return response.json();
-}
-
-/** Makes an authenticated POST request to the Spotify API. */
-async function spotifyPost(endpoint) {
-  const token = await getValidToken();
-  const response = await fetch(`${BASE_URL}${endpoint}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-
-  if (response.status === 204) {
-    return true;
-  }
-
-  if (!response.ok) {
-    const bodyText = await response.text();
-    throw new Error(`Spotify API error ${response.status}: ${bodyText}`);
-  }
-
-  return true;
 }
 
 /** Returns the currently playing track details or null. */

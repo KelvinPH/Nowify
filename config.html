@@ -41,9 +41,38 @@
       <aside id="cfg-sidebar"></aside>
 
       <main id="cfg-preview">
-        <div id="cfg-preview-frame-wrap">
-          <iframe id="cfg-iframe" src="./overlay.html" frameborder="0"></iframe>
+        <div id="cfg-preview-primary" class="cfg-preview-primary">
+          <div id="cfg-preview-frame-wrap">
+            <iframe id="cfg-iframe" src="./overlay.html" frameborder="0" title="Overlay preview"></iframe>
+          </div>
         </div>
+        <section id="cfg-obs-minimap" class="cfg-obs-minimap" aria-label="OBS canvas placement">
+          <div class="cfg-obs-minimap-head">
+            <span class="cfg-obs-minimap-title">Canvas placement</span>
+            <div id="cfg-obs-canvas-toolbar" class="cfg-obs-canvas-toolbar">
+              <div class="cfg-obs-canvas-presets">
+                <button type="button" class="cfg-btn cfg-sm-btn cfg-active" data-canvas-preset="1080p">1920×1080</button>
+                <button type="button" class="cfg-btn cfg-sm-btn" data-canvas-preset="720p">1280×720</button>
+                <button type="button" class="cfg-btn cfg-sm-btn" data-canvas-preset="custom">Custom</button>
+              </div>
+              <div id="cfg-obs-canvas-custom" class="cfg-obs-canvas-custom" hidden>
+                <input id="cfg-obs-canvas-w" class="cfg-input cfg-obs-canvas-input" type="number" min="320" max="7680" value="1920" aria-label="Canvas width" />
+                <span class="cfg-obs-canvas-times">×</span>
+                <input id="cfg-obs-canvas-h" class="cfg-input cfg-obs-canvas-input" type="number" min="180" max="4320" value="1080" aria-label="Canvas height" />
+              </div>
+            </div>
+            <span id="cfg-obs-size-label" class="cfg-obs-size-label"></span>
+          </div>
+          <div id="cfg-obs-minimap-scaler" class="cfg-obs-minimap-scaler">
+            <div id="cfg-obs-canvas" class="cfg-obs-canvas">
+              <span class="cfg-obs-canvas-tag">1920×1080</span>
+              <div id="cfg-obs-overlay-block" class="cfg-obs-overlay-block" tabindex="0" role="img" aria-label="Overlay footprint on stream canvas"></div>
+            </div>
+          </div>
+        </section>
+        <p id="cfg-obs-workflow-hint" class="cfg-obs-workflow-hint">
+          Copy URL and paste into an OBS Browser Source at the size shown in the canvas placement minimap.
+        </p>
         <div id="cfg-preview-bar">
           <span id="cfg-url-display"></span>
         </div>

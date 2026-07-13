@@ -29,10 +29,21 @@ import {
   loadSession,
   startTrack,
 } from "../stats/session.js";
+import {
+  createPollScheduler,
+  getLastKnownGoodTrack,
+  markFetchFailed,
+  markApiReachable,
+  markReconnecting,
+  recordSuccessfulFetch,
+  setActiveSourceName,
+  shouldFreezeProgress,
+} from "./source-resilience.js";
 
 let currentTrackId = null;
 let pollInterval = null;
 let pollingTimer = null;
+let pollScheduler = null;
 let activePollIntervalMs = 3000;
 let pollingPausedForVisibility = false;
 let config = {};
@@ -876,180 +887,241 @@ async function fetchTrackAudioExtras(trackId, useLastfm) {
   }
 }
 
-/** Polls Spotify and updates overlay content based on track changes. */
-async function poll() {
-  try {
-    const useLastfm = !config.clientId && config.lastfmUsername && config.lastfmApiKey;
-    sourceErrorMessage = "";
-    const track = useLastfm
-      ? await getLastfmNowPlaying(config.lastfmUsername, config.lastfmApiKey)
-      : await getNowPlaying();
-    activeSource = useLastfm ? "lastfm" : "spotify";
-    if (!track) {
-      currentTrackId = null;
-      showIdle();
+/** Applies a successful (or cached) poll result to the overlay without clearing on errors. */
+async function applyPollTrackUpdate(track, { useLastfm, fromCache = false } = {}) {
+  if (!track) {
+    return;
+  }
+
+  if (fromCache) {
+    const appEl = document.getElementById("app");
+    const hasOverlay = Boolean(
+      appEl?.querySelector(".nw-overlay, .vl-wrap, .tm-wrap, .cs-wrap, .gb-wrap, .hud-wrap, .sn-wrap, .sc-wrap")
+    );
+    if (hasOverlay) {
       return;
     }
+  }
 
-    const trackChanged = track.trackId !== currentTrackId;
-    const appEl = document.getElementById("app");
-    const needsInitialRender = Boolean(appEl && !appEl.querySelector(".nw-overlay"));
+  const trackChanged = !fromCache && track.trackId !== currentTrackId;
+  const appEl = document.getElementById("app");
+  const needsInitialRender = Boolean(appEl && !appEl.querySelector(".nw-overlay"));
 
-    const wantNextTrack =
-      !useLastfm &&
-      (config.showNextTrack || (config.layout === "custom" && config.custom?.showNextTrack));
+  const wantNextTrack =
+    !fromCache &&
+    !useLastfm &&
+    (config.showNextTrack || (config.layout === "custom" && config.custom?.showNextTrack));
 
-    let fetchedNext = null;
-    if (wantNextTrack) {
-      try {
-        fetchedNext = await getNextTrack();
-      } catch (_error) {
-        fetchedNext = null;
-      }
+  let fetchedNext = null;
+  if (wantNextTrack) {
+    try {
+      fetchedNext = await getNextTrack();
+    } catch (_error) {
+      fetchedNext = null;
     }
+  }
 
-    let nextTrack = null;
-    if (wantNextTrack) {
-      if (config.nextTrackMode === "perSong") {
-        if (trackChanged || needsInitialRender) {
-          startPerSongNextPeek(track.trackId, fetchedNext);
-        }
-        nextTrack = getPerSongNextTrackDisplay(track, fetchedNext);
-      } else {
-        clearPerSongNextPeek();
-        nextTrack = fetchedNext;
+  let nextTrack = null;
+  if (wantNextTrack) {
+    if (config.nextTrackMode === "perSong") {
+      if (trackChanged || needsInitialRender) {
+        startPerSongNextPeek(track.trackId, fetchedNext);
       }
+      nextTrack = getPerSongNextTrackDisplay(track, fetchedNext);
     } else {
       clearPerSongNextPeek();
+      nextTrack = fetchedNext;
     }
+  } else {
+    clearPerSongNextPeek();
+  }
 
-    if (trackChanged) {
-      audioFeaturesBackfillAttempted.clear();
-      currentTrackId = track.trackId;
-      const extras = await fetchTrackAudioExtras(track.trackId, useLastfm);
-      await render(track, extras, nextTrack);
-      updateProgress(track);
-      return;
-    }
+  if (trackChanged) {
+    audioFeaturesBackfillAttempted.clear();
+    currentTrackId = track.trackId;
+    const extras = fromCache ? null : await fetchTrackAudioExtras(track.trackId, useLastfm);
+    await render(track, extras, nextTrack);
+    updateProgress(track);
+    return;
+  }
 
-    if (needsInitialRender) {
-      const extras = await fetchTrackAudioExtras(track.trackId, useLastfm);
-      await render(track, extras, nextTrack, { skipSession: true });
-      updateProgress(track);
-      return;
-    }
+  if (needsInitialRender) {
+    const extras = fromCache ? null : await fetchTrackAudioExtras(track.trackId, useLastfm);
+    await render(track, extras, nextTrack, { skipSession: true });
+    updateProgress(track);
+    return;
+  }
 
+  if (!fromCache) {
     updateProgress(track);
     updateStripTime(track);
     applyPlaybackTransitions(track);
+  }
 
+  if (
+    !fromCache &&
+    !useLastfm &&
+    track.trackId &&
+    !blockedAudioFeaturesTrackIds.has(track.trackId) &&
+    !audioFeaturesBackfillAttempted.has(track.trackId)
+  ) {
+    const { tracks: sessionTracks } = getSession();
+    const last = sessionTracks[sessionTracks.length - 1];
     if (
-      !useLastfm &&
-      track.trackId &&
-      !blockedAudioFeaturesTrackIds.has(track.trackId) &&
-      !audioFeaturesBackfillAttempted.has(track.trackId)
+      last?.trackId === track.trackId &&
+      (last.bpm == null || last.energy == null || last.valence == null)
     ) {
+      audioFeaturesBackfillAttempted.add(track.trackId);
+      try {
+        const extras = await getAudioFeatures(track.trackId);
+        if (extras) {
+          backfillCurrentTrackFeatures(track.trackId, extras);
+        }
+      } catch (_error) {
+        /* ignore */
+      }
+    }
+  }
+
+  if (config.layout === "custom") {
+    const rootEl = document.querySelector(".nw-overlay.nw-custom");
+    if (rootEl) {
+      let extrasForUi = null;
       const { tracks: sessionTracks } = getSession();
       const last = sessionTracks[sessionTracks.length - 1];
-      if (
-        last?.trackId === track.trackId &&
-        (last.bpm == null || last.energy == null || last.valence == null)
-      ) {
-        audioFeaturesBackfillAttempted.add(track.trackId);
-        try {
-          const extras = await getAudioFeatures(track.trackId);
-          if (extras) {
-            backfillCurrentTrackFeatures(track.trackId, extras);
-          }
-        } catch (_error) {
-          /* ignore */
-        }
+      if (last?.trackId === track.trackId && last.bpm != null) {
+        extrasForUi = {
+          bpm: last.bpm,
+          energy: last.energy,
+          valence: last.valence,
+        };
       }
+      applyCustomDynamicFields(rootEl, track, extrasForUi, nextTrack);
     }
+  } else {
+    const rootEl = document.querySelector(".nw-overlay");
+    if (rootEl) {
+      applyDefaultDynamicFields(rootEl, track, nextTrack);
+    }
+  }
 
-    if (config.layout === "custom") {
-      const rootEl = document.querySelector(".nw-overlay.nw-custom");
-      if (rootEl) {
-        let extrasForUi = null;
-        const { tracks: sessionTracks } = getSession();
-        const last = sessionTracks[sessionTracks.length - 1];
-        if (last?.trackId === track.trackId && last.bpm != null) {
-          extrasForUi = {
-            bpm: last.bpm,
-            energy: last.energy,
-            valence: last.valence,
-          };
-        }
-        applyCustomDynamicFields(rootEl, track, extrasForUi, nextTrack);
+  const syncRoot = document.querySelector(".nw-overlay");
+  if (syncRoot) {
+    if (config.animBgEnabled) {
+      const bg = ensureAnimatedBackgroundLayer(syncRoot);
+      if (track?.isPlaying) {
+        bg?.classList.add("nw-bg-active");
+      } else {
+        bg?.classList.remove("nw-bg-active");
       }
     } else {
-      const rootEl = document.querySelector(".nw-overlay");
-      if (rootEl) {
-        applyDefaultDynamicFields(rootEl, track, nextTrack);
-      }
+      removeAnimatedBackground();
     }
 
-    const syncRoot = document.querySelector(".nw-overlay");
-    if (syncRoot) {
-      if (config.animBgEnabled) {
-        const bg = ensureAnimatedBackgroundLayer(syncRoot);
-        if (track?.isPlaying) {
-          bg?.classList.add("nw-bg-active");
-        } else {
-          bg?.classList.remove("nw-bg-active");
+    syncArtBackdrop(syncRoot, track, {
+      enabled: Boolean(config.artBackdropEnabled),
+      blurPx: config.artBackdropBlur,
+    });
+
+    if (config.source === "songify" && config.canvasEnabled) {
+      void import("../visuals/canvas.js").then(({ initCanvas, updateCanvas }) => {
+        const artEl = syncRoot.querySelector(".nw-art img, .nw-art");
+        if (artEl) {
+          initCanvas(artEl);
         }
-      } else {
-        removeAnimatedBackground();
-      }
-
-      syncArtBackdrop(syncRoot, track, {
-        enabled: Boolean(config.artBackdropEnabled),
-        blurPx: config.artBackdropBlur,
+        updateCanvas(track?.canvasUrl || "", true);
       });
-
-      if (config.source === "songify" && config.canvasEnabled) {
-        void import("../visuals/canvas.js").then(({ initCanvas, updateCanvas }) => {
-          const artEl = syncRoot.querySelector(".nw-art img, .nw-art");
-          if (artEl) {
-            initCanvas(artEl);
-          }
-          updateCanvas(track?.canvasUrl || "", true);
-        });
-      }
     }
+  }
+}
+
+/** Polls Spotify/Last.fm and updates overlay content based on track changes. */
+async function runPollCycle() {
+  const useLastfm = !config.clientId && config.lastfmUsername && config.lastfmApiKey;
+  setActiveSourceName(useLastfm ? "lastfm" : "spotify");
+  activeSource = useLastfm ? "lastfm" : "spotify";
+  sourceErrorMessage = "";
+
+  let track;
+  try {
+    track = useLastfm
+      ? await getLastfmNowPlaying(config.lastfmUsername, config.lastfmApiKey)
+      : await getNowPlaying();
+  } catch (fetchError) {
+    const cached = getLastKnownGoodTrack();
+    if (cached) {
+      await applyPollTrackUpdate(cached, { useLastfm, fromCache: true });
+    }
+    return { failed: true, retryAfterMs: fetchError.retryAfterMs };
+  }
+
+  if (!track) {
+    markApiReachable();
+    currentTrackId = null;
+    showIdle();
+    return { success: true };
+  }
+
+  recordSuccessfulFetch(track);
+  await applyPollTrackUpdate(track, { useLastfm });
+  return { success: true };
+}
+
+async function runPollCycleWithAuth() {
+  try {
+    return await runPollCycle();
   } catch (error) {
     if (error?.name === "NoTokenError" || error instanceof NoTokenError) {
       stopPolling();
       await initiateAuth(config.clientId);
-      return;
+      return { stop: true };
     }
-    console.warn("[Spotify] Poll error:", error);
+    console.warn("[Nowify] Poll error:", error);
+    const cached = getLastKnownGoodTrack();
+    if (cached) {
+      await applyPollTrackUpdate(cached, {
+        useLastfm: activeSource === "lastfm",
+        fromCache: true,
+      });
+    }
+    return { failed: true, retryAfterMs: error.retryAfterMs };
   }
+}
+
+/** @deprecated Use runPollCycle via poll scheduler. */
+async function poll() {
+  await runPollCycleWithAuth();
 }
 
 const SPOTIFY_POLL_MS = 3000;
 const LASTFM_POLL_MS = 12_000;
 
-/** Starts immediate polling plus a recurring poll interval. */
+/** Starts polling with exponential backoff on failures. */
 export async function startPolling(intervalMs = SPOTIFY_POLL_MS) {
   activePollIntervalMs = intervalMs;
   pollingPausedForVisibility = false;
   stopPolling();
-  await poll();
-  pollingTimer = window.setInterval(() => {
-    poll();
-  }, intervalMs);
-  pollInterval = pollingTimer;
-  return pollingTimer;
+
+  pollScheduler = createPollScheduler({
+    normalIntervalMs: intervalMs,
+    maxIntervalMs: 60_000,
+    onPoll: runPollCycleWithAuth,
+  });
+  pollScheduler.start();
+  pollInterval = true;
+  return pollScheduler;
 }
 
 function stopPolling() {
+  if (pollScheduler) {
+    pollScheduler.stop();
+    pollScheduler = null;
+  }
   if (pollingTimer) {
     clearInterval(pollingTimer);
     pollingTimer = null;
   }
   if (pollInterval) {
-    clearInterval(pollInterval);
     pollInterval = null;
   }
 }
@@ -1064,7 +1136,7 @@ function bindVisibilityPolling() {
       return;
     }
     if (document.hidden) {
-      if (pollingTimer) {
+      if (pollScheduler || pollingTimer) {
         pollingPausedForVisibility = true;
         stopPolling();
       }
@@ -1084,6 +1156,7 @@ async function startAuthRedirect() {
 
 async function startDemo() {
   sourceErrorMessage = "";
+  setActiveSourceName(config.source || "spotify");
   document.documentElement.setAttribute("data-theme", config.theme);
   if (config.transparent) {
     document.body.style.background = "transparent";
@@ -1114,6 +1187,7 @@ async function startDemo() {
   }
 
   currentTrackId = track.trackId;
+  recordSuccessfulFetch(track);
   await render(track, extras, nextTrack, { skipSession: true });
   updateProgress(track);
   startProgressTimer();
@@ -1242,6 +1316,7 @@ function updateStripTime(track) {
 function startProgressTimer() {
   if (progressTimer) clearInterval(progressTimer);
   progressTimer = setInterval(() => {
+    if (shouldFreezeProgress(activePollIntervalMs)) return;
     if (!lastKnownProgress.isPlaying || !lastKnownProgress.durationMs) return;
     const elapsed = Date.now() - lastKnownProgress.updatedAt;
     const estimated = lastKnownProgress.progressMs + elapsed;
@@ -1319,6 +1394,25 @@ async function resolveTwitchUserId(channelName, token) {
   return data?.data?.[0]?.id || null;
 }
 
+function bootstrapSongifyConnectingMessage() {
+  const appBoot = document.getElementById("app");
+  if (appBoot && !getLastKnownGoodTrack()) {
+    appBoot.innerHTML = '<div class="nw-idle">Connecting to Songify…</div>';
+  }
+  setActiveSourceName("songify");
+  markReconnecting();
+}
+
+function handleSongifyDisconnect() {
+  markFetchFailed();
+  setActiveSourceName("songify");
+  if (!getLastKnownGoodTrack()) {
+    sourceErrorMessage =
+      "Cannot reach Songify — start the web server and check the port.";
+    showIdle();
+  }
+}
+
 /** Songify + any non-custom layout: WebSocket/HTTP feed, same track object shape as Spotify poll. */
 async function initSongifyStandardOverlay() {
   activeSource = "songify";
@@ -1369,9 +1463,7 @@ async function initSongifyStandardOverlay() {
   }
 
   const appBoot = document.getElementById("app");
-  if (appBoot) {
-    appBoot.innerHTML = '<div class="nw-idle">Connecting to Songify…</div>';
-  }
+  bootstrapSongifyConnectingMessage();
 
   const { init: initSongifyWs, sendCommand } = await import("../api/songify.js");
   window.__songifySendCommand = sendCommand;
@@ -1381,6 +1473,7 @@ async function initSongifyStandardOverlay() {
     onTrack(track) {
       void (async () => {
         try {
+          recordSuccessfulFetch(track);
           if (lastSnap && samePlaying(lastSnap, track)) {
             lastSnap = track;
             updateProgress(track);
@@ -1438,16 +1531,13 @@ async function initSongifyStandardOverlay() {
     onConnect() {
       sourceErrorMessage = "";
       const app = document.getElementById("app");
-      if (app && !lastSnap && !songifyAppHasLayoutRoot(app)) {
+      if (app && !lastSnap && !songifyAppHasLayoutRoot(app) && !getLastKnownGoodTrack()) {
         app.innerHTML =
           '<div class="nw-idle">Songify connected — waiting for track</div>';
       }
     },
     onDisconnect() {
-      lastSnap = null;
-      sourceErrorMessage =
-        "Cannot reach Songify — start the web server and check the port.";
-      showIdle();
+      handleSongifyDisconnect();
     },
   });
 
@@ -1518,9 +1608,7 @@ async function initSongifyCustomOverlay() {
   }
 
   const appBoot = document.getElementById("app");
-  if (appBoot) {
-    appBoot.innerHTML = '<div class="nw-idle">Connecting to Songify…</div>';
-  }
+  bootstrapSongifyConnectingMessage();
 
   const { init: initSongifyWs, sendCommand } = await import("../api/songify.js");
   window.__songifySendCommand = sendCommand;
@@ -1530,6 +1618,7 @@ async function initSongifyCustomOverlay() {
     onTrack(track) {
       void (async () => {
         try {
+          recordSuccessfulFetch(track);
           if (lastSnap && samePlaying(lastSnap, track)) {
             lastSnap = track;
             updateProgress(track);
@@ -1566,16 +1655,13 @@ async function initSongifyCustomOverlay() {
     onConnect() {
       sourceErrorMessage = "";
       const app = document.getElementById("app");
-      if (app && !app.querySelector(".nw-overlay")) {
+      if (app && !app.querySelector(".nw-overlay") && !getLastKnownGoodTrack()) {
         app.innerHTML =
           '<div class="nw-idle">Songify connected — waiting for track</div>';
       }
     },
     onDisconnect() {
-      lastSnap = null;
-      sourceErrorMessage =
-        "Cannot reach Songify — start the web server and check the port.";
-      showIdle();
+      handleSongifyDisconnect();
     },
   });
 
