@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 /**
  * Full-card blurred album art behind the glass layer (optional; works with animated background on top).
  * @param {HTMLElement | null} rootEl

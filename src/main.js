@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 function renderLanding() {
   const app = document.getElementById("app");
   if (!app) return;

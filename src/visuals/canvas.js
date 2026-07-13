@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 const FADE_DURATION = 400;
 
 let currentCanvasUrl = "";

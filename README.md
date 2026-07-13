@@ -142,7 +142,16 @@ Open [`stats.html`](./stats.html) after sessions for summaries, mood distributio
 - Core overlay use does not require your own server
 - Spotify uses OAuth 2.0 PKCE; tokens stay in browser / OBS storage as designed
 - Spotify access is scoped to what the app needs for now playing and related features
-- Source is open for review
+
+## License
+
+Copyright (c) 2026 [KelvinPH](https://github.com/KelvinPH). All rights reserved.
+
+This project is proprietary. You may not copy, modify, distribute, or reuse the
+code without written permission from the copyright holder. See the
+[LICENSE](./LICENSE) file for full terms.
+
+Official repository: [github.com/KelvinPH/Nowify](https://github.com/KelvinPH/Nowify)
 
 ## Acknowledgements
 

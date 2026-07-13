@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 import { DEFAULT_OPEN, LAYOUT_CONTENT } from "./constants.js";
 
 export const DEFAULT_STATE = {

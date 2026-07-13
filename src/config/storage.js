@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 import {
   CONFIG_DRAFT_KEY,
   PUBLIC_PRESETS_CACHE_KEY,

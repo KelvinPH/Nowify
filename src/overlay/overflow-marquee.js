@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 /**
  * Enables horizontal marquee only when a line's text overflows its layout width
  * (per layout / card size), not from character heuristics.

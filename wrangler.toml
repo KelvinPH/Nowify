@@ -1,3 +1,6 @@
+# Copyright (c) 2026 KelvinPH. All rights reserved.
+# https://github.com/KelvinPH/Nowify
+
 # Replace KV namespace IDs after running:
 # wrangler kv namespace create "HISTORY"
 # wrangler kv namespace create "THEMES"

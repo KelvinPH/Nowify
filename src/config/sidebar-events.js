@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 import { LAYOUT_HINTS_SHORT } from "./constants.js";
 import {
   getExpandedCommands,

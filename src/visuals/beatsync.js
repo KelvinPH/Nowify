@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 /** Applies BPM-driven pulse and energy glow styling to the overlay root. */
 export function applyBeatSync(rootEl, extras) {
   if (!rootEl) {

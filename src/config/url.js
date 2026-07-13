@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 /** Builds the full overlay URL from the current configurator state. */
 export function buildOverlayUrl(currentState) {
   const base = `${window.location.origin}${window.location.pathname.replace("config.html", "")}overlay.html`;

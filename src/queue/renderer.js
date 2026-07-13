@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 function clampMaxItems(raw) {
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 1) return 5;

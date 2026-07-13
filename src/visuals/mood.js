@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 const MOODS = {
   euphoric: { bg: "#0a1628", accent: "#1DB954" },
   chill: { bg: "#0d1f2d", accent: "#64b5f6" },

@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 import { getAudioFeatures, getNextTrack, getNowPlaying } from "../api/spotify.js";
 import { getLastfmNowPlaying } from "../api/lastfm.js";
 import {

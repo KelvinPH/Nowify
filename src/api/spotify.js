@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 import { getValidToken } from "../auth/spotify.js";
 
 const BASE_URL = "https://api.spotify.com/v1";

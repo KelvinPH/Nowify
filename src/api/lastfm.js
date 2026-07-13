@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 const API = "https://ws.audioscrobbler.com/2.0";
 const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
 /** Min gap between worker proxy calls (Last.fm scrobbles are not sub-second). */

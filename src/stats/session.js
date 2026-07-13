@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 const WORKER_BASE_URL = "https://nowify-workers.nowify.workers.dev";
 const MAX_SESSION_TRACKS = 500;
 const BANGER_VOTE_THRESHOLD = 5;

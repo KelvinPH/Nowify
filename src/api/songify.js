@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 const DEFAULT_PORT = 4002;
 const RECONNECT_DELAYS = [2000, 4000, 8000, 15000, 30000];
 const HTTP_POLL_MS = 1500;

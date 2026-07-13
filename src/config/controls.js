@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 import { initWizard, isSetupComplete, showWizard } from "./wizard.js";
 import {
   ANIM_BG_STYLE_TIPS,

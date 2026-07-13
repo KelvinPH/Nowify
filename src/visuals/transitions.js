@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 const ANIMATIONS = {
   fade: {
     enter: [{ opacity: 0 }, { opacity: 1 }],

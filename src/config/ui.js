@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 import { CFG_TIP_SHOW_MS } from "./constants.js";
 import { getOpenSections, getState } from "./state.js";
 

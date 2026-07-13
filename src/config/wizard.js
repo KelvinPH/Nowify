@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 let wizardStep = 1;
 let chosenSource = null;
 let wizardOnComplete = null;

@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 const REFRESH_MARGIN_MS = 60 * 1000;
 const REFRESH_POLL_MS = 30 * 1000;
 

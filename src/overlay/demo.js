@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 /** Sample track for configurator preview and demo=1 overlay URLs. */
 export function buildDemoTrack() {
   return {

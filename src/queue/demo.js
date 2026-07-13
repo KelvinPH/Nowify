@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 /** Demo queue rows for configurator preview (demo=1). */
 export function buildDemoQueue() {
   return [

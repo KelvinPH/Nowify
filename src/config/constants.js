@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 export const LAYOUT_LABELS = {
   glasscard: "Glass",
   pill: "Pill",

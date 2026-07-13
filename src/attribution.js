@@ -1,3 +1,7 @@
+/** Copyright (c) 2026 KelvinPH. All rights reserved.
+ * https://github.com/KelvinPH/Nowify
+ */
+
 const ATTRIBUTION_CLASS = "nowify-attribution";
 const ATTRIBUTION_HREF = "https://github.com/KelvinPH/Nowify";
 const ATTRIBUTION_TEXT = "Built by KelvinPH • github.com/KelvinPH/Nowify";
