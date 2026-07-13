@@ -172,11 +172,12 @@ function paintGalleryGrid(root, presets, filters, ownerKey, handlers) {
   });
 }
 
-function bindGalleryControls(root, state, presets, ownerKey, handlers) {
+function bindGalleryControls(root, state, getPresets, ownerKey, handlers) {
   const searchInput = root.querySelector("#cfg-gallery-search");
   const filtersEl = root.querySelector("#cfg-gallery-filters");
 
-  const refresh = () => paintGalleryGrid(root, presets, state, ownerKey, handlers);
+  const refresh = () =>
+    paintGalleryGrid(root, getPresets(), state, ownerKey, handlers);
 
   searchInput?.addEventListener("input", () => {
     state.search = searchInput.value;
@@ -254,7 +255,14 @@ export async function mountPublicPresetGallery(container, { ownerKey, onApply, o
     },
   };
 
-  const galleryApi = bindGalleryControls(container, filterState, presets, ownerKey, handlers);
+  const getPresets = () => presets;
+  const galleryApi = bindGalleryControls(
+    container,
+    filterState,
+    getPresets,
+    ownerKey,
+    handlers
+  );
 
   container.querySelector("#cfg-gallery-clear-tag")?.addEventListener("click", () => {
     filterState.tag = null;
@@ -264,19 +272,22 @@ export async function mountPublicPresetGallery(container, { ownerKey, onApply, o
   });
 
   const cached = readPublicPresetsCache();
-  if (cached) {
+  if (cached?.length) {
     presets = cached.map(normalizePublicPreset);
     galleryApi.refresh();
+    void loadPresets({ background: true });
     return { reload: () => loadPresets() };
   }
 
-  async function loadPresets() {
+  async function loadPresets({ background = false } = {}) {
     const grid = container.querySelector("#cfg-gallery-grid");
     const empty = container.querySelector("#cfg-gallery-empty");
-    if (grid) grid.innerHTML = "";
-    if (empty) {
-      empty.hidden = false;
-      empty.textContent = "Loading presets…";
+    if (!background) {
+      if (grid) grid.innerHTML = "";
+      if (empty) {
+        empty.hidden = false;
+        empty.textContent = "Loading presets…";
+      }
     }
     try {
       const res = await fetch(`${WORKER_BASE_URL}/presets`);
