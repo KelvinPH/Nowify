@@ -22,8 +22,6 @@ export function escAttr(str) {
     .replace(/"/g, "&quot;");
 }
 
-export const CFG_WAVEFORM_MARK_HTML = `<span class="cfg-waveform-mark cfg-waveform-mark--sm" aria-hidden="true"><svg viewBox="0 0 20 16" width="14" height="11" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="9" width="3" height="6" rx="1" fill="currentColor"/><rect x="6" y="5" width="3" height="10" rx="1" fill="currentColor"/><rect x="11" y="7" width="3" height="8" rx="1" fill="currentColor"/><rect x="16" y="2" width="3" height="13" rx="1" fill="currentColor"/></svg></span>`;
-
 const SECTION_ICONS = {
   source: "fa-solid fa-broadcast-tower",
   layout: "fa-solid fa-grip",
@@ -155,7 +153,7 @@ export function renderSection(id, label, content, options = {}) {
   const body =
     content && content.trim()
       ? content
-      : `<div class="cfg-section-empty">${CFG_WAVEFORM_MARK_HTML}<span>Nothing configured yet</span></div>`;
+      : `<div class="cfg-section-empty"><span>Nothing configured yet</span></div>`;
   return `<div class="cfg-section-block${open ? " cfg-section-open" : ""}" data-section-id="${id}">
     <button type="button" class="cfg-section-header" data-toggle-section="${id}" data-label="${escAttr(label)}">
       <span class="cfg-section-header-left">

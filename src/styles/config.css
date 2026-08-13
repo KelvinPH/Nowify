@@ -9,8 +9,8 @@
   --cfg-text: #f2f0ea;
   --cfg-text-secondary: #c9c7cf;
   --cfg-text-muted: #8a8892;
-  --cfg-accent: #f2a340;
-  --cfg-accent-ink: #412402;
+  --cfg-accent: #e4e2dc;
+  --cfg-accent-ink: #121214;
   --cfg-success: #3ec27a;
   --cfg-danger: #d4655a;
   --cfg-radius-sm: 6px;
@@ -30,23 +30,6 @@ body {
   background: var(--cfg-bg);
   color: var(--cfg-text);
   font-family: -apple-system, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
-}
-
-.cfg-waveform-mark {
-  display: inline-flex;
-  flex-shrink: 0;
-  color: var(--cfg-accent);
-}
-
-.cfg-waveform-mark--sm {
-  width: 14px;
-  height: 11px;
-}
-
-.cfg-waveform-mark--sm svg {
-  width: 100%;
-  height: 100%;
-  display: block;
 }
 
 :where(
@@ -1054,10 +1037,6 @@ body {
   color: var(--cfg-text-muted);
   font-size: 12px;
   text-align: center;
-}
-
-.cfg-section-empty .cfg-waveform-mark {
-  opacity: 0.35;
 }
 
 .cfg-row {
