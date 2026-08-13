@@ -26,7 +26,7 @@ export function getConfiguratorUrlForCopy() {
 
 export function buildPreviewUrl(state, copyUrl) {
   const parsed = new URL(copyUrl, window.location.href);
-  // Card-design iframe: natural centered layout — placement is shown in the minimap only.
+  // Card-design iframe: centered layout; strip any leftover placement params.
   parsed.searchParams.delete("positionAnchor");
   parsed.searchParams.delete("positionOffsetX");
   parsed.searchParams.delete("positionOffsetY");
@@ -52,4 +52,26 @@ export function setPreviewIframe(copyUrl, immediate, state) {
     return;
   }
   previewReloadTimer = window.setTimeout(apply, PREVIEW_DEBOUNCE_MS);
+}
+
+/** HTML for the configurator preview column. */
+export function getConfiguratorPreviewHtml() {
+  return `
+    <div id="cfg-preview-primary" class="cfg-preview-primary">
+      <div class="cfg-preview-panel-head">
+        <span class="cfg-preview-panel-label">Overlay preview</span>
+      </div>
+      <div id="cfg-preview-frame-wrap">
+        <iframe id="cfg-iframe" src="./overlay.html" frameborder="0" title="Overlay preview"></iframe>
+      </div>
+    </div>
+    <div id="cfg-preview-bar">
+      <div class="cfg-preview-url-wrap">
+        <span id="cfg-url-display" class="cfg-preview-url-text"></span>
+      </div>
+      <button type="button" id="btn-copy-bar" class="cfg-preview-copy-btn" aria-label="Copy URL" title="Copy URL">
+        <i class="fa-regular fa-copy" aria-hidden="true"></i>
+      </button>
+    </div>
+  `;
 }

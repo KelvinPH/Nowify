@@ -771,11 +771,6 @@ export function parseConfig() {
   const exitDelayRaw = Number(params.get("exitDelay"));
   const exitDelay = Number.isFinite(exitDelayRaw) ? exitDelayRaw : 2500;
 
-  const hasPosition = params.has("positionAnchor");
-  const positionAnchor = hasPosition ? params.get("positionAnchor") : null;
-  const positionOffsetX = hasPosition ? Number(params.get("positionOffsetX")) || 40 : 40;
-  const positionOffsetY = hasPosition ? Number(params.get("positionOffsetY")) || 40 : 40;
-
   return {
     layout,
     theme: params.get("theme") || "spotify",
@@ -798,9 +793,6 @@ export function parseConfig() {
     enterDuration,
     exitDuration,
     exitDelay,
-    positionAnchor,
-    positionOffsetX,
-    positionOffsetY,
     showBpm: toBool(params.get("showBpm"), false),
     showTimeLeft: toBool(params.get("showTimeLeft"), false),
     showNextTrack: toBool(params.get("showNextTrack"), false),

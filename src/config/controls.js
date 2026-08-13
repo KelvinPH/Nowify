@@ -46,14 +46,8 @@ import {
   saveConfigDraft,
   savePlatformState,
 } from "./storage.js";
-import { buildPreviewUrl, getConfiguratorUrlForCopy, setConfiguratorUrlDisplay, setPreviewIframe } from "./preview.js";
+import { buildPreviewUrl, getConfiguratorPreviewHtml, getConfiguratorUrlForCopy, setConfiguratorUrlDisplay, setPreviewIframe } from "./preview.js";
 import { initOverlaySourceStatusIndicator } from "./preview-status.js";
-import {
-  getConfiguratorPreviewHtml,
-  initObsCanvasPreview,
-  updateObsCanvasPreview,
-} from "./obs-canvas-preview.js";
-import { layoutSupportsCanvasPlacement } from "./obs-layout-sizes.js";
 import {
   buildOverlayUrl,
   buildQueueFinalUrl,
@@ -86,13 +80,6 @@ import {
   patchSidebarValues,
 } from "./sidebar-events.js";
 import { mountPublicPresetGallery, openPublishPresetModal } from "./gallery.js";
-import { formatPositionGuide } from "../overlay/position.js";
-
-function initCanvasPreviewWithPosition() {
-  initObsCanvasPreview(state, {
-    onPositionChange: (patch) => update(patch),
-  });
-}
 
 export {
   readAnimBgForEditor,
@@ -121,12 +108,11 @@ function exitQueueDesignerMode() {
 function restoreConfiguratorPreviewShell() {
   const preview = document.getElementById("cfg-preview");
   if (!preview) return;
-  preview.innerHTML = getConfiguratorPreviewHtml(state);
+  preview.innerHTML = getConfiguratorPreviewHtml();
   const url = buildOverlayUrl(state);
   const iframe = document.getElementById("cfg-iframe");
   if (iframe) iframe.src = buildPreviewUrl(state, url);
   setConfiguratorUrlDisplay(url);
-  initCanvasPreviewWithPosition();
   initOverlaySourceStatusIndicator();
 }
 
@@ -1333,9 +1319,6 @@ function openObsGuideModal() {
   if (!shell) return;
   const url =
     getConfiguratorUrlForCopy() || buildOverlayUrl(state);
-  const positionLine = layoutSupportsCanvasPlacement(state.layout)
-    ? formatPositionGuide(state.positionAnchor, state.positionOffsetX, state.positionOffsetY)
-    : "";
   const modal = document.createElement("div");
   modal.id = "cfg-obs-modal";
   modal.className = "cfg-obs-modal";
@@ -1346,9 +1329,9 @@ function openObsGuideModal() {
         <button type="button" class="cfg-btn cfg-btn-ghost" id="cfg-obs-close">Close</button>
       </div>
       <p class="cfg-obs-lead">
-        Use a <strong>Browser</strong> source so the overlay can update in real time. Paste the URL below and match the browser source size shown in the configurator preview.
+        Use a <strong>Browser</strong> source so the overlay can update in real time. Paste the URL below,
+        size the source to fit your overlay (start around <strong>900 × 300</strong> and adjust), then drag it where you want it in the scene.
       </p>
-      ${positionLine ? `<p class="cfg-obs-lead cfg-obs-position-note">${positionLine}</p>` : ""}
       <div class="cfg-obs-url-block">
         <label class="cfg-obs-label" for="cfg-obs-url-field">Overlay URL</label>
         <div class="cfg-obs-url-row">
@@ -1361,8 +1344,8 @@ function openObsGuideModal() {
         <ol class="cfg-obs-steps">
           <li>In OBS, add a source → <strong>Browser</strong>.</li>
           <li>Name it (e.g. &quot;Nowify&quot;), then paste the URL above into <strong>URL</strong>.</li>
-          <li>Set <strong>Width</strong> and <strong>Height</strong> to the browser source size shown in the preview (top of the preview pane).</li>
-          <li>Click <strong>OK</strong>, then drag and crop the source in your scene as needed.</li>
+          <li>Set <strong>Width</strong> and <strong>Height</strong> to fit your layout (about 900 × 300 is a good start for most cards).</li>
+          <li>Click <strong>OK</strong>, then drag the source in your scene to place it.</li>
         </ol>
       </div>
       <div class="cfg-obs-section">
@@ -1377,7 +1360,8 @@ function openObsGuideModal() {
       <div class="cfg-obs-section">
         <h3 class="cfg-obs-h3">Transparent background</h3>
         <p class="cfg-obs-p">
-          Turn on <strong>Transparent background</strong> in Nowify (Options), then in the OBS Browser source enable transparent output if your OBS version shows that option. For a solid backdrop, keep transparency off in Nowify and size the browser box to match the card.
+          Turn on <strong>Transparent background</strong> in Nowify, then in the OBS Browser source enable transparent output if your OBS version shows that option.
+          For a solid backdrop, keep transparency off in Nowify and size the browser box to match the card.
         </p>
       </div>
       <div class="cfg-obs-section cfg-obs-note">
@@ -1661,7 +1645,6 @@ function updateCustomPreview(customState) {
     const url = buildCustomUrl(state, customState);
     setConfiguratorUrlDisplay(url);
     setPreviewIframe(url, false, state);
-    updateObsCanvasPreview(state);
   });
 }
 
@@ -1783,7 +1766,6 @@ function update(newState) {
   }
   setConfiguratorUrlDisplay(url);
   setPreviewIframe(url, previewImmediate, state);
-  updateObsCanvasPreview(state);
   renderHeaderDynamic();
   const sidebar = document.getElementById("cfg-sidebar");
   const layoutKey = `${state.layout}:${state.source}:${isUniqueLayout(state.layout)}`;
@@ -1840,7 +1822,6 @@ export function initConfig() {
     renderHeaderDynamic();
     checkCustomMode();
     initOverlaySourceStatusIndicator();
-    initCanvasPreviewWithPosition();
     initHeaderOverflowMenu();
     update({});
 

@@ -2,16 +2,6 @@
   "detector": {
     "ignoreRules": [],
     "ignoreFiles": [],
-    "ignoreValues": [
-      {
-        "rule": "codex-grid-background",
-        "value": "*",
-        "files": [
-          "src/styles/config.css"
-        ],
-        "createdAt": "2026-08-13T07:32:32.750Z",
-        "reason": "OBS canvas placement minimap — intentional measurement/canvas grid allowed by the rule"
-      }
-    ]
+    "ignoreValues": []
   }
 }

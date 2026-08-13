@@ -393,11 +393,6 @@ body {
     width: min(900px, calc(100vw - 32px));
     height: min(360px, 42vh);
   }
-
-  .cfg-obs-size-label {
-    width: 100%;
-    margin-left: 0;
-  }
 }
 
 @media (max-width: 720px) {
@@ -572,12 +567,6 @@ body {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  transition: box-shadow 0.15s ease;
-}
-
-.cfg-preview-primary.cfg-preview-linked #cfg-preview-frame-wrap {
-  outline: 2px solid color-mix(in srgb, var(--cfg-success) 45%, transparent);
-  outline-offset: -2px;
 }
 
 .cfg-preview-panel-head {
@@ -605,7 +594,6 @@ body {
   position: relative;
   min-height: 0;
   overflow: hidden;
-  transition: box-shadow 0.15s ease;
 }
 
 #cfg-iframe {
@@ -620,198 +608,6 @@ body {
   flex-shrink: 0;
   overflow: hidden;
   display: block;
-}
-
-/* Canvas placement minimap */
-.cfg-obs-minimap {
-  flex-shrink: 0;
-  border-top: 1px solid var(--cfg-border);
-  background: var(--cfg-bg);
-  padding: 0 0 8px;
-}
-
-.cfg-obs-minimap-head {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px 8px;
-}
-
-.cfg-obs-minimap-head-top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.cfg-obs-placement-body {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  gap: 10px;
-  padding: 0 12px 10px;
-  height: 118px;
-  min-height: 118px;
-  max-height: 118px;
-}
-
-.cfg-obs-minimap-scaler {
-  flex: 1 1 0;
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 12px;
-  background: var(--cfg-surface);
-  border: 1px solid var(--cfg-border);
-  border-radius: 10px;
-  box-sizing: border-box;
-}
-
-.cfg-obs-placement-controls {
-  flex: 0 0 124px;
-  width: 124px;
-  min-width: 124px;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-}
-
-.cfg-placement-controls-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.cfg-placement-controls-inner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex: 1;
-  min-height: 0;
-  padding: 6px 8px;
-  background: var(--cfg-surface);
-  border: 1px solid var(--cfg-border);
-  border-radius: 10px;
-  box-sizing: border-box;
-}
-
-.cfg-obs-placement-controls[hidden] {
-  display: none !important;
-}
-
-.cfg-obs-minimap--no-placement .cfg-obs-placement-body {
-  padding-bottom: 10px;
-}
-
-.cfg-obs-minimap--no-placement .cfg-obs-minimap-scaler {
-  flex: 1 1 auto;
-  width: 100%;
-}
-
-.cfg-obs-minimap-title {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--cfg-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.cfg-obs-canvas-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.cfg-obs-canvas-presets {
-  display: inline-flex;
-  border: 1px solid var(--cfg-border);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.cfg-obs-canvas-presets .cfg-sm-btn {
-  border: none;
-  border-radius: 0;
-  border-right: 1px solid var(--cfg-border);
-  background: transparent;
-}
-
-.cfg-obs-canvas-presets .cfg-sm-btn:last-child {
-  border-right: none;
-}
-
-.cfg-obs-canvas-presets .cfg-sm-btn:hover {
-  background: var(--cfg-surface);
-}
-
-.cfg-obs-canvas-custom {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.cfg-obs-canvas-input {
-  width: 68px;
-  padding: 4px 8px;
-  font-size: 11px;
-}
-
-.cfg-obs-canvas-times {
-  font-size: 11px;
-  color: var(--cfg-muted);
-}
-
-.cfg-obs-size-label {
-  font-size: 10px;
-  color: var(--cfg-text-muted);
-  font-family: var(--cfg-font-mono);
-  text-align: right;
-  white-space: nowrap;
-}
-
-.cfg-obs-canvas {
-  position: relative;
-  border: 1px solid var(--cfg-border-strong);
-  border-radius: var(--cfg-radius-md);
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--cfg-text) 4%, transparent) 1px, transparent 1px),
-    linear-gradient(color-mix(in srgb, var(--cfg-text) 4%, transparent) 1px, transparent 1px),
-    color-mix(in srgb, var(--cfg-bg) 88%, var(--cfg-surface));
-  background-size: 18px 18px;
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cfg-text) 4%, transparent);
-}
-
-.cfg-obs-overlay-block {
-  position: absolute;
-  top: 0;
-  left: 0;
-  border: 1.5px solid color-mix(in srgb, var(--cfg-accent) 80%, transparent);
-  background: color-mix(in srgb, var(--cfg-accent) 18%, transparent);
-  cursor: default;
-  transition: border-color 0.12s ease, background 0.12s ease;
-  pointer-events: none;
-}
-
-.cfg-obs-overlay-block:hover,
-.cfg-obs-overlay-block:focus-visible,
-.cfg-obs-overlay-block.cfg-minimap-block-linked {
-  border-color: var(--cfg-accent);
-  background: color-mix(in srgb, var(--cfg-accent) 28%, transparent);
-  outline: none;
 }
 
 #cfg-preview-bar {
@@ -1265,83 +1061,6 @@ body {
   color: var(--cfg-text-muted);
   line-height: 1.5;
   min-height: 18px;
-}
-
-.cfg-anchor-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 34px);
-  gap: 4px;
-}
-
-.cfg-anchor-cell {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border: 1px solid var(--cfg-border);
-  border-radius: 6px;
-  background: var(--cfg-bg);
-  color: var(--cfg-text-muted);
-  cursor: pointer;
-  font-size: 11px;
-  transition: border-color 0.12s, background 0.12s, color 0.12s;
-}
-
-.cfg-anchor-cell:hover {
-  border-color: var(--cfg-border-strong);
-  color: var(--cfg-text-secondary);
-  background: var(--cfg-surface-raised);
-}
-
-.cfg-anchor-cell.cfg-active {
-  border-color: var(--cfg-accent);
-  background: color-mix(in srgb, var(--cfg-accent) 16%, var(--cfg-bg));
-  color: var(--cfg-accent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cfg-accent) 25%, transparent);
-}
-
-.cfg-position-offsets {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-  width: 100%;
-  max-width: 110px;
-}
-
-.cfg-position-offset-field {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.cfg-position-offset-label {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--cfg-text-muted);
-}
-
-.cfg-position-offset-input {
-  width: 100%;
-  min-width: 0;
-  padding: 3px 4px;
-  font-size: 10px;
-  text-align: center;
-}
-
-.cfg-value-mono,
-.cfg-input-inline.cfg-value-mono {
-  font-family: var(--cfg-font-mono);
-  font-size: 12px;
-}
-
-.cfg-obs-position-note {
-  margin-top: -4px;
-  color: var(--cfg-text-secondary);
 }
 
 .cfg-layout-unique-btn {
