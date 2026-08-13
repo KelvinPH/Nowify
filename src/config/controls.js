@@ -80,6 +80,7 @@ import {
   patchSidebarValues,
 } from "./sidebar-events.js";
 import { mountPublicPresetGallery, openPublishPresetModal } from "./gallery.js";
+import { openObsGuideModal as openObsGuideWizard } from "./obs-guide.js";
 
 export {
   readAnimBgForEditor,
@@ -1303,103 +1304,9 @@ function renderHeaderDynamic() {
   );
 }
 
-let obsGuideEscCleanup = null;
-
-function closeObsGuideModal() {
-  if (obsGuideEscCleanup) {
-    obsGuideEscCleanup();
-    obsGuideEscCleanup = null;
-  }
-  document.getElementById("cfg-obs-modal")?.remove();
-}
-
 function openObsGuideModal() {
-  closeObsGuideModal();
-  const shell = document.getElementById("cfg-shell");
-  if (!shell) return;
-  const url =
-    getConfiguratorUrlForCopy() || buildOverlayUrl(state);
-  const modal = document.createElement("div");
-  modal.id = "cfg-obs-modal";
-  modal.className = "cfg-obs-modal";
-  modal.innerHTML = `
-    <div class="cfg-obs-dialog" role="dialog" aria-labelledby="cfg-obs-title">
-      <div class="cfg-obs-header">
-        <h2 class="cfg-obs-title" id="cfg-obs-title">Add to OBS Studio</h2>
-        <button type="button" class="cfg-btn cfg-btn-ghost" id="cfg-obs-close">Close</button>
-      </div>
-      <p class="cfg-obs-lead">
-        Use a <strong>Browser</strong> source so the overlay can update in real time. Paste the URL below,
-        size the source to fit your overlay (start around <strong>900 × 300</strong> and adjust), then drag it where you want it in the scene.
-      </p>
-      <div class="cfg-obs-url-block">
-        <label class="cfg-obs-label" for="cfg-obs-url-field">Overlay URL</label>
-        <div class="cfg-obs-url-row">
-          <input id="cfg-obs-url-field" class="cfg-obs-url-input" type="text" readonly spellcheck="false" />
-          <button type="button" class="cfg-btn cfg-btn-primary" id="cfg-obs-copy-url">Copy</button>
-        </div>
-      </div>
-      <div class="cfg-obs-section">
-        <h3 class="cfg-obs-h3">Steps</h3>
-        <ol class="cfg-obs-steps">
-          <li>In OBS, add a source → <strong>Browser</strong>.</li>
-          <li>Name it (e.g. &quot;Nowify&quot;), then paste the URL above into <strong>URL</strong>.</li>
-          <li>Set <strong>Width</strong> and <strong>Height</strong> to fit your layout (about 900 × 300 is a good start for most cards).</li>
-          <li>Click <strong>OK</strong>, then drag the source in your scene to place it.</li>
-        </ol>
-      </div>
-      <div class="cfg-obs-section">
-        <h3 class="cfg-obs-h3">OBS browser settings</h3>
-        <ul class="cfg-obs-bullets">
-          <li><strong>FPS</strong> — 30 is enough for most streams; use 60 only if motion looks choppy.</li>
-          <li><strong>Shutdown source when not visible</strong> — optional; saves CPU when the scene is off.</li>
-          <li><strong>Refresh browser when scene becomes active</strong> — useful if the overlay ever freezes after tab sleep.</li>
-          <li>Leave <strong>Custom CSS</strong> empty unless you intentionally override styles.</li>
-        </ul>
-      </div>
-      <div class="cfg-obs-section">
-        <h3 class="cfg-obs-h3">Transparent background</h3>
-        <p class="cfg-obs-p">
-          Turn on <strong>Transparent background</strong> in Nowify, then in the OBS Browser source enable transparent output if your OBS version shows that option.
-          For a solid backdrop, keep transparency off in Nowify and size the browser box to match the card.
-        </p>
-      </div>
-      <div class="cfg-obs-section cfg-obs-note">
-        <p class="cfg-obs-p">
-          <strong>Local files:</strong> If your URL is <code>file://</code> or localhost, OBS must reach that path or server from the same machine. Spotify auth and some features work best when the configurator is opened over <code>http://localhost</code> (or your deployed site), not raw file paths.
-        </p>
-      </div>
-    </div>
-  `;
-  shell.appendChild(modal);
-  const urlField = document.getElementById("cfg-obs-url-field");
-  if (urlField) urlField.value = url;
-  const onEsc = (e) => {
-    if (e.key === "Escape") closeObsGuideModal();
-  };
-  document.addEventListener("keydown", onEsc);
-  obsGuideEscCleanup = () => document.removeEventListener("keydown", onEsc);
-  modal.addEventListener("click", (e) => {
-    if (e.target === modal) closeObsGuideModal();
-  });
-  document.getElementById("cfg-obs-close")?.addEventListener("click", closeObsGuideModal);
-  document.getElementById("cfg-obs-copy-url")?.addEventListener("click", async () => {
-    const field = document.getElementById("cfg-obs-url-field");
-    const t = field?.value || url;
-    const ok = await copyText(t);
-    if (ok) {
-      const btn = document.getElementById("cfg-obs-copy-url");
-      if (btn) {
-        const prev = btn.textContent;
-        btn.textContent = "Copied!";
-        window.setTimeout(() => {
-          btn.textContent = prev;
-        }, 1200);
-      }
-    } else {
-      field?.select();
-    }
-  });
+  const url = getConfiguratorUrlForCopy() || buildOverlayUrl(state);
+  openObsGuideWizard({ url, state });
 }
 
 function closePresetsModal() {
