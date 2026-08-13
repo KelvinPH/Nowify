@@ -17,4 +17,3 @@ ALLOWED_ORIGIN=https://YOUR_USERNAME.github.io
 # (public URL, not a Wrangler secret):
 #   src/config/constants.js
 #   src/api/lastfm.js
-#   src/stats/session.js

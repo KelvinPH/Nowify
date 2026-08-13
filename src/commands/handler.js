@@ -9,7 +9,6 @@ import {
   skipToPrevious,
 } from "../api/spotify.js";
 import { getValidToken } from "../auth/spotify.js";
-import { recordChatMessage } from "../stats/session.js";
 
 const ROLE_RANK = {
   everyone: 0,
@@ -273,10 +272,8 @@ export async function handleMessage(msg) {
 
 export async function handleCommand(payload) {
   if (!payload?.message || !String(payload.message).trim().startsWith("!")) {
-    recordChatMessage();
     return;
   }
-  recordChatMessage();
   const msg = normalizeIrcPayload(payload);
   try {
     await handleMessage(msg);

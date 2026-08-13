@@ -57,7 +57,6 @@ Nowify is the successor to **SpotiStream**, rebuilt for clearer structure, easie
 ### Other pages
 
 - **Queue overlay** — Separate **`queue.html`** Browser Source: themed list of upcoming tracks (queue / requests / both), demo mode for preview, own style tab in the configurator
-- **Stats** — `stats.html`: local session history, mood views, export (browser-only storage unless you export)
 
 ## Coming soon
 
@@ -133,10 +132,6 @@ The configurator builds the query string for you. Common **main overlay** parame
 
 **Queue overlay** uses its own parameter set (`queue.html`); the configurator’s queue mode serialises those for you (`maxItems`, `showArt`, `blurStrength`, …).
 
-## Stats dashboard
-
-Open [`stats.html`](./stats.html) after sessions for summaries, mood distribution, highlights, and export. Data stays in the browser unless you export it.
-
 ## Privacy & security
 
 - Core overlay use does not require your own server
@@ -152,7 +147,7 @@ If you fork this repository, you must use your own:
 - [Cloudflare account](https://dash.cloudflare.com/) and `wrangler login`
 - **KV namespace IDs** — create `HISTORY` and `THEMES` namespaces and put the IDs in your local `wrangler.toml` (see [`wrangler.toml.example`](./wrangler.toml.example))
 - **`ALLOWED_ORIGIN`** — your GitHub Pages URL (or local dev origin) in `wrangler.toml` / [`.dev.vars`](./.dev.vars.example)
-- **Worker URL** — after `wrangler deploy`, set `WORKER_BASE_URL` in `src/config/constants.js`, `src/api/lastfm.js`, and `src/stats/session.js` (see [DEPLOYMENT.md](./DEPLOYMENT.md))
+- **Worker URL** — after `wrangler deploy`, set `WORKER_BASE_URL` in `src/config/constants.js` and `src/api/lastfm.js` (see [DEPLOYMENT.md](./DEPLOYMENT.md))
 - **Apple Music** (optional) — `wrangler secret put` for `APPLE_TEAM_ID`, `APPLE_KEY_ID`, and `APPLE_PRIVATE_KEY`; never commit these
 
 **Never commit:** `.env`, `.dev.vars`, `.wrangler/`, or files matching `*.secrets.*`. Copy [`.dev.vars.example`](./.dev.vars.example) for local development.

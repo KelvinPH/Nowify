@@ -59,11 +59,10 @@ wrangler deploy
 
 ### 7) Update worker base URL in app
 
-After deploy, copy the Worker URL from Wrangler output and set `WORKER_BASE_URL` in all three files:
+After deploy, copy the Worker URL from Wrangler output and set `WORKER_BASE_URL` in:
 
+- `src/config/constants.js` — public custom presets gallery
 - `src/api/lastfm.js` — CORS proxy for Last.fm (polled while the overlay runs)
-- `src/config/controls.js` — public custom presets gallery
-- `src/stats/session.js` — optional cloud history export
 
 ```js
 const WORKER_BASE_URL = "https://your-worker.workers.dev";

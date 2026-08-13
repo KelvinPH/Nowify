@@ -26,12 +26,6 @@ import {
 } from "../visuals/transitions.js";
 import { connectIRC, connectEventSub } from "../platforms/twitch.js";
 import {
-  backfillCurrentTrackFeatures,
-  getSession,
-  loadSession,
-  startTrack,
-} from "../stats/session.js";
-import {
   createPollScheduler,
   getLastKnownGoodTrack,
   markFetchFailed,
@@ -43,6 +37,45 @@ import {
 } from "./source-resilience.js";
 
 let currentTrackId = null;
+/** In-memory Spotify audio features for the active track (not persisted). */
+let currentTrackExtras = null;
+
+function rememberTrackExtras(trackId, extras) {
+  if (!trackId || !extras) {
+    currentTrackExtras = null;
+    return;
+  }
+  currentTrackExtras = {
+    trackId,
+    bpm: extras.bpm ?? null,
+    energy: extras.energy ?? null,
+    valence: extras.valence ?? null,
+  };
+}
+
+function getRememberedTrackExtras(trackId) {
+  if (!trackId || !currentTrackExtras || currentTrackExtras.trackId !== trackId) {
+    return null;
+  }
+  return {
+    bpm: currentTrackExtras.bpm,
+    energy: currentTrackExtras.energy,
+    valence: currentTrackExtras.valence,
+  };
+}
+
+function mergeTrackExtras(trackId, extras) {
+  if (!trackId || !extras) {
+    return;
+  }
+  const prev = currentTrackExtras?.trackId === trackId ? currentTrackExtras : null;
+  rememberTrackExtras(trackId, {
+    bpm: extras.bpm ?? prev?.bpm ?? null,
+    energy: extras.energy ?? prev?.energy ?? null,
+    valence: extras.valence ?? prev?.valence ?? null,
+  });
+}
+
 let pollInterval = null;
 let pollingTimer = null;
 let pollScheduler = null;
@@ -883,7 +916,7 @@ async function fetchTrackAudioExtras(trackId, useLastfm) {
     if (message.includes("Spotify API error 403")) {
       blockedAudioFeaturesTrackIds.add(trackId);
       console.warn(
-        "[Nowify] Spotify blocked audio-features for this track or app (403). BPM / energy stats need that endpoint."
+        "[Nowify] Spotify blocked audio-features for this track or app (403). BPM / mood sync need that endpoint."
       );
     }
     return null;
@@ -950,7 +983,7 @@ async function applyPollTrackUpdate(track, { useLastfm, fromCache = false } = {}
 
   if (needsInitialRender) {
     const extras = fromCache ? null : await fetchTrackAudioExtras(track.trackId, useLastfm);
-    await render(track, extras, nextTrack, { skipSession: true });
+    await render(track, extras, nextTrack);
     updateProgress(track);
     return;
   }
@@ -965,20 +998,22 @@ async function applyPollTrackUpdate(track, { useLastfm, fromCache = false } = {}
     !fromCache &&
     !useLastfm &&
     track.trackId &&
+    track.trackId === currentTrackId &&
     !blockedAudioFeaturesTrackIds.has(track.trackId) &&
     !audioFeaturesBackfillAttempted.has(track.trackId)
   ) {
-    const { tracks: sessionTracks } = getSession();
-    const last = sessionTracks[sessionTracks.length - 1];
-    if (
-      last?.trackId === track.trackId &&
-      (last.bpm == null || last.energy == null || last.valence == null)
-    ) {
+    const remembered = getRememberedTrackExtras(track.trackId);
+    const needsBackfill =
+      !remembered ||
+      remembered.bpm == null ||
+      remembered.energy == null ||
+      remembered.valence == null;
+    if (needsBackfill) {
       audioFeaturesBackfillAttempted.add(track.trackId);
       try {
         const extras = await getAudioFeatures(track.trackId);
         if (extras) {
-          backfillCurrentTrackFeatures(track.trackId, extras);
+          mergeTrackExtras(track.trackId, extras);
         }
       } catch (_error) {
         /* ignore */
@@ -989,16 +1024,7 @@ async function applyPollTrackUpdate(track, { useLastfm, fromCache = false } = {}
   if (config.layout === "custom") {
     const rootEl = document.querySelector(".nw-overlay.nw-custom");
     if (rootEl) {
-      let extrasForUi = null;
-      const { tracks: sessionTracks } = getSession();
-      const last = sessionTracks[sessionTracks.length - 1];
-      if (last?.trackId === track.trackId && last.bpm != null) {
-        extrasForUi = {
-          bpm: last.bpm,
-          energy: last.energy,
-          valence: last.valence,
-        };
-      }
+      let extrasForUi = getRememberedTrackExtras(track.trackId);
       applyCustomDynamicFields(rootEl, track, extrasForUi, nextTrack);
     }
   } else {
@@ -1191,21 +1217,24 @@ async function startDemo() {
 
   currentTrackId = track.trackId;
   recordSuccessfulFetch(track);
-  await render(track, extras, nextTrack, { skipSession: true });
+  await render(track, extras, nextTrack);
   updateProgress(track);
   startProgressTimer();
 }
 
 /** Renders a track using the selected layout and transition class. */
-async function render(track, extras, nextTrack = null, options = {}) {
-  const { skipSession = false } = options;
+async function render(track, extras, nextTrack = null) {
   const app = document.getElementById("app");
   if (!app) {
     return;
   }
 
-  if (!skipSession) {
-    startTrack(track, extras);
+  if (extras && track?.trackId) {
+    rememberTrackExtras(track.trackId, extras);
+  } else if (track?.trackId) {
+    if (!currentTrackExtras || currentTrackExtras.trackId !== track.trackId) {
+      rememberTrackExtras(track.trackId, { bpm: null, energy: null, valence: null });
+    }
   }
   if (isSpecialLayout(config.layout)) {
     const preset = await switchSpecialPreset(config.layout);
@@ -1706,13 +1735,6 @@ export async function init() {
   if (isSpecialLayout(config.layout)) {
     destroySpecialPreset();
     await switchSpecialPreset(config.layout);
-  }
-
-  loadSession();
-  const { tracks: restoredTracks } = getSession();
-  const lastRestored = restoredTracks[restoredTracks.length - 1];
-  if (lastRestored?.trackId) {
-    currentTrackId = lastRestored.trackId;
   }
 
   const callbackHasCode = new URLSearchParams(window.location.search).has("code");
