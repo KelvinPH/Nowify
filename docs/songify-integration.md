@@ -98,9 +98,12 @@ Recommended size: 900 x 300 px.
 | Feature | Available |
 |---------|-----------|
 | Now playing track | Yes |
-| Artist and album | Yes |
+| Artist | Yes |
+| Album name | No — Songify's API sends cover art sizes (`640x640`), not album titles. Use the Spotify source if you need album names. |
 | Album art | Yes |
 | Progress bar | Yes (if Songify provides duration) |
+| Next track on now-playing overlay | Yes — uses the first item in Songify's queue when **Show next track** is on |
+| Queue overlay (`queue.html`) | Yes — separate browser source; configure via **Queue overlay → Configure** |
 | All layouts and themes | Yes |
 | Glassmorphism effects | Yes |
 | Twitch chat commands | Yes (routes to Songify) |
@@ -111,6 +114,16 @@ Recommended size: 900 x 300 px.
 BPM, beat sync, and mood sync require Spotify audio features
 data which is only available when using Nowify's direct
 Spotify source.
+
+### Queue overlay (Songify)
+
+1. Set source to **Songify** and enter your port.
+2. Open **Queue overlay → Configure** (not the main custom layout editor).
+3. On the **Look** tab, turn on **Transparent background** if you want a clear OBS backdrop.
+4. Use **Queue / Sizing / Colors** tabs for row fields and styling.
+5. Copy the **Queue URL** into a second OBS Browser Source (~400×600).
+
+The queue designer is a tabbed sidebar + live preview — it is not the same as the main overlay's custom visual editor.
 
 ---
 
@@ -156,6 +169,18 @@ a fresh update.
 
 These features are not available with the Songify source.
 Switch to the direct Spotify source if you need them.
+
+**Album shows as `640x640` (or similar)**
+
+Older Nowify builds mistakenly treated Songify cover dimensions as the album name. Update Nowify — album name still will not appear via Songify (API limitation); the bogus size string is removed.
+
+**Next track blank on the now-playing overlay**
+
+Enable **Show next track** in Content. Songify must be sending queue tracks (same data the queue overlay uses). The dedicated queue overlay can still work even when the now-playing next line was off.
+
+**Can't find transparent background for the queue overlay**
+
+Open **Queue overlay → Configure**, stay on the **Look** tab, and toggle **Transparent background**. Then re-copy the Queue URL into OBS and enable Browser Source transparency if your OBS build offers it.
 
 ---
 

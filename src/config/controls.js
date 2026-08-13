@@ -137,13 +137,73 @@ function refreshQueueConfiguratorPreview() {
   if (qd) qd.textContent = buildQueueFinalUrl(state);
 }
 
+/** Keys that change queue sidebar HTML structure (not just toggle/button state). */
+const QUEUE_SIDEBAR_STRUCTURAL_KEYS = new Set(["queueCustomColors"]);
+
+function needsQueueSidebarRebuild(newState) {
+  if (!newState || Object.keys(newState).length === 0) {
+    return true;
+  }
+  return Object.keys(newState).some((key) => QUEUE_SIDEBAR_STRUCTURAL_KEYS.has(key));
+}
+
+function patchQueueSidebarValues() {
+  const sidebar = document.getElementById("cfg-sidebar");
+  if (!sidebar || !isQueueConfigOpen()) {
+    return;
+  }
+
+  sidebar.querySelectorAll("[data-toggle-key]").forEach((input) => {
+    const key = input.getAttribute("data-toggle-key");
+    if (key in state) {
+      input.checked = Boolean(state[key]);
+    }
+  });
+
+  sidebar.querySelectorAll("[data-set-key]").forEach((btn) => {
+    const key = btn.getAttribute("data-set-key");
+    const val = btn.getAttribute("data-set-value");
+    if (key in state) {
+      btn.classList.toggle("cfg-active", String(state[key]) === val);
+    }
+  });
+
+  sidebar.querySelectorAll("[data-range-key]").forEach((input) => {
+    const key = input.getAttribute("data-range-key");
+    if (!(key in state)) return;
+    const val = Number(state[key]);
+    if (!Number.isFinite(val)) return;
+    input.value = String(val);
+    const label = document.getElementById(`val-${key}`);
+    if (!label) return;
+    const units = {
+      queueFontSize: "px",
+      queueItemRadius: "px",
+      queueItemPadding: "px",
+      queueItemOpacity: "%",
+      queueArtSize: "px",
+      queueGap: "px",
+      queueMaxItems: "",
+      queueBlur: "",
+      queueMaxWidth: "px",
+    };
+    label.textContent = val + (units[key] || "");
+  });
+
+  sidebar.querySelectorAll("[data-select-key]").forEach((sel) => {
+    const key = sel.getAttribute("data-select-key");
+    if (key in state) {
+      sel.value = String(state[key]);
+    }
+  });
+}
+
 function attachQueueSidebarListeners(sidebar) {
   sidebar.querySelectorAll("[data-set-key]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const k = btn.getAttribute("data-set-key");
       const v = btn.getAttribute("data-set-value");
       update({ [k]: v });
-      refreshQueueConfiguratorPreview();
     });
   });
 
@@ -151,7 +211,6 @@ function attachQueueSidebarListeners(sidebar) {
     input.addEventListener("change", () => {
       const k = input.getAttribute("data-toggle-key");
       update({ [k]: input.checked });
-      refreshQueueConfiguratorPreview();
     });
   });
 
@@ -175,7 +234,6 @@ function attachQueueSidebarListeners(sidebar) {
       window.clearTimeout(queueRangeDebounceTimer);
       queueRangeDebounceTimer = window.setTimeout(() => {
         update({ [key]: val });
-        refreshQueueConfiguratorPreview();
       }, 300);
     });
   });
@@ -184,7 +242,6 @@ function attachQueueSidebarListeners(sidebar) {
     sel.addEventListener("change", () => {
       const k = sel.getAttribute("data-select-key");
       update({ [k]: sel.value });
-      refreshQueueConfiguratorPreview();
     });
   });
 
@@ -199,7 +256,6 @@ function attachQueueSidebarListeners(sidebar) {
         if (wheel) {
           wheel.value = parseColorToHexForPicker(inp.value.trim());
         }
-        refreshQueueConfiguratorPreview();
       }, 400);
     });
   });
@@ -212,7 +268,6 @@ function attachQueueSidebarListeners(sidebar) {
       update({ [k]: next });
       const textInp = sidebar.querySelector(`[data-queue-color="${k}"]`);
       if (textInp) textInp.value = next;
-      refreshQueueConfiguratorPreview();
     });
   });
 
@@ -281,6 +336,14 @@ function renderQueueSidebar() {
 
   const panelLook = `
   <div class="cfg-queue-panel-block">
+    <p class="cfg-hint cfg-queue-designer-lead">Use the tabs above for layout, row fields, sizing, and colors. Copy the <strong>Queue URL</strong> below into a second OBS Browser Source.</p>
+    ${toggleRow(
+      "Transparent background",
+      "queueTransparent",
+      "Clear page background for OBS (turn on Browser Source transparency if needed)"
+    )}
+  </div>
+  <div class="cfg-queue-panel-block">
     <div class="cfg-cmd-field-label">Queue data</div>
     ${toggleSimple("Demo sample list", "queueDemoPreview")}
     <div class="cfg-btn-group cfg-btn-group-wrap cfg-queue-source-btns">
@@ -339,7 +402,11 @@ function renderQueueSidebar() {
     ${toggleRow("Album art", "queueShowArt", "")}
     ${toggleRow("Track title", "queueShowTitle", "")}
     ${toggleRow("Artist", "queueShowArtist", "")}
-    ${toggleRow("Album name", "queueShowAlbum", "")}
+    ${toggleRow(
+      "Album name",
+      "queueShowAlbum",
+      "Songify does not send album titles — this stays blank for now"
+    )}
     ${toggleRow("Duration", "queueShowDuration", "")}
     ${toggleRow("Requester", "queueShowRequester", "")}
     ${toggleRow("Requester avatar", "queueShowAvatar", "")}
@@ -349,7 +416,6 @@ function renderQueueSidebar() {
       "queueHighlightRequests",
       "Accent on Songify user requests"
     )}
-    ${toggleRow("Transparent background", "queueTransparent", "")}
   </div>`;
 
   const panelStyle = `
@@ -550,14 +616,14 @@ function renderSourceContent() {
   const portNum = Number(state.songifyPort);
   const portOk = Number.isInteger(portNum) && portNum >= 1024 && portNum <= 65535;
   const queueCard = portOk
-    ? `<div class="cfg-queue-entry-card" data-cfg-tip="${escAttr("Opens a dedicated layout editor and preview for queue.html — use as a second OBS browser source.")}">
+    ? `<div class="cfg-queue-entry-card" data-cfg-tip="${escAttr("Opens the queue designer: Look / Queue / Sizing / Colors tabs, then copy the Queue URL for a second OBS browser source.")}">
     <div class="cfg-queue-entry-top">
       <div>
         <div class="cfg-queue-entry-head">
           <span class="cfg-cmd-section-label cfg-queue-entry-label">Queue overlay</span>
           <span class="cfg-beta-chip">Songify</span>
         </div>
-        <p class="cfg-queue-entry-desc">Show upcoming tracks in a separate browser source powered by Songify.</p>
+        <p class="cfg-queue-entry-desc">Separate browser source for upcoming tracks. Transparent background is on the Look tab.</p>
       </div>
       <button type="button" class="cfg-btn cfg-sm-btn cfg-btn-primary" id="btn-open-queue-config">Configure</button>
     </div>
@@ -633,7 +699,11 @@ function renderContentContent() {
     rows.push(compactToggle("Time remaining", "showTimeLeft", true, "", TOGGLE_KEY_TIPS.showTimeLeft));
   }
   if (lc?.showNextTrack) {
-    rows.push(compactToggle("Next track", "showNextTrack", true, "", TOGGLE_KEY_TIPS.showNextTrack));
+    const nextTip =
+      state.source === "songify"
+        ? "Shows the next Songify queue title on the now-playing overlay."
+        : TOGGLE_KEY_TIPS.showNextTrack;
+    rows.push(compactToggle("Next track", "showNextTrack", true, "", nextTip));
   }
   const showNextTrackModeRow =
     state.source === "spotify" && (isCustom || (lc?.showNextTrack && state.showNextTrack));
@@ -650,7 +720,13 @@ function renderContentContent() {
     rows.push(compactToggle("BPM", "showBpm", true, "", TOGGLE_KEY_TIPS.showBpm));
   }
   if (lc?.showAlbum) {
-    rows.push(compactToggle("Album name", "showAlbum", true, "", TOGGLE_KEY_TIPS.showAlbum));
+    if (state.source === "songify") {
+      rows.push(
+        `<p class="cfg-hint" style="margin:0 0 8px;line-height:1.45">Album name isn't available from Songify — its API only sends cover art sizes, not the album title. Use the Spotify source if you need album names.</p>`
+      );
+    } else {
+      rows.push(compactToggle("Album name", "showAlbum", true, "", TOGGLE_KEY_TIPS.showAlbum));
+    }
   }
   if (lc?.showPlayState) {
     rows.push(compactToggle("Play state", "showPlayState", true, "", TOGGLE_KEY_TIPS.showPlayState));
@@ -1629,6 +1705,7 @@ function update(newState) {
   if (state.source === "songify") {
     state.clientId = "";
     state.showBpm = false;
+    state.showAlbum = false;
     if (state.layout !== "vinyl") {
       state.moodSync = false;
     }
@@ -1652,6 +1729,7 @@ function update(newState) {
   }
   if (state.source === "songify") {
     state.showBpm = false;
+    state.showAlbum = false;
     if (state.layout !== "vinyl") {
       state.moodSync = false;
     }
@@ -1695,11 +1773,17 @@ function update(newState) {
   }
   if (isQueueConfigOpen()) {
     refreshQueueConfiguratorPreview();
-  } else {
-    setConfiguratorUrlDisplay(url);
-    setPreviewIframe(url, previewImmediate, state);
-    updateObsCanvasPreview(state);
+    if (needsQueueSidebarRebuild(newState)) {
+      renderQueueSidebar();
+    } else {
+      patchQueueSidebarValues();
+    }
+    renderHeaderDynamic();
+    return;
   }
+  setConfiguratorUrlDisplay(url);
+  setPreviewIframe(url, previewImmediate, state);
+  updateObsCanvasPreview(state);
   renderHeaderDynamic();
   const sidebar = document.getElementById("cfg-sidebar");
   const layoutKey = `${state.layout}:${state.source}:${isUniqueLayout(state.layout)}`;
@@ -1712,7 +1796,7 @@ function update(newState) {
       sidebar?.dataset.sidebarLayout !== layoutKey)
   ) {
     renderSidebar();
-  } else if (!isQueueConfigOpen() && state.layout !== "custom") {
+  } else if (state.layout !== "custom") {
     patchSidebarValues();
   }
   checkCustomMode();

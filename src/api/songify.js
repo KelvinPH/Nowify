@@ -77,6 +77,41 @@ function albumArtFromAlbums(data) {
   return String(img?.Url || img?.url || "").trim();
 }
 
+/**
+ * Songify's `Albums` array is cover-art sizes (Width/Height/Url), not album titles.
+ * Album name is only used when Songify (or a legacy payload) sends Album/album text.
+ */
+function albumNameFromTrackData(data) {
+  if (!data || typeof data !== "object") {
+    return "";
+  }
+  return pickStr(data, ["Album", "album", "AlbumName", "albumName"]);
+}
+
+/** First upcoming Songify queue row → overlay next-track shape. */
+export function nextTrackFromSongifyQueue(resolved) {
+  if (!resolved || typeof resolved !== "object") {
+    return null;
+  }
+  const tracks = Array.isArray(resolved.queueTracks) ? resolved.queueTracks : [];
+  const requests = Array.isArray(resolved.queueRequests) ? resolved.queueRequests : [];
+  const first = tracks[0] || requests[0];
+  if (!first || typeof first !== "object") {
+    return null;
+  }
+  const title = String(first.title || "").trim();
+  if (!title) {
+    return null;
+  }
+  return {
+    title,
+    artist: String(first.artist || "").trim(),
+    trackId: String(first.trackid ?? first.trackId ?? "").trim(),
+    albumArt: String(first.albumcover || first.albumArt || "").trim(),
+    album: "",
+  };
+}
+
 /** Songify HTTP API and occasional WS payloads use PascalCase (see Songify docs). */
 function unwrapPayload(raw) {
   if (!raw || typeof raw !== "object") {
@@ -170,10 +205,7 @@ export function mapSongifyPayload(raw) {
     const albums = Array.isArray(data.Albums) ? data.Albums : [];
     const albumArt =
       albums[0]?.Url || albums[1]?.Url || albums[2]?.Url || albumArtFromAlbums(data);
-    const album =
-      albums[0] && (albums[0].Width != null || albums[0].Height != null)
-        ? `${albums[0].Width}x${albums[0].Height}`
-        : pickStr(data, ["Album", "album"]);
+    const album = albumNameFromTrackData(data);
 
     const isPlaying = data.IsPlaying !== false && data.isPlaying !== false;
     const songId =
@@ -289,10 +321,7 @@ function handleMessage(data) {
     const songId =
       pickStr(trackData, ["SongId", "songId", "trackId", "id"]) || `${artist}-${title}`;
 
-    const album =
-      albums[0] && (albums[0].Width != null || albums[0].Height != null)
-        ? `${albums[0].Width}x${albums[0].Height}`
-        : "";
+    const album = albumNameFromTrackData(trackData);
 
     const track = {
       isPlaying,

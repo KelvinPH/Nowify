@@ -375,7 +375,11 @@ function renderContentPanel() {
     ])}
 
     ${toggleRow("Show artist", "showArtist")}
-    ${toggleRow("Show album", "showAlbum")}
+    ${
+      readSongifyArtFlags().source === "songify"
+        ? `<p class="ce-mini-info" style="margin:0 0 8px">Album name isn't available from Songify (cover sizes only). Use Spotify for album titles.</p>`
+        : toggleRow("Show album", "showAlbum")
+    }
     ${toggleRow("Show progress bar", "showProgress")}
     ${sliderRow("Progress height", "progressHeight", 1, 8, customState.progressHeight, "px", "1", "showProgress:true")}
 
@@ -388,10 +392,20 @@ function renderContentPanel() {
 
     ${toggleRow("Show remaining time", "showRemainingTime", "Shows time left instead of elapsed time")}
     ${renderNextTrackModeSpotifyOnly()}
-    ${toggleRow("Show next track", "showNextTrack", "Uses your Spotify queue data")}
-    <div class="ce-disclaimer">If next track is blank, reconnect Spotify in OBS
+    ${toggleRow(
+      "Show next track",
+      "showNextTrack",
+      readSongifyArtFlags().source === "songify"
+        ? "Uses the next item from Songify's queue"
+        : "Uses your Spotify queue data"
+    )}
+    ${
+      readSongifyArtFlags().source === "songify"
+        ? ""
+        : `<div class="ce-disclaimer">If next track is blank, reconnect Spotify in OBS
       to refresh your session permissions and player state.
-    </div>
+    </div>`
+    }
     ${toggleRow("Show play state", "showPlayState", "Pulsing dot when track is playing")}
     ${toggleRow("Show BPM", "showBpm", "Tempo badge from Spotify audio features")}
   </div>`;
@@ -709,6 +723,9 @@ export function initCustomEditor(containerEl, seedLayout, onChange) {
   const songifyFlags = readSongifyArtFlags();
   if (!saved || saved.canvasEnabled === undefined) {
     customState.canvasEnabled = songifyFlags.canvasEnabled;
+  }
+  if (songifyFlags.source === "songify") {
+    customState.showAlbum = false;
   }
   const artBd = readArtBackdropForEditor();
   if (!saved || saved.artBackdropEnabled === undefined) {

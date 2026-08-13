@@ -95,7 +95,7 @@ Use **Presets** for saved or community custom layouts, **Add to OBS** for sizing
 
 ## Queue overlay
 
-The **queue** page is a second Browser Source for a scrollable list (positions, art, titles, requesters, etc.). Configure it from the configurator via the queue / “open queue config” flow; it uses its own URL (`queue.html?…`) independent of the main now-playing overlay.
+The **queue** page is a second Browser Source for a scrollable list (positions, art, titles, requesters, etc.). With **Songify** as the source, open **Queue overlay → Configure** in the configurator (Look tab includes transparent background). It uses its own URL (`queue.html?…`) independent of the main now-playing overlay.
 
 ## Chat commands
 

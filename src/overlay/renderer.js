@@ -1478,15 +1478,21 @@ async function initSongifyStandardOverlay() {
   const appBoot = document.getElementById("app");
   bootstrapSongifyConnectingMessage();
 
-  const { init: initSongifyWs, sendCommand } = await import("../api/songify.js");
+  const { init: initSongifyWs, sendCommand, nextTrackFromSongifyQueue } = await import(
+    "../api/songify.js"
+  );
   window.__songifySendCommand = sendCommand;
+
+  const wantNextTrack =
+    config.showNextTrack || (config.layout === "custom" && config.custom?.showNextTrack);
 
   initSongifyWs({
     port: config.songifyPort || 4002,
-    onTrack(track) {
+    onTrack(track, resolved) {
       void (async () => {
         try {
           recordSuccessfulFetch(track);
+          const nextTrack = wantNextTrack ? nextTrackFromSongifyQueue(resolved) : null;
           if (lastSnap && samePlaying(lastSnap, track)) {
             lastSnap = track;
             updateProgress(track);
@@ -1494,12 +1500,12 @@ async function initSongifyStandardOverlay() {
             if (isSpecialLayout(config.layout)) {
               const preset = await switchSpecialPreset(config.layout);
               if (preset?.render) {
-                preset.render({ ...(track || {}), nextTrack: null }, null);
+                preset.render({ ...(track || {}), nextTrack: nextTrack || null }, null);
               }
             } else {
               const rootEl = document.querySelector(".nw-overlay");
               if (rootEl) {
-                applyDefaultDynamicFields(rootEl, track, null);
+                applyDefaultDynamicFields(rootEl, track, nextTrack);
               }
               const syncRoot = document.querySelector(".nw-overlay");
               if (config.animBgEnabled && syncRoot) {
@@ -1533,7 +1539,7 @@ async function initSongifyStandardOverlay() {
           if (track?.trackId) {
             currentTrackId = track.trackId;
           }
-          await render(track, null, null);
+          await render(track, null, nextTrack);
           updateProgress(track);
           updateStripTime(track);
         } catch (e) {
@@ -1623,21 +1629,27 @@ async function initSongifyCustomOverlay() {
   const appBoot = document.getElementById("app");
   bootstrapSongifyConnectingMessage();
 
-  const { init: initSongifyWs, sendCommand } = await import("../api/songify.js");
+  const { init: initSongifyWs, sendCommand, nextTrackFromSongifyQueue } = await import(
+    "../api/songify.js"
+  );
   window.__songifySendCommand = sendCommand;
+
+  const wantNextTrack =
+    config.showNextTrack || (config.layout === "custom" && config.custom?.showNextTrack);
 
   initSongifyWs({
     port: config.songifyPort || 4002,
-    onTrack(track) {
+    onTrack(track, resolved) {
       void (async () => {
         try {
           recordSuccessfulFetch(track);
+          const nextTrack = wantNextTrack ? nextTrackFromSongifyQueue(resolved) : null;
           if (lastSnap && samePlaying(lastSnap, track)) {
             lastSnap = track;
             updateProgress(track);
             const rootEl = document.querySelector(".nw-overlay.nw-custom");
             if (rootEl) {
-              applyCustomDynamicFields(rootEl, track, null, null);
+              applyCustomDynamicFields(rootEl, track, null, nextTrack);
             }
             const syncRoot = document.querySelector(".nw-overlay");
             if (config.animBgEnabled) {
@@ -1658,7 +1670,7 @@ async function initSongifyCustomOverlay() {
             return;
           }
           lastSnap = track;
-          await render(track, null, null);
+          await render(track, null, nextTrack);
           updateProgress(track);
         } catch (e) {
           console.warn("[Songify custom] render failed:", e);

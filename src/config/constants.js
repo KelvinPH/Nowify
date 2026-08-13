@@ -73,11 +73,11 @@ export const SOURCE_TOOLTIPS = {
 export const TOGGLE_KEY_TIPS = {
   showProgress: "Track position when the layout supports a progress bar.",
   showTimeLeft: "Show remaining time instead of elapsed.",
-  showNextTrack: "Next in queue when Spotify queue data is available.",
+  showNextTrack: "Next in queue when Spotify or Songify queue data is available.",
   nextTrackMode:
     "Always refresh: update every poll. Per song: show the next title for ~10s after each new track, then hide until the next song.",
   showBpm: "Tempo from Spotify audio features (Spotify source only).",
-  showAlbum: "Album name alongside track and artist.",
+  showAlbum: "Album name alongside track and artist (Spotify / Last.fm; not provided by Songify).",
   showPlayState: "Small indicator when playback is active.",
   showIdleMessage: "Message when nothing is playing or when setup needs attention.",
   moodSync: "Background reacts to track energy using colors from album art.",
