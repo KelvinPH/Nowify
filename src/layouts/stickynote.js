@@ -3,9 +3,9 @@
  */
 
 import {
-  createProgressLoop,
   estimatedProgressMs,
   mergeLiveProgress,
+  syncProgressFill,
 } from "../utils/progress-clock.js";
 
 let cfg = {};
@@ -15,7 +15,7 @@ let titleEl = null;
 let artistEl = null;
 let metaEl = null;
 let progressFillEl = null;
-let progressLoop = null;
+let labelTimer = null;
 let currentTrack = null;
 let rotationDeg = "0";
 
@@ -56,32 +56,30 @@ function trackClock() {
 }
 
 function stopTimer() {
-  progressLoop?.stop();
+  if (labelTimer) {
+    clearInterval(labelTimer);
+    labelTimer = null;
+  }
 }
 
-function paintProgress(progressMs) {
+function paintLabels() {
+  const progress = estimatedProgressMs(trackClock());
   const duration = Number(currentTrack?.durationMs) || 0;
-  const progress = Number(progressMs) || 0;
-  const pct = duration > 0 ? Math.max(0, Math.min(100, (progress / duration) * 100)) : 0;
   if (progressFillEl) {
-    progressFillEl.style.width = `${pct}%`;
     progressFillEl.title = `${formatTime(progress)} / ${formatTime(duration)}`;
   }
 }
 
+function paintProgress() {
+  syncProgressFill(progressFillEl, trackClock());
+  paintLabels();
+}
+
 function startTimer() {
-  if (!progressLoop) {
-    progressLoop = createProgressLoop({
-      getClock: trackClock,
-      paint: (progressMs) => paintProgress(progressMs),
-    });
-  }
-  if (currentTrack?.isPlaying && currentTrack?.durationMs) {
-    progressLoop.start();
-  } else {
-    progressLoop.stop();
-    paintProgress(estimatedProgressMs(trackClock()));
-  }
+  stopTimer();
+  paintProgress();
+  if (!currentTrack?.isPlaying || !currentTrack?.durationMs) return;
+  labelTimer = setInterval(paintLabels, 1000);
 }
 
 function init(config) {
@@ -139,13 +137,11 @@ function render(track, extras) {
   if (titleEl) titleEl.textContent = currentTrack.title || "";
   if (artistEl) artistEl.textContent = currentTrack.artist || "";
   if (metaEl) metaEl.textContent = extras?.bpm ? `${extras.bpm} bpm` : "";
-  paintProgress(estimatedProgressMs(trackClock()));
   startTimer();
 }
 
 function destroy() {
   stopTimer();
-  progressLoop = null;
   const app = document.getElementById("app");
   app?.querySelector(".sn-wrap")?.remove();
   cfg = {};

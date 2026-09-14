@@ -139,8 +139,11 @@ body { background: transparent; overflow: hidden;
 .nw-progress-fill {
   height: 100%;
   background: var(--nw-accent);
-  width: 0%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
   border-radius: 1px;
+  will-change: transform;
 }
 
 .nw-progress[data-progress-style="dots"] .nw-progress-fill {

@@ -139,7 +139,10 @@
 
 .sn-progress-fill {
   height: 100%;
-  background: var(--sn-text);
-  opacity: 0.4;
-  width: 0%;
+  background: var(--sn-text, #1a1a1a);
+  border-radius: 1px;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
 }

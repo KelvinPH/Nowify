@@ -83,6 +83,7 @@ export function mergeLiveProgress(current, incoming) {
 /**
  * Continuously paints estimated progress with requestAnimationFrame.
  * Inject schedule/cancel/now for tests.
+ * Prefer syncProgressFill for visual bars (OBS throttles rAF).
  */
 export function createProgressLoop({
   getClock,
@@ -128,4 +129,62 @@ export function createProgressLoop({
       }
     },
   };
+}
+
+/**
+ * Glide a progress fill with CSS over remaining duration.
+ * Uses transform (not width) so OBS can composite smoothly when rAF is throttled.
+ * Skips restart when an in-flight glide is still accurate.
+ */
+export function syncProgressFill(fill, clock, now = Date.now()) {
+  if (!fill?.style) {
+    return;
+  }
+  const duration = Math.max(0, Number(clock?.durationMs) || 0);
+  fill.style.transformOrigin = "left center";
+  if (!duration) {
+    fill.style.transition = "none";
+    fill.style.transform = "scaleX(0)";
+    if (fill.dataset) {
+      fill.dataset.nwProgressSig = "";
+      fill.dataset.nwProgressRatio = "0";
+      fill.dataset.nwProgressAt = String(now);
+    }
+    return;
+  }
+
+  const progress = estimatedProgressMs(clock, now);
+  const ratio = Math.min(1, Math.max(0, progress / duration));
+  const remaining = Math.max(0, duration - progress);
+  const playing = clock?.isPlaying !== false;
+  const sig = `${clock?.trackId || ""}|${playing ? 1 : 0}|${duration}`;
+
+  if (fill.dataset && playing) {
+    const prevSig = fill.dataset.nwProgressSig || "";
+    const prevRatio = Number(fill.dataset.nwProgressRatio || "0");
+    const prevAt = Number(fill.dataset.nwProgressAt || "0");
+    if (prevSig === sig && Number.isFinite(prevRatio) && Number.isFinite(prevAt)) {
+      const expected = Math.min(1, prevRatio + Math.max(0, now - prevAt) / duration);
+      if (Math.abs(expected - ratio) < 0.005) {
+        return;
+      }
+    }
+  }
+
+  if (fill.dataset) {
+    fill.dataset.nwProgressSig = sig;
+    fill.dataset.nwProgressRatio = String(ratio);
+    fill.dataset.nwProgressAt = String(now);
+  }
+
+  fill.style.transition = "none";
+  fill.style.transform = `scaleX(${ratio})`;
+  if (typeof fill.offsetWidth === "number") {
+    void fill.offsetWidth;
+  }
+
+  if (playing && remaining > 16) {
+    fill.style.transition = `transform ${remaining}ms linear`;
+    fill.style.transform = "scaleX(1)";
+  }
 }

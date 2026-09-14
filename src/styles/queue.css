@@ -97,6 +97,10 @@ body {
   height: 100%;
   border-radius: 2px;
   background: var(--nw-accent);
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
 }
 
 /* —— Queue rows —— */

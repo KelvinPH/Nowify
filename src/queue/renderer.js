@@ -2,7 +2,11 @@
  * https://github.com/KelvinPH/Nowify
  */
 
-import { applyProgressSnapshot, createProgressLoop } from "../utils/progress-clock.js";
+import {
+  applyProgressSnapshot,
+  estimatedProgressMs,
+  syncProgressFill,
+} from "../utils/progress-clock.js";
 
 function clampMaxItems(raw) {
   const n = Number(raw);
@@ -12,8 +16,7 @@ function clampMaxItems(raw) {
 
 /** @type {ReturnType<typeof parseConfig> | null} */
 let config = null;
-let headerTimer = null;
-let headerProgressLoop = null;
+let headerLabelTimer = null;
 let lastPayloadAt = 0;
 let lastTrackSnap = null;
 let lastQueuedTitles = [];
@@ -393,35 +396,42 @@ function renderQueue(items) {
   }
 }
 
-function stopHeaderTimer() {
-  if (headerTimer) {
-    window.clearInterval(headerTimer);
-    headerTimer = null;
-  }
-  headerProgressLoop?.stop();
+function queueProgressClock() {
+  if (!lastTrackSnap?.durationMs) return null;
+  return {
+    trackId: lastTrackSnap.trackId || "",
+    progressMs: lastTrackSnap.progressMs || 0,
+    durationMs: lastTrackSnap.durationMs,
+    isPlaying: lastTrackSnap.isPlaying !== false,
+    updatedAt: lastPayloadAt,
+  };
 }
 
-function paintQueueHeaderProgress(progressMs) {
-  const track = lastTrackSnap;
-  if (!track?.durationMs) return;
-  const duration = track.durationMs;
-  const progress = Math.min(duration, Math.max(0, progressMs || 0));
-  const pct = Math.min(100, (progress / duration) * 100);
-  const fill = document.querySelector(".q-header-progress-fill");
-  if (fill) {
-    fill.style.width = `${pct}%`;
+function stopHeaderTimer() {
+  if (headerLabelTimer) {
+    window.clearInterval(headerLabelTimer);
+    headerLabelTimer = null;
   }
-  if (config?.showTimeLeft) {
-    const remain = Math.max(0, duration - progress);
-    const text = `Next track in −${fmtMs(remain)}`;
-    if (text !== lastHeaderTimeText) {
-      lastHeaderTimeText = text;
-      const timeEl = document.querySelector(".q-header-time strong");
-      if (timeEl) {
-        timeEl.textContent = `−${fmtMs(remain)}`;
-      }
+}
+
+function paintQueueHeaderLabels() {
+  const track = lastTrackSnap;
+  if (!track?.durationMs || !config?.showTimeLeft) return;
+  const progress = estimatedProgressMs(queueProgressClock());
+  const remain = Math.max(0, track.durationMs - progress);
+  const text = `Next track in −${fmtMs(remain)}`;
+  if (text !== lastHeaderTimeText) {
+    lastHeaderTimeText = text;
+    const timeEl = document.querySelector(".q-header-time strong");
+    if (timeEl) {
+      timeEl.textContent = `−${fmtMs(remain)}`;
     }
   }
+}
+
+function paintQueueHeaderProgress() {
+  syncProgressFill(document.querySelector(".q-header-progress-fill"), queueProgressClock());
+  paintQueueHeaderLabels();
 }
 
 function startHeaderTimerIfNeeded() {
@@ -431,26 +441,10 @@ function startHeaderTimerIfNeeded() {
     return;
   }
 
-  if (!headerProgressLoop) {
-    headerProgressLoop = createProgressLoop({
-      getClock: () => {
-        if (!lastTrackSnap?.durationMs) return null;
-        return {
-          trackId: lastTrackSnap.trackId || "",
-          progressMs: lastTrackSnap.progressMs || 0,
-          durationMs: lastTrackSnap.durationMs,
-          isPlaying: lastTrackSnap.isPlaying !== false,
-          updatedAt: lastPayloadAt,
-        };
-      },
-      paint: (progressMs) => paintQueueHeaderProgress(progressMs),
-    });
-  }
+  stopHeaderTimer();
+  paintQueueHeaderProgress();
   if (lastTrackSnap?.isPlaying && lastTrackSnap?.durationMs) {
-    headerProgressLoop.start();
-  } else {
-    headerProgressLoop.stop();
-    paintQueueHeaderProgress(currentProgressMs());
+    headerLabelTimer = window.setInterval(paintQueueHeaderLabels, 1000);
   }
 }
 

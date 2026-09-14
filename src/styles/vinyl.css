@@ -209,7 +209,10 @@
   height: 100%;
   background: var(--nw-accent);
   border-radius: 2px;
-  width: 0%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
 }
 
 .vl-times {

@@ -3,9 +3,9 @@
  */
 
 import {
-  createProgressLoop,
   estimatedProgressMs,
   mergeLiveProgress,
+  syncProgressFill,
 } from "../utils/progress-clock.js";
 
 const EMPTY_ART =
@@ -20,7 +20,7 @@ let artistEl = null;
 let albumEl = null;
 let progressFillEl = null;
 let remainingEl = null;
-let progressLoop = null;
+let labelTimer = null;
 let currentTrack = null;
 let lastTrackId = "";
 
@@ -43,31 +43,29 @@ function trackClock() {
 }
 
 function stopTimer() {
-  progressLoop?.stop();
+  if (labelTimer) {
+    clearInterval(labelTimer);
+    labelTimer = null;
+  }
 }
 
-function updateProgressUi(progressMs) {
+function paintLabels() {
   const duration = Number(currentTrack?.durationMs) || 0;
-  const progress =
-    progressMs != null ? Number(progressMs) : estimatedProgressMs(trackClock());
-  const pct = duration > 0 ? Math.max(0, Math.min(100, (progress / duration) * 100)) : 0;
-  if (progressFillEl) progressFillEl.style.width = `${pct}%`;
+  const progress = estimatedProgressMs(trackClock());
   const remaining = Math.max(0, duration - progress);
   if (remainingEl) remainingEl.textContent = `-${formatTime(remaining)}`;
 }
 
+function updateProgressUi() {
+  syncProgressFill(progressFillEl, trackClock());
+  paintLabels();
+}
+
 function startTimer() {
-  if (!progressLoop) {
-    progressLoop = createProgressLoop({
-      getClock: trackClock,
-      paint: (progressMs) => updateProgressUi(progressMs),
-    });
-  }
+  stopTimer();
+  updateProgressUi();
   if (currentTrack?.isPlaying && currentTrack?.durationMs) {
-    progressLoop.start();
-  } else {
-    progressLoop.stop();
-    updateProgressUi(estimatedProgressMs(trackClock()));
+    labelTimer = setInterval(paintLabels, 1000);
   }
 }
 
@@ -156,7 +154,6 @@ function render(track) {
 
 function destroy() {
   stopTimer();
-  progressLoop = null;
   const app = document.getElementById("app");
   app?.querySelector(".sc-wrap")?.remove();
   cfg = {};

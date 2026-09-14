@@ -37,8 +37,8 @@ import {
 } from "./source-resilience.js";
 import {
   applyProgressSnapshot,
-  createProgressLoop,
   estimatedProgressMs,
+  syncProgressFill,
 } from "../utils/progress-clock.js";
 
 let currentTrackId = null;
@@ -88,6 +88,7 @@ let activePollIntervalMs = 3000;
 let pollingPausedForVisibility = false;
 let config = {};
 let progressLoop = null;
+let progressLabelTimer = null;
 const blockedAudioFeaturesTrackIds = new Set();
 const audioFeaturesBackfillAttempted = new Set();
 let activeSource = "spotify";
@@ -1327,15 +1328,8 @@ function liveProgressMs(track) {
 }
 
 function paintOverlayProgress() {
-  const duration = lastKnownProgress.durationMs;
-  if (!duration) {
-    return;
-  }
-  const pct = Math.min(100, (estimatedProgressMs(lastKnownProgress) / duration) * 100);
   const fill = document.querySelector(".nw-progress-fill");
-  if (fill) {
-    fill.style.width = `${pct}%`;
-  }
+  syncProgressFill(fill, lastKnownProgress);
 }
 
 /** Updates progress bar width for the currently rendered track. */
@@ -1360,8 +1354,11 @@ function updateStripTime(track) {
     timeEl.textContent = "";
     return;
   }
-  if (track?.durationMs) {
-    const remainingMs = Math.max(0, (track.durationMs || 0) - liveProgressMs(track));
+  if (track?.durationMs || lastKnownProgress.durationMs) {
+    const remainingMs = Math.max(
+      0,
+      (lastKnownProgress.durationMs || track.durationMs || 0) - liveProgressMs(track)
+    );
     timeEl.textContent = `-${fmtTime(remainingMs)}`;
     return;
   }
@@ -1369,29 +1366,30 @@ function updateStripTime(track) {
 }
 
 function startProgressTimer() {
-  if (!progressLoop) {
-    progressLoop = createProgressLoop({
-      getClock: () => lastKnownProgress,
-      shouldPause: () => shouldFreezeProgress(activePollIntervalMs),
-      paint: (progressMs, clock) => {
-        const duration = clock?.durationMs || 0;
-        if (!duration) {
-          return;
-        }
-        const pct = Math.min(100, (progressMs / duration) * 100);
-        const fill = document.querySelector(".nw-progress-fill");
-        if (fill) {
-          fill.style.width = `${pct}%`;
-        }
-      },
-    });
+  progressLoop?.stop();
+  progressLoop = null;
+  if (progressLabelTimer) {
+    clearInterval(progressLabelTimer);
+    progressLabelTimer = null;
   }
-  if (lastKnownProgress.isPlaying && lastKnownProgress.durationMs) {
-    progressLoop.start();
-  } else {
-    progressLoop.stop();
-    paintOverlayProgress();
+  paintOverlayProgress();
+  if (!lastKnownProgress.isPlaying || !lastKnownProgress.durationMs) {
+    return;
   }
+  // Time labels only — the fill glides via CSS so OBS throttling cannot step it.
+  progressLabelTimer = setInterval(() => {
+    if (shouldFreezeProgress(activePollIntervalMs)) return;
+    if (!lastKnownProgress.isPlaying || !lastKnownProgress.durationMs) return;
+    updateStripTime({ durationMs: lastKnownProgress.durationMs });
+    const timeEl = document.querySelector(".nw-meta-time, .nw-custom-time");
+    if (timeEl && (config.showTimeLeft || config.custom?.showTimeLeft || config.custom?.showRemainingTime)) {
+      const remainingMs = Math.max(
+        0,
+        lastKnownProgress.durationMs - estimatedProgressMs(lastKnownProgress)
+      );
+      timeEl.textContent = `-${fmtTime(remainingMs)}`;
+    }
+  }, 1000);
 }
 
 /** Renders a minimal idle state when no track is active. */
@@ -1409,6 +1407,10 @@ function showIdle() {
   }
   wasPlaying = false;
   progressLoop?.stop();
+  if (progressLabelTimer) {
+    clearInterval(progressLabelTimer);
+    progressLabelTimer = null;
+  }
   lastKnownProgress = {
     trackId: "",
     progressMs: 0,

@@ -252,7 +252,11 @@
 .cs-progress-fill {
   height: 100%;
   background: var(--nw-accent);
-  width: 0%;
+  border-radius: 1px;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
 }
 
 .cs-times {

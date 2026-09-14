@@ -3,9 +3,9 @@
  */
 
 import {
-  createProgressLoop,
   estimatedProgressMs,
   mergeLiveProgress,
+  syncProgressFill,
 } from "../utils/progress-clock.js";
 
 let cfg = {};
@@ -21,7 +21,7 @@ let gaugeFillEl = null;
 let elapsedEl = null;
 let durationEl = null;
 let lockEl = null;
-let progressLoop = null;
+let labelTimer = null;
 let lockTimer = null;
 let currentTrack = null;
 let lastTrackId = "";
@@ -61,21 +61,26 @@ function trackClock() {
 }
 
 function stopTimers() {
-  progressLoop?.stop();
+  if (labelTimer) {
+    clearInterval(labelTimer);
+    labelTimer = null;
+  }
   if (lockTimer) {
     clearTimeout(lockTimer);
     lockTimer = null;
   }
 }
 
-function updateProgressUi(progressMs) {
+function paintLabels() {
+  const progress = estimatedProgressMs(trackClock());
   const duration = Number(currentTrack?.durationMs) || 0;
-  const progress =
-    progressMs != null ? Number(progressMs) : estimatedProgressMs(trackClock());
-  const pct = duration > 0 ? Math.max(0, Math.min(100, (progress / duration) * 100)) : 0;
-  if (gaugeFillEl) gaugeFillEl.style.width = `${pct}%`;
   if (elapsedEl) elapsedEl.textContent = formatTime(progress);
   if (durationEl) durationEl.textContent = formatTime(duration);
+}
+
+function updateProgressUi() {
+  syncProgressFill(gaugeFillEl, trackClock());
+  paintLabels();
 }
 
 function setPlayingState(isPlaying) {
@@ -95,17 +100,13 @@ function showLockIndicator() {
 }
 
 function startTimer() {
-  if (!progressLoop) {
-    progressLoop = createProgressLoop({
-      getClock: trackClock,
-      paint: (progressMs) => updateProgressUi(progressMs),
-    });
+  if (labelTimer) {
+    clearInterval(labelTimer);
+    labelTimer = null;
   }
+  updateProgressUi();
   if (currentTrack?.isPlaying && currentTrack?.durationMs) {
-    progressLoop.start();
-  } else {
-    progressLoop.stop();
-    updateProgressUi(estimatedProgressMs(trackClock()));
+    labelTimer = setInterval(paintLabels, 1000);
   }
 }
 
@@ -234,7 +235,6 @@ function render(track, extras) {
 
 function destroy() {
   stopTimers();
-  progressLoop = null;
   const app = document.getElementById("app");
   app?.querySelector(".hud-wrap")?.remove();
   cfg = {};

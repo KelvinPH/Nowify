@@ -3,9 +3,9 @@
  */
 
 import {
-  createProgressLoop,
   estimatedProgressMs,
   mergeLiveProgress,
+  syncProgressFill,
 } from "../utils/progress-clock.js";
 
 let cfg = {};
@@ -19,7 +19,7 @@ let progressFillEl = null;
 let elapsedEl = null;
 let durationEl = null;
 let statusEl = null;
-let progressLoop = null;
+let labelTimer = null;
 let reelSizeTimer = null;
 let currentTrack = null;
 
@@ -48,7 +48,10 @@ function trackClock() {
 }
 
 function stopTimers() {
-  progressLoop?.stop();
+  if (labelTimer) {
+    clearInterval(labelTimer);
+    labelTimer = null;
+  }
   if (reelSizeTimer) {
     clearInterval(reelSizeTimer);
     reelSizeTimer = null;
@@ -58,7 +61,7 @@ function stopTimers() {
 function applyReelSizes(progressMs) {
   if (!reelLeftEl || !reelRightEl || !currentTrack?.durationMs) return;
   const progress =
-    progressMs != null ? Number(progressMs) : Number(currentTrack.progressMs) || 0;
+    progressMs != null ? Number(progressMs) : estimatedProgressMs(trackClock());
   const pct = Math.max(0, Math.min(1, progress / Number(currentTrack.durationMs)));
   const leftSize = 36 - pct * 16;
   const rightSize = 20 + pct * 16;
@@ -69,14 +72,17 @@ function applyReelSizes(progressMs) {
   reelRightEl.style.animationDuration = `${Math.max(1.6, speed)}s`;
 }
 
-function updateProgressUi(progressMs) {
+function paintLabels() {
+  const progress = estimatedProgressMs(trackClock());
   const duration = Number(currentTrack?.durationMs) || 0;
-  const progress =
-    progressMs != null ? Number(progressMs) : estimatedProgressMs(trackClock());
-  const pct = duration > 0 ? Math.min(100, Math.max(0, (progress / duration) * 100)) : 0;
-  if (progressFillEl) progressFillEl.style.width = `${pct}%`;
   if (elapsedEl) elapsedEl.textContent = formatTime(progress);
   if (durationEl) durationEl.textContent = formatTime(duration);
+  applyReelSizes(progress);
+}
+
+function updateProgressUi() {
+  syncProgressFill(progressFillEl, trackClock());
+  paintLabels();
 }
 
 function setPlayingState(isPlaying) {
@@ -87,29 +93,14 @@ function setPlayingState(isPlaying) {
 }
 
 function startTimers() {
-  if (!progressLoop) {
-    progressLoop = createProgressLoop({
-      getClock: trackClock,
-      paint: (progressMs) => {
-        updateProgressUi(progressMs);
-        applyReelSizes(progressMs);
-      },
-    });
-  }
+  stopTimers();
+  updateProgressUi();
   if (currentTrack?.isPlaying && currentTrack?.durationMs) {
-    progressLoop.start();
-  } else {
-    progressLoop.stop();
-    const progress = estimatedProgressMs(trackClock());
-    updateProgressUi(progress);
-    applyReelSizes(progress);
+    labelTimer = setInterval(paintLabels, 1000);
   }
-
-  if (!reelSizeTimer) {
-    reelSizeTimer = setInterval(function () {
-      applyReelSizes(estimatedProgressMs(trackClock()));
-    }, 2000);
-  }
+  reelSizeTimer = setInterval(function () {
+    applyReelSizes(estimatedProgressMs(trackClock()));
+  }, 2000);
 }
 
 function init(config) {
@@ -206,7 +197,6 @@ function render(track) {
 
 function destroy() {
   stopTimers();
-  progressLoop = null;
   const app = document.getElementById("app");
   app?.querySelector(".cs-wrap")?.remove();
   cfg = {};

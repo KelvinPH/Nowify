@@ -10,6 +10,7 @@ import {
   createProgressLoop,
   estimatedProgressMs,
   mergeLiveProgress,
+  syncProgressFill,
 } from "./progress-clock.js";
 
 describe("estimatedProgressMs", () => {
@@ -202,5 +203,61 @@ describe("createProgressLoop", () => {
     queued.shift()();
     assert.equal(paints.at(-1), 1_200);
     assert.equal(queued.length, 0);
+  });
+});
+
+describe("syncProgressFill", () => {
+  it("starts a linear CSS glide from the current ratio to full", () => {
+    const style = { transition: "", transform: "", transformOrigin: "" };
+    const fill = { style, offsetWidth: 120, dataset: {} };
+    syncProgressFill(
+      fill,
+      {
+        trackId: "song-1",
+        progressMs: 30_000,
+        durationMs: 180_000,
+        isPlaying: true,
+        updatedAt: 1_000,
+      },
+      1_000
+    );
+    assert.equal(style.transition, "transform 150000ms linear");
+    assert.equal(style.transform, "scaleX(1)");
+  });
+
+  it("holds a fixed scale while paused", () => {
+    const style = { transition: "", transform: "", transformOrigin: "" };
+    const fill = { style, offsetWidth: 120, dataset: {} };
+    syncProgressFill(
+      fill,
+      {
+        trackId: "song-1",
+        progressMs: 45_000,
+        durationMs: 180_000,
+        isPlaying: false,
+        updatedAt: 0,
+      },
+      5_000
+    );
+    assert.equal(style.transition, "none");
+    assert.equal(style.transform, "scaleX(0.25)");
+  });
+
+  it("does not restart a glide that is still on track", () => {
+    const style = { transition: "", transform: "", transformOrigin: "" };
+    const fill = { style, offsetWidth: 120, dataset: {} };
+    const clock = {
+      trackId: "song-1",
+      progressMs: 30_000,
+      durationMs: 180_000,
+      isPlaying: true,
+      updatedAt: 0,
+    };
+    syncProgressFill(fill, clock, 0);
+    style.transition = "keep-me";
+    style.transform = "keep-me";
+    syncProgressFill(fill, { ...clock, progressMs: 30_500, updatedAt: 500 }, 500);
+    assert.equal(style.transition, "keep-me");
+    assert.equal(style.transform, "keep-me");
   });
 });

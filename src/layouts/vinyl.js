@@ -3,9 +3,9 @@
  */
 
 import {
-  createProgressLoop,
   estimatedProgressMs,
   mergeLiveProgress,
+  syncProgressFill,
 } from "../utils/progress-clock.js";
 
 let cfg = {};
@@ -19,7 +19,7 @@ let progressFillEl = null;
 let elapsedEl = null;
 let durationEl = null;
 let bpmEl = null;
-let progressLoop = null;
+let labelTimer = null;
 let currentTrack = null;
 let lastTrackId = null;
 
@@ -42,30 +42,26 @@ function trackClock() {
 }
 
 function stopProgressTimer() {
-  progressLoop?.stop();
+  if (labelTimer) {
+    clearInterval(labelTimer);
+    labelTimer = null;
+  }
 }
 
-function paintProgress(progressMs) {
-  const duration = Number(currentTrack?.durationMs) || 0;
-  const progress = Number(progressMs) || 0;
-  const pct = duration > 0 ? Math.min(100, Math.max(0, (progress / duration) * 100)) : 0;
-  if (progressFillEl) progressFillEl.style.width = `${pct}%`;
-  if (elapsedEl) elapsedEl.textContent = formatTime(progress);
+function paintLabels() {
+  if (elapsedEl) elapsedEl.textContent = formatTime(estimatedProgressMs(trackClock()));
+}
+
+function paintProgress() {
+  syncProgressFill(progressFillEl, trackClock());
+  paintLabels();
 }
 
 function startProgressTimer() {
-  if (!progressLoop) {
-    progressLoop = createProgressLoop({
-      getClock: trackClock,
-      paint: (progressMs) => paintProgress(progressMs),
-    });
-  }
-  if (currentTrack?.isPlaying && currentTrack?.durationMs) {
-    progressLoop.start();
-  } else {
-    progressLoop.stop();
-    paintProgress(estimatedProgressMs(trackClock()));
-  }
+  stopProgressTimer();
+  paintProgress();
+  if (!currentTrack?.isPlaying || !currentTrack?.durationMs) return;
+  labelTimer = setInterval(paintLabels, 1000);
 }
 
 function setPlayingState(isPlaying) {
@@ -155,7 +151,6 @@ function render(track, extras) {
   if (artistEl) artistEl.textContent = safeTrack.artist || "";
   if (durationEl) durationEl.textContent = formatTime(currentTrack.durationMs || 0);
   if (bpmEl) bpmEl.textContent = extras?.bpm ? `${extras.bpm} BPM` : "";
-  paintProgress(estimatedProgressMs(trackClock()));
   startProgressTimer();
 
   if (changed) {
@@ -175,7 +170,6 @@ function render(track, extras) {
 
 function destroy() {
   stopProgressTimer();
-  progressLoop = null;
   const app = document.getElementById("app");
   app?.querySelector(".vl-wrap")?.remove();
   rootEl = null;

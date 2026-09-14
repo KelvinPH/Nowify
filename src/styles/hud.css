@@ -242,8 +242,11 @@
 
 .hud-gauge-fill {
   height: 100%;
-  background: var(--hud-color);
-  box-shadow: 0 0 6px var(--hud-color);
+  background: var(--hud-accent, rgba(255,255,255,0.85));
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
 }
 
 .hud-gauge-markers {
