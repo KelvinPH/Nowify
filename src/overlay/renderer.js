@@ -35,6 +35,7 @@ import {
   setActiveSourceName,
   shouldFreezeProgress,
 } from "./source-resilience.js";
+import { applyProgressSnapshot, estimatedProgressMs } from "../utils/progress-clock.js";
 
 let currentTrackId = null;
 /** In-memory Spotify audio features for the active track (not persisted). */
@@ -91,6 +92,7 @@ let wasPlaying = false;
 let activeSpecialLayout = null;
 let activeSpecialPreset = null;
 let lastKnownProgress = {
+  trackId: "",
   progressMs: 0,
   durationMs: 0,
   isPlaying: false,
@@ -674,7 +676,7 @@ function applyDefaultDynamicFields(rootEl, track, nextTrack) {
 
   if (timeEl) {
     if (config.showTimeLeft && track?.durationMs) {
-      const remainingMs = Math.max(0, (track.durationMs || 0) - (track.progressMs || 0));
+      const remainingMs = Math.max(0, (track.durationMs || 0) - liveProgressMs(track));
       timeEl.textContent = `-${fmtTime(remainingMs)}`;
     } else {
       timeEl.textContent = "";
@@ -705,7 +707,7 @@ function applyCustomDynamicFields(rootEl, track, extras, nextTrack) {
 
   if (timeEl) {
     if ((custom.showTimeLeft || custom.showRemainingTime) && track?.durationMs) {
-      const remainingMs = Math.max(0, (track.durationMs || 0) - (track.progressMs || 0));
+      const remainingMs = Math.max(0, (track.durationMs || 0) - liveProgressMs(track));
       timeEl.textContent = `-${fmtTime(remainingMs)}`;
     } else {
       timeEl.textContent = "";
@@ -1256,8 +1258,8 @@ async function render(track, extras, nextTrack = null) {
     return;
   }
 
-  const fill = app.querySelector(".nw-progress-fill");
-  if (fill) fill.style.transition = "width 0.1s linear";
+  updateProgress(track);
+
   if (config.layout === "custom") {
     rootEl.setAttribute("data-animate", config.custom?.animateIn || "slide");
     applyAdvancedCssVars(config.custom);
@@ -1313,23 +1315,37 @@ async function render(track, extras, nextTrack = null) {
   window.dispatchEvent(new CustomEvent("nowify:trackchange", { detail: { track } }));
 }
 
+function liveProgressMs(track) {
+  if (lastKnownProgress.durationMs) {
+    return estimatedProgressMs(lastKnownProgress);
+  }
+  return Number(track?.progressMs) || 0;
+}
+
+function paintOverlayProgress() {
+  const duration = lastKnownProgress.durationMs;
+  if (!duration) {
+    return;
+  }
+  const pct = Math.min(100, (estimatedProgressMs(lastKnownProgress) / duration) * 100);
+  const fill = document.querySelector(".nw-progress-fill");
+  if (fill) {
+    fill.style.width = `${pct}%`;
+  }
+}
+
 /** Updates progress bar width for the currently rendered track. */
 function updateProgress(track) {
   if (!track?.durationMs) {
     return;
   }
-  lastKnownProgress = {
+  lastKnownProgress = applyProgressSnapshot(lastKnownProgress, {
+    trackId: track.trackId || "",
     progressMs: track.progressMs || 0,
     durationMs: track.durationMs,
     isPlaying: track.isPlaying !== false,
-    updatedAt: Date.now(),
-  };
-  const pct = Math.min(100, ((track.progressMs || 0) / track.durationMs) * 100);
-  const fill = document.querySelector(".nw-progress-fill");
-  if (fill) {
-    fill.style.transition = "width 0.1s linear";
-    fill.style.width = `${pct}%`;
-  }
+  });
+  paintOverlayProgress();
 }
 
 function updateStripTime(track) {
@@ -1340,7 +1356,7 @@ function updateStripTime(track) {
     return;
   }
   if (track?.durationMs) {
-    const remainingMs = Math.max(0, (track.durationMs || 0) - (track.progressMs || 0));
+    const remainingMs = Math.max(0, (track.durationMs || 0) - liveProgressMs(track));
     timeEl.textContent = `-${fmtTime(remainingMs)}`;
     return;
   }
@@ -1352,11 +1368,7 @@ function startProgressTimer() {
   progressTimer = setInterval(() => {
     if (shouldFreezeProgress(activePollIntervalMs)) return;
     if (!lastKnownProgress.isPlaying || !lastKnownProgress.durationMs) return;
-    const elapsed = Date.now() - lastKnownProgress.updatedAt;
-    const estimated = lastKnownProgress.progressMs + elapsed;
-    const pct = Math.min(100, (estimated / lastKnownProgress.durationMs) * 100);
-    const fill = document.querySelector(".nw-progress-fill");
-    if (fill) fill.style.width = `${pct}%`;
+    paintOverlayProgress();
   }, 100);
 }
 
@@ -1374,6 +1386,13 @@ function showIdle() {
     scheduleExit(config.exitAnim, config.exitDuration, 0);
   }
   wasPlaying = false;
+  lastKnownProgress = {
+    trackId: "",
+    progressMs: 0,
+    durationMs: 0,
+    isPlaying: false,
+    updatedAt: 0,
+  };
 
   destroySpecialPreset();
   clearPerSongNextPeek();

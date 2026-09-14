@@ -2,6 +2,8 @@
  * https://github.com/KelvinPH/Nowify
  */
 
+import { mergeLiveProgress } from "../utils/progress-clock.js";
+
 let cfg = {};
 let rootEl = null;
 let reelLeftEl = null;
@@ -163,11 +165,11 @@ function init(config) {
 
 function render(track) {
   if (!rootEl) return;
-  currentTrack = {
+  currentTrack = mergeLiveProgress(currentTrack, {
     ...(track || {}),
     progressMs: Number(track?.progressMs) || 0,
     durationMs: Number(track?.durationMs) || 0,
-  };
+  });
 
   if (titleEl) titleEl.textContent = truncateTitle(currentTrack.title || "", 20);
   if (artistEl) artistEl.textContent = currentTrack.artist || "";

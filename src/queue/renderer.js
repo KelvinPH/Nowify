@@ -2,6 +2,8 @@
  * https://github.com/KelvinPH/Nowify
  */
 
+import { applyProgressSnapshot } from "../utils/progress-clock.js";
+
 function clampMaxItems(raw) {
   const n = Number(raw);
   if (!Number.isFinite(n) || n < 1) return 5;
@@ -463,8 +465,18 @@ export async function init() {
     port: config.songifyPort,
     onTrack: function (track, resolved) {
       try {
-        lastPayloadAt = Date.now();
-        lastTrackSnap = track;
+        const clock = lastTrackSnap
+          ? {
+              trackId: lastTrackSnap.trackId || "",
+              progressMs: lastTrackSnap.progressMs || 0,
+              durationMs: lastTrackSnap.durationMs || 0,
+              isPlaying: lastTrackSnap.isPlaying !== false,
+              updatedAt: lastPayloadAt,
+            }
+          : null;
+        const next = applyProgressSnapshot(clock, track);
+        lastPayloadAt = next.updatedAt;
+        lastTrackSnap = { ...track, progressMs: next.progressMs };
         if (!resolved) {
           return;
         }

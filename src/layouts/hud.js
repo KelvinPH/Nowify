@@ -2,6 +2,8 @@
  * https://github.com/KelvinPH/Nowify
  */
 
+import { mergeLiveProgress } from "../utils/progress-clock.js";
+
 let cfg = {};
 let rootEl = null;
 let artistEl = null;
@@ -196,11 +198,11 @@ function init(config) {
 
 function render(track, extras) {
   if (!rootEl) return;
-  currentTrack = {
+  currentTrack = mergeLiveProgress(currentTrack, {
     ...(track || {}),
     progressMs: Number(track?.progressMs) || 0,
     durationMs: Number(track?.durationMs) || 0,
-  };
+  });
   const trackId = currentTrack.id || currentTrack.uri || `${currentTrack.title || ""}|${currentTrack.artist || ""}`;
   if (trackId && trackId !== lastTrackId) {
     showLockIndicator();

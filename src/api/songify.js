@@ -23,12 +23,6 @@ let lastEmitSig = "";
 let versionLogged = false;
 let _isConnected = false;
 
-function normalizeMs(value) {
-  const n = Number(value || 0);
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  return n < 1000 ? n * 1000 : n;
-}
-
 function scheduleReconnect() {
   try {
     if (reconnectTimer) {
@@ -142,24 +136,20 @@ function computeDurationMs(data) {
 }
 
 function computeProgressMs(data, durationMs) {
+  const hasProgress =
+    data.Progress != null || data.progress != null || data.progressMs != null;
+  if (hasProgress) {
+    const p = Number(data.Progress ?? data.progress ?? data.progressMs);
+    if (Number.isFinite(p) && p >= 0) {
+      const ms = Math.round(p);
+      return durationMs > 0 ? Math.min(durationMs, ms) : ms;
+    }
+  }
   const pct = Number(data.DurationPercentage ?? data.durationPercentage);
   if (Number.isFinite(pct) && durationMs > 0 && pct >= 0 && pct <= 100) {
     return Math.round((pct / 100) * durationMs);
   }
-  let p = Number(data.Progress ?? data.progress ?? data.progressMs ?? 0);
-  if (!Number.isFinite(p) || p < 0) {
-    return 0;
-  }
-  if (durationMs > 0 && p <= 100 && p === Math.floor(p)) {
-    return Math.round((p / 100) * durationMs);
-  }
-  if (durationMs > 0 && p > durationMs * 2) {
-    return normalizeMs(p);
-  }
-  if (p > 0 && p < 1000 && durationMs > 5000) {
-    return Math.round((p / 100) * durationMs);
-  }
-  return normalizeMs(p);
+  return 0;
 }
 
 function resolvedFromEnvelope(data) {

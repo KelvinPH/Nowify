@@ -2,6 +2,11 @@
  * https://github.com/KelvinPH/Nowify
  */
 
+import { mergeLiveProgress } from "../utils/progress-clock.js";
+
+const EMPTY_ART =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
 let cfg = {};
 let wrapEl = null;
 let bodyEl = null;
@@ -112,7 +117,7 @@ function init(config) {
           <div class="gb-screen" id="gb-screen">
             <div class="gb-pixel-grid"></div>
             <div class="gb-art-area" id="gb-art-area" style="display:none">
-              <img class="gb-art-img" id="gb-art-img" alt="" />
+              <img class="gb-art-img" id="gb-art-img" alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" />
             </div>
             <div class="gb-content" id="gb-content">
               <div class="gb-screen-title" id="gb-screen-title"></div>
@@ -164,11 +169,11 @@ function init(config) {
 
 function render(track, extras) {
   if (!wrapEl) return;
-  currentTrack = {
+  currentTrack = mergeLiveProgress(currentTrack, {
     ...(track || {}),
     progressMs: Number(track?.progressMs) || 0,
     durationMs: Number(track?.durationMs) || 0,
-  };
+  });
   if (titleEl) titleEl.textContent = truncateText(currentTrack.title || "", 14);
   if (artistEl) artistEl.textContent = truncateText(currentTrack.artist || "", 14);
   renderProgressLine();
@@ -177,7 +182,7 @@ function render(track, extras) {
 
   syncArtMode();
   if (cfg.gameboyArt && artImgEl) {
-    artImgEl.src = currentTrack.albumArt || "";
+    artImgEl.src = currentTrack.albumArt || EMPTY_ART;
   }
 }
 

@@ -2,6 +2,11 @@
  * https://github.com/KelvinPH/Nowify
  */
 
+import { mergeLiveProgress } from "../utils/progress-clock.js";
+
+const EMPTY_ART =
+  "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
 let cfg = {};
 let rootEl = null;
 let bgEl = null;
@@ -74,7 +79,7 @@ function init(config) {
       <div class="sc-overlay"></div>
       <div class="sc-content">
         <div class="sc-art-wrap">
-          <img class="sc-art" id="sc-art" alt="" />
+          <img class="sc-art" id="sc-art" alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" />
         </div>
         <div class="sc-info">
           <div class="sc-title" id="sc-title"></div>
@@ -112,11 +117,11 @@ function init(config) {
 
 function render(track) {
   if (!rootEl) return;
-  currentTrack = {
+  currentTrack = mergeLiveProgress(currentTrack, {
     ...(track || {}),
     progressMs: Number(track?.progressMs) || 0,
     durationMs: Number(track?.durationMs) || 0,
-  };
+  });
 
   const trackId =
     currentTrack.id ||
@@ -129,7 +134,7 @@ function render(track) {
     bgEl.style.backgroundImage = currentTrack.albumArt ? `url("${currentTrack.albumArt}")` : "";
   }
 
-  if (artEl) artEl.src = currentTrack.albumArt || "";
+  if (artEl) artEl.src = currentTrack.albumArt || EMPTY_ART;
   if (titleEl) titleEl.textContent = currentTrack.title || "";
   if (artistEl) artistEl.textContent = currentTrack.artist || "";
   if (albumEl) albumEl.textContent = currentTrack.album || "";

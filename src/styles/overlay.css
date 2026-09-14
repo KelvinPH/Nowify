@@ -140,7 +140,6 @@ body { background: transparent; overflow: hidden;
   height: 100%;
   background: var(--nw-accent);
   width: 0%;
-  transition: width 1s linear;
   border-radius: 1px;
 }
 
