@@ -210,7 +210,6 @@
   background: var(--nw-accent);
   border-radius: 2px;
   width: 0%;
-  transition: width 0.1s linear;
 }
 
 .vl-times {

@@ -2,7 +2,11 @@
  * https://github.com/KelvinPH/Nowify
  */
 
-import { mergeLiveProgress } from "../utils/progress-clock.js";
+import {
+  createProgressLoop,
+  estimatedProgressMs,
+  mergeLiveProgress,
+} from "../utils/progress-clock.js";
 
 let cfg = {};
 let rootEl = null;
@@ -15,7 +19,7 @@ let progressFillEl = null;
 let elapsedEl = null;
 let durationEl = null;
 let statusEl = null;
-let progressTimer = null;
+let progressLoop = null;
 let reelSizeTimer = null;
 let currentTrack = null;
 
@@ -32,23 +36,30 @@ function truncateTitle(text, maxLen) {
   return `${s.slice(0, Math.max(0, maxLen - 1))}…`;
 }
 
+function trackClock() {
+  if (!currentTrack) return null;
+  return {
+    trackId: currentTrack.trackId || "",
+    progressMs: Number(currentTrack.progressMs) || 0,
+    durationMs: Number(currentTrack.durationMs) || 0,
+    isPlaying: currentTrack.isPlaying !== false,
+    updatedAt: Number(currentTrack.progressUpdatedAt) || Date.now(),
+  };
+}
+
 function stopTimers() {
-  if (progressTimer) {
-    clearInterval(progressTimer);
-    progressTimer = null;
-  }
+  progressLoop?.stop();
   if (reelSizeTimer) {
     clearInterval(reelSizeTimer);
     reelSizeTimer = null;
   }
 }
 
-function applyReelSizes() {
+function applyReelSizes(progressMs) {
   if (!reelLeftEl || !reelRightEl || !currentTrack?.durationMs) return;
-  const pct = Math.max(
-    0,
-    Math.min(1, (Number(currentTrack.progressMs) || 0) / Number(currentTrack.durationMs))
-  );
+  const progress =
+    progressMs != null ? Number(progressMs) : Number(currentTrack.progressMs) || 0;
+  const pct = Math.max(0, Math.min(1, progress / Number(currentTrack.durationMs)));
   const leftSize = 36 - pct * 16;
   const rightSize = 20 + pct * 16;
   reelLeftEl.style.setProperty("--cs-reel-size", `${leftSize}px`);
@@ -58,9 +69,10 @@ function applyReelSizes() {
   reelRightEl.style.animationDuration = `${Math.max(1.6, speed)}s`;
 }
 
-function updateProgressUi() {
+function updateProgressUi(progressMs) {
   const duration = Number(currentTrack?.durationMs) || 0;
-  const progress = Number(currentTrack?.progressMs) || 0;
+  const progress =
+    progressMs != null ? Number(progressMs) : estimatedProgressMs(trackClock());
   const pct = duration > 0 ? Math.min(100, Math.max(0, (progress / duration) * 100)) : 0;
   if (progressFillEl) progressFillEl.style.width = `${pct}%`;
   if (elapsedEl) elapsedEl.textContent = formatTime(progress);
@@ -75,23 +87,29 @@ function setPlayingState(isPlaying) {
 }
 
 function startTimers() {
-  progressTimer = setInterval(function () {
-    if (!currentTrack) return;
-    if (currentTrack.isPlaying && currentTrack.durationMs) {
-      currentTrack = {
-        ...currentTrack,
-        progressMs: Math.min(
-          currentTrack.durationMs,
-          (Number(currentTrack.progressMs) || 0) + 100
-        ),
-      };
-    }
-    updateProgressUi();
-  }, 100);
+  if (!progressLoop) {
+    progressLoop = createProgressLoop({
+      getClock: trackClock,
+      paint: (progressMs) => {
+        updateProgressUi(progressMs);
+        applyReelSizes(progressMs);
+      },
+    });
+  }
+  if (currentTrack?.isPlaying && currentTrack?.durationMs) {
+    progressLoop.start();
+  } else {
+    progressLoop.stop();
+    const progress = estimatedProgressMs(trackClock());
+    updateProgressUi(progress);
+    applyReelSizes(progress);
+  }
 
-  reelSizeTimer = setInterval(function () {
-    applyReelSizes();
-  }, 2000);
+  if (!reelSizeTimer) {
+    reelSizeTimer = setInterval(function () {
+      applyReelSizes(estimatedProgressMs(trackClock()));
+    }, 2000);
+  }
 }
 
 function init(config) {
@@ -183,10 +201,12 @@ function render(track) {
   updateProgressUi();
   applyReelSizes();
   setPlayingState(Boolean(currentTrack.isPlaying));
+  startTimers();
 }
 
 function destroy() {
   stopTimers();
+  progressLoop = null;
   const app = document.getElementById("app");
   app?.querySelector(".cs-wrap")?.remove();
   cfg = {};

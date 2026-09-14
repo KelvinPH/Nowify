@@ -2,7 +2,7 @@
  * https://github.com/KelvinPH/Nowify
  */
 
-import { applyProgressSnapshot } from "../utils/progress-clock.js";
+import { applyProgressSnapshot, createProgressLoop } from "../utils/progress-clock.js";
 
 function clampMaxItems(raw) {
   const n = Number(raw);
@@ -13,11 +13,13 @@ function clampMaxItems(raw) {
 /** @type {ReturnType<typeof parseConfig> | null} */
 let config = null;
 let headerTimer = null;
+let headerProgressLoop = null;
 let lastPayloadAt = 0;
 let lastTrackSnap = null;
 let lastQueuedTitles = [];
 /** Stable JSON of visible queue rows — skip DOM replace when only now-playing progress changed (HTTP poll). */
 let lastQueueVisualSig = "";
+let lastHeaderTimeText = "";
 
 function queueListVisualSignature(items) {
   if (!items.length) {
@@ -396,24 +398,60 @@ function stopHeaderTimer() {
     window.clearInterval(headerTimer);
     headerTimer = null;
   }
+  headerProgressLoop?.stop();
+}
+
+function paintQueueHeaderProgress(progressMs) {
+  const track = lastTrackSnap;
+  if (!track?.durationMs) return;
+  const duration = track.durationMs;
+  const progress = Math.min(duration, Math.max(0, progressMs || 0));
+  const pct = Math.min(100, (progress / duration) * 100);
+  const fill = document.querySelector(".q-header-progress-fill");
+  if (fill) {
+    fill.style.width = `${pct}%`;
+  }
+  if (config?.showTimeLeft) {
+    const remain = Math.max(0, duration - progress);
+    const text = `Next track in −${fmtMs(remain)}`;
+    if (text !== lastHeaderTimeText) {
+      lastHeaderTimeText = text;
+      const timeEl = document.querySelector(".q-header-time strong");
+      if (timeEl) {
+        timeEl.textContent = `−${fmtMs(remain)}`;
+      }
+    }
+  }
 }
 
 function startHeaderTimerIfNeeded() {
-  stopHeaderTimer();
   if (!config || config.demo) return;
-  if (!config.showTimeLeft && !config.showProgress) return;
-  headerTimer = window.setInterval(() => {
-    const app = document.getElementById("queue-app");
-    if (!app || !config) return;
-    const items = lastQueuedTitles;
-    const header = renderQueueHeader(items);
-    const headerEl = app.querySelector(".q-header");
-    if (headerEl) {
-      headerEl.outerHTML = header || "";
-    } else if (header) {
-      app.insertAdjacentHTML("afterbegin", header);
-    }
-  }, 1000);
+  if (!config.showTimeLeft && !config.showProgress) {
+    stopHeaderTimer();
+    return;
+  }
+
+  if (!headerProgressLoop) {
+    headerProgressLoop = createProgressLoop({
+      getClock: () => {
+        if (!lastTrackSnap?.durationMs) return null;
+        return {
+          trackId: lastTrackSnap.trackId || "",
+          progressMs: lastTrackSnap.progressMs || 0,
+          durationMs: lastTrackSnap.durationMs,
+          isPlaying: lastTrackSnap.isPlaying !== false,
+          updatedAt: lastPayloadAt,
+        };
+      },
+      paint: (progressMs) => paintQueueHeaderProgress(progressMs),
+    });
+  }
+  if (lastTrackSnap?.isPlaying && lastTrackSnap?.durationMs) {
+    headerProgressLoop.start();
+  } else {
+    headerProgressLoop.stop();
+    paintQueueHeaderProgress(currentProgressMs());
+  }
 }
 
 function applyDomConfig() {
@@ -477,6 +515,7 @@ export async function init() {
         const next = applyProgressSnapshot(clock, track);
         lastPayloadAt = next.updatedAt;
         lastTrackSnap = { ...track, progressMs: next.progressMs };
+        startHeaderTimerIfNeeded();
         if (!resolved) {
           return;
         }
@@ -488,6 +527,7 @@ export async function init() {
           }
           lastQueuedTitles = [];
           lastQueueVisualSig = "";
+          stopHeaderTimer();
           return;
         }
         const nextSig = queueListVisualSignature(items);

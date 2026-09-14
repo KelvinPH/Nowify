@@ -2,7 +2,11 @@
  * https://github.com/KelvinPH/Nowify
  */
 
-import { mergeLiveProgress } from "../utils/progress-clock.js";
+import {
+  createProgressLoop,
+  estimatedProgressMs,
+  mergeLiveProgress,
+} from "../utils/progress-clock.js";
 
 let cfg = {};
 let rootEl = null;
@@ -15,7 +19,7 @@ let progressFillEl = null;
 let elapsedEl = null;
 let durationEl = null;
 let bpmEl = null;
-let progressTimer = null;
+let progressLoop = null;
 let currentTrack = null;
 let lastTrackId = null;
 
@@ -26,35 +30,42 @@ function formatTime(ms) {
   return `${m}:${String(s % 60).padStart(2, "0")}`;
 }
 
+function trackClock() {
+  if (!currentTrack) return null;
+  return {
+    trackId: currentTrack.trackId || "",
+    progressMs: Number(currentTrack.progressMs) || 0,
+    durationMs: Number(currentTrack.durationMs) || 0,
+    isPlaying: currentTrack.isPlaying !== false,
+    updatedAt: Number(currentTrack.progressUpdatedAt) || Date.now(),
+  };
+}
+
 function stopProgressTimer() {
-  if (progressTimer) {
-    clearInterval(progressTimer);
-    progressTimer = null;
-  }
+  progressLoop?.stop();
+}
+
+function paintProgress(progressMs) {
+  const duration = Number(currentTrack?.durationMs) || 0;
+  const progress = Number(progressMs) || 0;
+  const pct = duration > 0 ? Math.min(100, Math.max(0, (progress / duration) * 100)) : 0;
+  if (progressFillEl) progressFillEl.style.width = `${pct}%`;
+  if (elapsedEl) elapsedEl.textContent = formatTime(progress);
 }
 
 function startProgressTimer() {
-  stopProgressTimer();
-  progressTimer = setInterval(function () {
-    if (!currentTrack || !currentTrack.durationMs) {
-      return;
-    }
-    if (currentTrack.isPlaying) {
-      currentTrack = {
-        ...currentTrack,
-        progressMs: Math.min(
-          currentTrack.durationMs,
-          (currentTrack.progressMs || 0) + 100
-        ),
-      };
-    }
-    const pct = Math.min(
-      100,
-      Math.max(0, ((currentTrack.progressMs || 0) / currentTrack.durationMs) * 100)
-    );
-    if (progressFillEl) progressFillEl.style.width = `${pct}%`;
-    if (elapsedEl) elapsedEl.textContent = formatTime(currentTrack.progressMs || 0);
-  }, 100);
+  if (!progressLoop) {
+    progressLoop = createProgressLoop({
+      getClock: trackClock,
+      paint: (progressMs) => paintProgress(progressMs),
+    });
+  }
+  if (currentTrack?.isPlaying && currentTrack?.durationMs) {
+    progressLoop.start();
+  } else {
+    progressLoop.stop();
+    paintProgress(estimatedProgressMs(trackClock()));
+  }
 }
 
 function setPlayingState(isPlaying) {
@@ -143,12 +154,9 @@ function render(track, extras) {
   if (titleEl) titleEl.textContent = safeTrack.title || "";
   if (artistEl) artistEl.textContent = safeTrack.artist || "";
   if (durationEl) durationEl.textContent = formatTime(currentTrack.durationMs || 0);
-  if (elapsedEl) elapsedEl.textContent = formatTime(currentTrack.progressMs || 0);
-  const pct = currentTrack.durationMs
-    ? Math.min(100, Math.max(0, (currentTrack.progressMs / currentTrack.durationMs) * 100))
-    : 0;
-  if (progressFillEl) progressFillEl.style.width = `${pct}%`;
   if (bpmEl) bpmEl.textContent = extras?.bpm ? `${extras.bpm} BPM` : "";
+  paintProgress(estimatedProgressMs(trackClock()));
+  startProgressTimer();
 
   if (changed) {
     if (recordEl) recordEl.style.animationPlayState = "paused";
@@ -167,6 +175,7 @@ function render(track, extras) {
 
 function destroy() {
   stopProgressTimer();
+  progressLoop = null;
   const app = document.getElementById("app");
   app?.querySelector(".vl-wrap")?.remove();
   rootEl = null;

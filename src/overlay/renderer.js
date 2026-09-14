@@ -35,7 +35,11 @@ import {
   setActiveSourceName,
   shouldFreezeProgress,
 } from "./source-resilience.js";
-import { applyProgressSnapshot, estimatedProgressMs } from "../utils/progress-clock.js";
+import {
+  applyProgressSnapshot,
+  createProgressLoop,
+  estimatedProgressMs,
+} from "../utils/progress-clock.js";
 
 let currentTrackId = null;
 /** In-memory Spotify audio features for the active track (not persisted). */
@@ -83,7 +87,7 @@ let pollScheduler = null;
 let activePollIntervalMs = 3000;
 let pollingPausedForVisibility = false;
 let config = {};
-let progressTimer = null;
+let progressLoop = null;
 const blockedAudioFeaturesTrackIds = new Set();
 const audioFeaturesBackfillAttempted = new Set();
 let activeSource = "spotify";
@@ -1346,6 +1350,7 @@ function updateProgress(track) {
     isPlaying: track.isPlaying !== false,
   });
   paintOverlayProgress();
+  startProgressTimer();
 }
 
 function updateStripTime(track) {
@@ -1364,12 +1369,29 @@ function updateStripTime(track) {
 }
 
 function startProgressTimer() {
-  if (progressTimer) clearInterval(progressTimer);
-  progressTimer = setInterval(() => {
-    if (shouldFreezeProgress(activePollIntervalMs)) return;
-    if (!lastKnownProgress.isPlaying || !lastKnownProgress.durationMs) return;
+  if (!progressLoop) {
+    progressLoop = createProgressLoop({
+      getClock: () => lastKnownProgress,
+      shouldPause: () => shouldFreezeProgress(activePollIntervalMs),
+      paint: (progressMs, clock) => {
+        const duration = clock?.durationMs || 0;
+        if (!duration) {
+          return;
+        }
+        const pct = Math.min(100, (progressMs / duration) * 100);
+        const fill = document.querySelector(".nw-progress-fill");
+        if (fill) {
+          fill.style.width = `${pct}%`;
+        }
+      },
+    });
+  }
+  if (lastKnownProgress.isPlaying && lastKnownProgress.durationMs) {
+    progressLoop.start();
+  } else {
+    progressLoop.stop();
     paintOverlayProgress();
-  }, 100);
+  }
 }
 
 /** Renders a minimal idle state when no track is active. */
@@ -1386,6 +1408,7 @@ function showIdle() {
     scheduleExit(config.exitAnim, config.exitDuration, 0);
   }
   wasPlaying = false;
+  progressLoop?.stop();
   lastKnownProgress = {
     trackId: "",
     progressMs: 0,

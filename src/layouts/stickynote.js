@@ -2,7 +2,11 @@
  * https://github.com/KelvinPH/Nowify
  */
 
-import { mergeLiveProgress } from "../utils/progress-clock.js";
+import {
+  createProgressLoop,
+  estimatedProgressMs,
+  mergeLiveProgress,
+} from "../utils/progress-clock.js";
 
 let cfg = {};
 let rootEl = null;
@@ -11,7 +15,7 @@ let titleEl = null;
 let artistEl = null;
 let metaEl = null;
 let progressFillEl = null;
-let progressTimer = null;
+let progressLoop = null;
 let currentTrack = null;
 let rotationDeg = "0";
 
@@ -40,16 +44,24 @@ function formatTime(ms) {
   return `${m}:${String(s % 60).padStart(2, "0")}`;
 }
 
-function stopTimer() {
-  if (progressTimer) {
-    clearInterval(progressTimer);
-    progressTimer = null;
-  }
+function trackClock() {
+  if (!currentTrack) return null;
+  return {
+    trackId: currentTrack.trackId || "",
+    progressMs: Number(currentTrack.progressMs) || 0,
+    durationMs: Number(currentTrack.durationMs) || 0,
+    isPlaying: currentTrack.isPlaying !== false,
+    updatedAt: Number(currentTrack.progressUpdatedAt) || Date.now(),
+  };
 }
 
-function updateProgress() {
+function stopTimer() {
+  progressLoop?.stop();
+}
+
+function paintProgress(progressMs) {
   const duration = Number(currentTrack?.durationMs) || 0;
-  const progress = Number(currentTrack?.progressMs) || 0;
+  const progress = Number(progressMs) || 0;
   const pct = duration > 0 ? Math.max(0, Math.min(100, (progress / duration) * 100)) : 0;
   if (progressFillEl) {
     progressFillEl.style.width = `${pct}%`;
@@ -58,19 +70,18 @@ function updateProgress() {
 }
 
 function startTimer() {
-  progressTimer = setInterval(function () {
-    if (!currentTrack) return;
-    if (currentTrack.isPlaying && currentTrack.durationMs) {
-      currentTrack = {
-        ...currentTrack,
-        progressMs: Math.min(
-          Number(currentTrack.durationMs) || 0,
-          (Number(currentTrack.progressMs) || 0) + 100
-        ),
-      };
-    }
-    updateProgress();
-  }, 100);
+  if (!progressLoop) {
+    progressLoop = createProgressLoop({
+      getClock: trackClock,
+      paint: (progressMs) => paintProgress(progressMs),
+    });
+  }
+  if (currentTrack?.isPlaying && currentTrack?.durationMs) {
+    progressLoop.start();
+  } else {
+    progressLoop.stop();
+    paintProgress(estimatedProgressMs(trackClock()));
+  }
 }
 
 function init(config) {
@@ -128,11 +139,13 @@ function render(track, extras) {
   if (titleEl) titleEl.textContent = currentTrack.title || "";
   if (artistEl) artistEl.textContent = currentTrack.artist || "";
   if (metaEl) metaEl.textContent = extras?.bpm ? `${extras.bpm} bpm` : "";
-  updateProgress();
+  paintProgress(estimatedProgressMs(trackClock()));
+  startTimer();
 }
 
 function destroy() {
   stopTimer();
+  progressLoop = null;
   const app = document.getElementById("app");
   app?.querySelector(".sn-wrap")?.remove();
   cfg = {};

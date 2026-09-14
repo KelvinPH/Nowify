@@ -68,7 +68,7 @@ export function mergeLiveProgress(current, incoming) {
         progressMs: Number(current.progressMs) || 0,
         durationMs: Number(current.durationMs) || 0,
         isPlaying: current.isPlaying !== false,
-        updatedAt: Date.now(),
+        updatedAt: Number(current.progressUpdatedAt) || Date.now(),
       }
     : null;
   const next = applyProgressSnapshot(clock, incoming, Date.now());
@@ -76,5 +76,56 @@ export function mergeLiveProgress(current, incoming) {
     ...incoming,
     progressMs: next.progressMs,
     durationMs: Number(incoming.durationMs) || next.durationMs,
+    progressUpdatedAt: next.updatedAt,
+  };
+}
+
+/**
+ * Continuously paints estimated progress with requestAnimationFrame.
+ * Inject schedule/cancel/now for tests.
+ */
+export function createProgressLoop({
+  getClock,
+  paint,
+  shouldPause,
+  now = () => Date.now(),
+  schedule = (cb) => requestAnimationFrame(cb),
+  cancel = (id) => cancelAnimationFrame(id),
+} = {}) {
+  let handle = null;
+  let active = false;
+
+  function frame() {
+    handle = null;
+    if (!active) {
+      return;
+    }
+    if (shouldPause?.()) {
+      handle = schedule(frame);
+      return;
+    }
+    const clock = getClock?.();
+    paint?.(estimatedProgressMs(clock, now()), clock);
+    if (clock && clock.isPlaying !== false && Number(clock.durationMs) > 0) {
+      handle = schedule(frame);
+    } else {
+      active = false;
+    }
+  }
+
+  return {
+    start() {
+      active = true;
+      if (handle == null) {
+        handle = schedule(frame);
+      }
+    },
+    stop() {
+      active = false;
+      if (handle != null) {
+        cancel(handle);
+        handle = null;
+      }
+    },
   };
 }

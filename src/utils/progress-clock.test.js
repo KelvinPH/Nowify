@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import {
   SNAPSHOT_LAG_MS,
   applyProgressSnapshot,
+  createProgressLoop,
   estimatedProgressMs,
   mergeLiveProgress,
 } from "./progress-clock.js";
@@ -163,5 +164,43 @@ describe("mergeLiveProgress", () => {
       isPlaying: true,
     };
     assert.equal(mergeLiveProgress(current, incoming).progressMs, 250);
+  });
+});
+
+describe("createProgressLoop", () => {
+  it("paints every scheduled frame while playing and stops when paused", () => {
+    const paints = [];
+    let clock = {
+      trackId: "song-1",
+      progressMs: 1_000,
+      durationMs: 10_000,
+      isPlaying: true,
+      updatedAt: 0,
+    };
+    let now = 0;
+    const queued = [];
+    const loop = createProgressLoop({
+      getClock: () => clock,
+      paint: (progressMs) => paints.push(progressMs),
+      now: () => now,
+      schedule: (cb) => {
+        queued.push(cb);
+        return queued.length;
+      },
+      cancel: () => {},
+    });
+
+    loop.start();
+    assert.equal(queued.length, 1);
+    now = 200;
+    queued.shift()();
+    assert.equal(paints.at(-1), 1_200);
+    assert.equal(queued.length, 1);
+
+    clock = { ...clock, isPlaying: false, progressMs: 1_200, updatedAt: now };
+    now = 400;
+    queued.shift()();
+    assert.equal(paints.at(-1), 1_200);
+    assert.equal(queued.length, 0);
   });
 });

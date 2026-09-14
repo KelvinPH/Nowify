@@ -2,7 +2,11 @@
  * https://github.com/KelvinPH/Nowify
  */
 
-import { mergeLiveProgress } from "../utils/progress-clock.js";
+import {
+  createProgressLoop,
+  estimatedProgressMs,
+  mergeLiveProgress,
+} from "../utils/progress-clock.js";
 
 let cfg = {};
 let rootEl = null;
@@ -16,7 +20,7 @@ let nextLineEl = null;
 let nextEl = null;
 let statusTextEl = null;
 let cursorEl = null;
-let progressTimer = null;
+let progressLoop = null;
 let cursorTimer = null;
 let currentTrack = null;
 
@@ -34,20 +38,29 @@ function energyLabel(val) {
   return "HIGH";
 }
 
+function trackClock() {
+  if (!currentTrack) return null;
+  return {
+    trackId: currentTrack.trackId || "",
+    progressMs: Number(currentTrack.progressMs) || 0,
+    durationMs: Number(currentTrack.durationMs) || 0,
+    isPlaying: currentTrack.isPlaying !== false,
+    updatedAt: Number(currentTrack.progressUpdatedAt) || Date.now(),
+  };
+}
+
 function stopTimers() {
-  if (progressTimer) {
-    clearInterval(progressTimer);
-    progressTimer = null;
-  }
+  progressLoop?.stop();
   if (cursorTimer) {
     clearInterval(cursorTimer);
     cursorTimer = null;
   }
 }
 
-function drawProgressLine(track) {
-  const duration = Number(track?.durationMs) || 0;
-  const progress = Number(track?.progressMs) || 0;
+function drawProgressLine(progressMs) {
+  const duration = Number(currentTrack?.durationMs) || 0;
+  const progress =
+    progressMs != null ? Number(progressMs) : Number(currentTrack?.progressMs) || 0;
   const pct = duration > 0 ? Math.round((progress / duration) * 100) : 0;
   const clamped = Math.max(0, Math.min(100, pct));
   const filled = Math.round(clamped / 5);
@@ -57,24 +70,25 @@ function drawProgressLine(track) {
 }
 
 function startTimers() {
-  progressTimer = setInterval(function () {
-    if (!currentTrack) return;
-    if (currentTrack.isPlaying && currentTrack.durationMs) {
-      currentTrack = {
-        ...currentTrack,
-        progressMs: Math.min(
-          currentTrack.durationMs,
-          (Number(currentTrack.progressMs) || 0) + 500
-        ),
-      };
-    }
-    drawProgressLine(currentTrack);
-  }, 500);
+  if (!progressLoop) {
+    progressLoop = createProgressLoop({
+      getClock: trackClock,
+      paint: (progressMs) => drawProgressLine(progressMs),
+    });
+  }
+  if (currentTrack?.isPlaying && currentTrack?.durationMs) {
+    progressLoop.start();
+  } else {
+    progressLoop.stop();
+    drawProgressLine(estimatedProgressMs(trackClock()));
+  }
 
-  cursorTimer = setInterval(function () {
-    if (!cursorEl) return;
-    cursorEl.classList.toggle("tm-cursor-hidden");
-  }, 600);
+  if (!cursorTimer) {
+    cursorTimer = setInterval(function () {
+      if (!cursorEl) return;
+      cursorEl.classList.toggle("tm-cursor-hidden");
+    }, 600);
+  }
 }
 
 function init(config) {
@@ -156,7 +170,7 @@ function render(track, extras) {
   if (titleEl) titleEl.textContent = safeTrack.title || "";
   if (albumEl) albumEl.textContent = safeTrack.album || "";
 
-  drawProgressLine(currentTrack);
+  drawProgressLine(estimatedProgressMs(trackClock()));
 
   const parts = [];
   if (extras?.bpm) parts.push(`BPM:${extras.bpm}`);
@@ -175,10 +189,12 @@ function render(track, extras) {
   if (statusTextEl) {
     statusTextEl.textContent = safeTrack.isPlaying ? " PLAYING" : " PAUSED ";
   }
+  startTimers();
 }
 
 function destroy() {
   stopTimers();
+  progressLoop = null;
   const app = document.getElementById("app");
   app?.querySelector(".tm-wrap")?.remove();
   rootEl = null;

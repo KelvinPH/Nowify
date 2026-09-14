@@ -2,7 +2,11 @@
  * https://github.com/KelvinPH/Nowify
  */
 
-import { mergeLiveProgress } from "../utils/progress-clock.js";
+import {
+  createProgressLoop,
+  estimatedProgressMs,
+  mergeLiveProgress,
+} from "../utils/progress-clock.js";
 
 let cfg = {};
 let rootEl = null;
@@ -17,7 +21,7 @@ let gaugeFillEl = null;
 let elapsedEl = null;
 let durationEl = null;
 let lockEl = null;
-let progressTimer = null;
+let progressLoop = null;
 let lockTimer = null;
 let currentTrack = null;
 let lastTrackId = "";
@@ -45,20 +49,29 @@ function energyBar(val) {
   return `${"█".repeat(filled)}${"░".repeat(5 - filled)}`;
 }
 
+function trackClock() {
+  if (!currentTrack) return null;
+  return {
+    trackId: currentTrack.trackId || "",
+    progressMs: Number(currentTrack.progressMs) || 0,
+    durationMs: Number(currentTrack.durationMs) || 0,
+    isPlaying: currentTrack.isPlaying !== false,
+    updatedAt: Number(currentTrack.progressUpdatedAt) || Date.now(),
+  };
+}
+
 function stopTimers() {
-  if (progressTimer) {
-    clearInterval(progressTimer);
-    progressTimer = null;
-  }
+  progressLoop?.stop();
   if (lockTimer) {
     clearTimeout(lockTimer);
     lockTimer = null;
   }
 }
 
-function updateProgressUi() {
+function updateProgressUi(progressMs) {
   const duration = Number(currentTrack?.durationMs) || 0;
-  const progress = Number(currentTrack?.progressMs) || 0;
+  const progress =
+    progressMs != null ? Number(progressMs) : estimatedProgressMs(trackClock());
   const pct = duration > 0 ? Math.max(0, Math.min(100, (progress / duration) * 100)) : 0;
   if (gaugeFillEl) gaugeFillEl.style.width = `${pct}%`;
   if (elapsedEl) elapsedEl.textContent = formatTime(progress);
@@ -82,19 +95,18 @@ function showLockIndicator() {
 }
 
 function startTimer() {
-  progressTimer = setInterval(function () {
-    if (!currentTrack) return;
-    if (currentTrack.isPlaying && currentTrack.durationMs) {
-      currentTrack = {
-        ...currentTrack,
-        progressMs: Math.min(
-          Number(currentTrack.durationMs) || 0,
-          (Number(currentTrack.progressMs) || 0) + 100
-        ),
-      };
-    }
-    updateProgressUi();
-  }, 100);
+  if (!progressLoop) {
+    progressLoop = createProgressLoop({
+      getClock: trackClock,
+      paint: (progressMs) => updateProgressUi(progressMs),
+    });
+  }
+  if (currentTrack?.isPlaying && currentTrack?.durationMs) {
+    progressLoop.start();
+  } else {
+    progressLoop.stop();
+    updateProgressUi(estimatedProgressMs(trackClock()));
+  }
 }
 
 function buildMarkersHtml() {
@@ -217,10 +229,12 @@ function render(track, extras) {
   if (energyEl) energyEl.textContent = extras?.energy !== undefined ? energyBar(extras.energy) : "---";
   setPlayingState(Boolean(currentTrack.isPlaying));
   updateProgressUi();
+  startTimer();
 }
 
 function destroy() {
   stopTimers();
+  progressLoop = null;
   const app = document.getElementById("app");
   app?.querySelector(".hud-wrap")?.remove();
   cfg = {};
